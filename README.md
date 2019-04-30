@@ -6,7 +6,7 @@
 
 ## Goal
 
-1. Define abstraction layer to multiple clouds providing a common interface to perform operations that include:
+1. Define abstraction layerproviding a common interface to perform cloud operations that include:
   * Provisioning and managing Instances
   * Provisioning and managing Storage
   * Provisioning and managing network resources. 
