@@ -332,7 +332,6 @@ func (s *gceOps) Enumerate(
 	setIdentifier string,
 ) (map[string][]interface{}, error) {
 	sets := make(map[string][]interface{})
-	found := false
 
 	allDisks, err := s.getDisksFromAllZones(formatLabels(labels))
 	if err != nil {
@@ -343,7 +342,7 @@ func (s *gceOps) Enumerate(
 		if len(setIdentifier) == 0 {
 			cloudops.AddElementToMap(sets, disk, cloudops.SetIdentifierNone)
 		} else {
-			found = false
+			found := false
 			for key := range disk.Labels {
 				if key == setIdentifier {
 					cloudops.AddElementToMap(sets, disk, key)

@@ -553,7 +553,6 @@ func (s *ec2Ops) Enumerate(
 	}
 
 	// Volume sets are identified by volumes with the same setIdentifer.
-	found := false
 	for _, vol := range awsVols.Volumes {
 		if s.deleted(vol) {
 			continue
@@ -561,7 +560,7 @@ func (s *ec2Ops) Enumerate(
 		if len(setIdentifier) == 0 {
 			cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
 		} else {
-			found = false
+			found := false
 			for _, tag := range vol.Tags {
 				if s.matchTag(tag, setIdentifier) {
 					cloudops.AddElementToMap(sets, vol, *tag.Value)
