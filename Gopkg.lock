@@ -154,6 +154,14 @@
   version = "v1.1.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:1ba1d79f2810270045c328ae5d674321db34e3aae468eb4233883b473c5c0467"
+  name = "github.com/golang/glog"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
+
+[[projects]]
   digest = "1:489a99067cd08971bd9c1ee0055119ba8febc1429f9200ab0bec68d35e8c4833"
   name = "github.com/golang/protobuf"
   packages = [
@@ -316,24 +324,18 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:8b6a520cc5364ad395f80e788eb8fa8b657d9c7fc7429587e931771211e79ff1"
+  digest = "1:3103c3432803762683570670d16005b2e573a4771e68d34785cc25434b7423b7"
   name = "github.com/vmware/govmomi"
   packages = [
     ".",
     "find",
     "list",
-    "lookup",
-    "lookup/methods",
-    "lookup/types",
-    "nfc",
     "object",
     "pbm",
     "pbm/methods",
     "pbm/types",
     "property",
     "session",
-    "sts",
-    "sts/internal",
     "task",
     "vim25",
     "vim25/debug",
@@ -345,8 +347,8 @@
     "vim25/xml",
   ]
   pruneopts = "UT"
-  revision = "bdf05b6cab86b1e9f40ee80a4d2cb07a0c25ef78"
-  version = "v0.20.0"
+  revision = "b63044e5f833781eb7b305bc035392480ee06a82"
+  version = "v0.15.0"
 
 [[projects]]
   digest = "1:4c93890bbbb5016505e856cb06b5c5a2ff5b7217584d33f2a9071ebef4b5d473"
@@ -550,38 +552,15 @@
   version = "v1.20.1"
 
 [[projects]]
-  digest = "1:0e8d6e7db54dd63de1caa7e00306a9d44c658287cf59fba915218a69e39f5de1"
-  name = "k8s.io/apimachinery"
-  packages = ["pkg/version"]
-  pruneopts = "UT"
-  revision = "d7deff9243b165ee192f5551710ea4285dcfd615"
-  version = "kubernetes-1.14.0"
-
-[[projects]]
-  digest = "1:e494a7ab1c49ec4c3e3625017f14c9f1e0ef57b39e6be2366eb1dc86a2cdd23e"
-  name = "k8s.io/client-go"
-  packages = ["pkg/version"]
-  pruneopts = "UT"
-  revision = "6ee68ca5fd8355d024d02f9db0b3b667e8357a0f"
-  version = "v11.0.0"
-
-[[projects]]
-  digest = "1:69367163a23cd68971724f36a6759a01d50968e58936808b7eb5e5c186a3a382"
-  name = "k8s.io/klog"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "8e90cee79f823779174776412c13478955131846"
-
-[[projects]]
-  digest = "1:a46de40bcbfef37e3408aa952c95e5e87a2a3e095751239fbfdb1f7c98cc2390"
+  digest = "1:32a77a1bb4cf2454304ac075a05a87b7350c933406187b7b12bf183a07c130a3"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/cloudprovider/providers/vsphere/vclib",
     "pkg/cloudprovider/providers/vsphere/vclib/diskmanagers",
   ]
   pruneopts = "UT"
-  revision = "b7394102d6ef778017f2ca4046abbaa23b88c290"
-  version = "v1.14.1"
+  revision = "954ff68d59e9dc62fa8252ffa9023a90ff8a358c"
+  version = "v1.10.13"
 
 [solve-meta]
   analyzer-name = "dep"

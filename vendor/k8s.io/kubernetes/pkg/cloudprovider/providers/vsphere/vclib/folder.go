@@ -17,10 +17,9 @@ limitations under the License.
 package vclib
 
 import (
-	"context"
-
+	"github.com/golang/glog"
 	"github.com/vmware/govmomi/object"
-	"k8s.io/klog"
+	"golang.org/x/net/context"
 )
 
 // Folder extends the govmomi Folder object
@@ -33,7 +32,7 @@ type Folder struct {
 func (folder *Folder) GetVirtualMachines(ctx context.Context) ([]*VirtualMachine, error) {
 	vmFolders, err := folder.Children(ctx)
 	if err != nil {
-		klog.Errorf("Failed to get children from Folder: %s. err: %+v", folder.InventoryPath, err)
+		glog.Errorf("Failed to get children from Folder: %s. err: %+v", folder.InventoryPath, err)
 		return nil, err
 	}
 	var vmObjList []*VirtualMachine

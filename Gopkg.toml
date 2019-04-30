@@ -63,7 +63,7 @@
 
 [[constraint]]
   name = "github.com/vmware/govmomi"
-  version = "0.20.0"
+  version = "v0.15.0"
 
 [[constraint]]
   branch = "master"
@@ -75,7 +75,7 @@
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "1.14.1"
+  version = "v1.9.6"
 
 [prune]
   go-tests = true

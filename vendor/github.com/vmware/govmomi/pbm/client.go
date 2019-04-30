@@ -27,18 +27,6 @@ import (
 	vim "github.com/vmware/govmomi/vim25/types"
 )
 
-const (
-	Namespace = "pbm"
-	Path      = "/pbm"
-)
-
-var (
-	ServiceInstance = vim.ManagedObjectReference{
-		Type:  "PbmServiceInstance",
-		Value: "ServiceInstance",
-	}
-)
-
 type Client struct {
 	*soap.Client
 
@@ -46,10 +34,13 @@ type Client struct {
 }
 
 func NewClient(ctx context.Context, c *vim25.Client) (*Client, error) {
-	sc := c.Client.NewServiceClient(Path, Namespace)
+	sc := c.Client.NewServiceClient("/pbm/sdk", "urn:pbm")
 
 	req := types.PbmRetrieveServiceContent{
-		This: ServiceInstance,
+		This: vim.ManagedObjectReference{
+			Type:  "PbmServiceInstance",
+			Value: "ServiceInstance",
+		},
 	}
 
 	res, err := methods.PbmRetrieveServiceContent(ctx, sc, &req)
