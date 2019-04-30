@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/libopenstorage/openstorage/pkg/storageops"
+	"github.com/libopenstorage/cloudops"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
@@ -40,8 +40,8 @@ type VirtualDisk struct {
 	DatastoreRef types.ManagedObjectReference
 }
 
-// NewClient creates a new vsphere storageops instance
-func NewClient(cfg *VSphereConfig) (storageops.Ops, error) {
+// NewClient creates a new vsphere cloudops instance
+func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 	vSphereConn := &vclib.VSphereConnection{
 		Username:          cfg.User,
 		Password:          cfg.Password,
@@ -274,14 +274,14 @@ func (ops *vsphereOps) Describe() (interface{}, error) {
 
 // FreeDevices is not supported by this provider
 func (ops *vsphereOps) FreeDevices(blockDeviceMappings []interface{}, rootDeviceName string) ([]string, error) {
-	return nil, storageops.ErrNotSupported
+	return nil, cloudops.ErrNotSupported
 }
 
 func (ops *vsphereOps) Inspect(diskPaths []*string) ([]interface{}, error) {
 	// TODO find a way to map diskPaths to unattached/attached virtual disks and query info
 	// currently returning the disks directly
 
-	return nil, storageops.ErrNotSupported
+	return nil, cloudops.ErrNotSupported
 }
 
 // DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME
@@ -351,32 +351,32 @@ func (ops *vsphereOps) Enumerate(volumeIds []*string,
 	labels map[string]string,
 	setIdentifier string,
 ) (map[string][]interface{}, error) {
-	return nil, storageops.ErrNotSupported
+	return nil, cloudops.ErrNotSupported
 }
 
 // Snapshot the volume with given volumeID
 func (ops *vsphereOps) Snapshot(volumeID string, readonly bool) (interface{}, error) {
-	return nil, storageops.ErrNotSupported
+	return nil, cloudops.ErrNotSupported
 }
 
 // SnapshotDelete deletes the snapshot with given ID
 func (ops *vsphereOps) SnapshotDelete(snapID string) error {
-	return storageops.ErrNotSupported
+	return cloudops.ErrNotSupported
 }
 
 // ApplyTags will apply given labels/tags on the given volume
 func (ops *vsphereOps) ApplyTags(volumeID string, labels map[string]string) error {
-	return storageops.ErrNotSupported
+	return cloudops.ErrNotSupported
 }
 
 // RemoveTags removes labels/tags from the given volume
 func (ops *vsphereOps) RemoveTags(volumeID string, labels map[string]string) error {
-	return storageops.ErrNotSupported
+	return cloudops.ErrNotSupported
 }
 
 // Tags will list the existing labels/tags on the given volume
 func (ops *vsphereOps) Tags(volumeID string) (map[string]string, error) {
-	return nil, storageops.ErrNotSupported
+	return nil, cloudops.ErrNotSupported
 }
 
 // GetVMObject fetches the VirtualMachine object corresponding to the given virtual machine uuid

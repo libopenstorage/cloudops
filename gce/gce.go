@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/libopenstorage/openstorage/pkg/storageops"
+	"github.com/libopenstorage/cloudops"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
@@ -54,7 +54,7 @@ func IsDevMode() bool {
 }
 
 // NewClient creates a new GCE operations client
-func NewClient() (storageops.Ops, error) {
+func NewClient() (cloudops.Ops, error) {
 	var i = new(instance)
 	var err error
 	if metadata.OnGCE() {
@@ -160,7 +160,7 @@ func (s *gceOps) Create(
 ) (interface{}, error) {
 	v, ok := template.(*compute.Disk)
 	if !ok {
-		return nil, storageops.NewStorageError(storageops.ErrVolInval,
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Invalid volume template given", "")
 	}
 
@@ -269,8 +269,8 @@ func (s *gceOps) DeviceMappings() (map[string]string, error) {
 		pathByID := fmt.Sprintf("%s%s", googleDiskPrefix, d.DeviceName)
 		devPath, err := s.diskIDToBlockDevPath(pathByID)
 		if err != nil {
-			return nil, storageops.NewStorageError(
-				storageops.ErrInvalidDevicePath,
+			return nil, cloudops.NewStorageError(
+				cloudops.ErrInvalidDevicePath,
 				fmt.Sprintf("unable to find block dev path for %s. %v", pathByID, err),
 				s.inst.name)
 		}
@@ -284,8 +284,8 @@ func (s *gceOps) DevicePath(diskName string) (string, error) {
 	d, err := s.service.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if gerr, ok := err.(*googleapi.Error); ok &&
 		gerr.Code == http.StatusNotFound {
-		return "", storageops.NewStorageError(
-			storageops.ErrVolNotFound,
+		return "", cloudops.NewStorageError(
+			cloudops.ErrVolNotFound,
 			fmt.Sprintf("Disk: %s not found in zone %s", diskName, s.inst.zone),
 			s.inst.name)
 	} else if err != nil {
@@ -293,7 +293,7 @@ func (s *gceOps) DevicePath(diskName string) (string, error) {
 	}
 
 	if len(d.Users) == 0 {
-		err = storageops.NewStorageError(storageops.ErrVolDetached,
+		err = cloudops.NewStorageError(cloudops.ErrVolDetached,
 			fmt.Sprintf("Disk: %s is detached", d.Name), s.inst.name)
 		return "", err
 	}
@@ -311,15 +311,15 @@ func (s *gceOps) DevicePath(diskName string) (string, error) {
 			if err == nil {
 				return devPath, nil
 			}
-			return "", storageops.NewStorageError(
-				storageops.ErrInvalidDevicePath,
+			return "", cloudops.NewStorageError(
+				cloudops.ErrInvalidDevicePath,
 				fmt.Sprintf("unable to find block dev path for %s. %v", devPath, err),
 				s.inst.name)
 		}
 	}
 
-	return "", storageops.NewStorageError(
-		storageops.ErrVolAttachedOnRemoteNode,
+	return "", cloudops.NewStorageError(
+		cloudops.ErrVolAttachedOnRemoteNode,
 		fmt.Sprintf("disk %s is not attached on: %s (Attached on: %v)",
 			d.Name, s.inst.name, d.Users),
 		s.inst.name)
@@ -340,19 +340,19 @@ func (s *gceOps) Enumerate(
 
 	for _, disk := range allDisks {
 		if len(setIdentifier) == 0 {
-			storageops.AddElementToMap(sets, disk, storageops.SetIdentifierNone)
+			cloudops.AddElementToMap(sets, disk, cloudops.SetIdentifierNone)
 		} else {
 			found = false
 			for key := range disk.Labels {
 				if key == setIdentifier {
-					storageops.AddElementToMap(sets, disk, key)
+					cloudops.AddElementToMap(sets, disk, key)
 					found = true
 					break
 				}
 			}
 
 			if !found {
-				storageops.AddElementToMap(sets, disk, storageops.SetIdentifierNone)
+				cloudops.AddElementToMap(sets, disk, cloudops.SetIdentifierNone)
 			}
 		}
 	}
@@ -485,8 +485,8 @@ func (s *gceOps) checkDiskStatus(id string, zone string, desired string) error {
 
 			return nil, false, nil
 		},
-		storageops.ProviderOpsTimeout,
-		storageops.ProviderOpsRetryInterval)
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval)
 
 	return err
 }
@@ -512,8 +512,8 @@ func (s *gceOps) checkSnapStatus(id string, desired string) error {
 
 			return nil, false, nil
 		},
-		storageops.ProviderOpsTimeout,
-		storageops.ProviderOpsRetryInterval)
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval)
 
 	return err
 }
@@ -555,17 +555,17 @@ func gceInfo(inst *instance) error {
 
 func gceInfoFromEnv(inst *instance) error {
 	var err error
-	inst.name, err = storageops.GetEnvValueStrict("GCE_INSTANCE_NAME")
+	inst.name, err = cloudops.GetEnvValueStrict("GCE_INSTANCE_NAME")
 	if err != nil {
 		return err
 	}
 
-	inst.zone, err = storageops.GetEnvValueStrict("GCE_INSTANCE_ZONE")
+	inst.zone, err = cloudops.GetEnvValueStrict("GCE_INSTANCE_ZONE")
 	if err != nil {
 		return err
 	}
 
-	inst.project, err = storageops.GetEnvValueStrict("GCE_INSTANCE_PROJECT")
+	inst.project, err = cloudops.GetEnvValueStrict("GCE_INSTANCE_PROJECT")
 	if err != nil {
 		return err
 	}
@@ -606,8 +606,8 @@ func (s *gceOps) waitForDetach(
 			return nil, false, nil
 
 		},
-		storageops.ProviderOpsTimeout,
-		storageops.ProviderOpsRetryInterval)
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval)
 
 	return err
 }
@@ -620,8 +620,8 @@ func (s *gceOps) waitForAttach(
 	devicePath, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
 			devicePath, err := s.DevicePath(disk.Name)
-			if se, ok := err.(*storageops.StorageError); ok &&
-				se.Code == storageops.ErrVolAttachedOnRemoteNode {
+			if se, ok := err.(*cloudops.StorageError); ok &&
+				se.Code == cloudops.ErrVolAttachedOnRemoteNode {
 				return "", false, err
 			} else if err != nil {
 				return "", true, err
@@ -629,8 +629,8 @@ func (s *gceOps) waitForAttach(
 
 			return devicePath, false, nil
 		},
-		storageops.ProviderOpsTimeout,
-		storageops.ProviderOpsRetryInterval)
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval)
 	if err != nil {
 		return "", err
 	}

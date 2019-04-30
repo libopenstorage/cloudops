@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/libopenstorage/openstorage/pkg/storageops"
+	"github.com/libopenstorage/cloudops"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 )
@@ -51,16 +51,16 @@ func (a *azureOps) InstanceID() string {
 	return a.instance
 }
 
-func NewEnvClient() (storageops.Ops, error) {
-	instance, err := storageops.GetEnvValueStrict(envInstanceName)
+func NewEnvClient() (cloudops.Ops, error) {
+	instance, err := cloudops.GetEnvValueStrict(envInstanceName)
 	if err != nil {
 		return nil, err
 	}
-	subscriptionID, err := storageops.GetEnvValueStrict(envSubscriptionID)
+	subscriptionID, err := cloudops.GetEnvValueStrict(envSubscriptionID)
 	if err != nil {
 		return nil, err
 	}
-	resourceGroupName, err := storageops.GetEnvValueStrict(envResourceGroupName)
+	resourceGroupName, err := cloudops.GetEnvValueStrict(envResourceGroupName)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func NewEnvClient() (storageops.Ops, error) {
 
 func NewClient(
 	instance, subscriptionID, resourceGroupName string,
-) (storageops.Ops, error) {
+) (cloudops.Ops, error) {
 	authorizer, err := auth.NewAuthorizerFromEnvironment()
 	if err != nil {
 		return nil, err
@@ -108,8 +108,8 @@ func (a *azureOps) Create(
 ) (interface{}, error) {
 	d, ok := template.(*compute.Disk)
 	if !ok {
-		return nil, storageops.NewStorageError(
-			storageops.ErrVolInval,
+		return nil, cloudops.NewStorageError(
+			cloudops.ErrVolInval,
 			"Invalid volume template given",
 			a.instance,
 		)
@@ -174,8 +174,8 @@ func (a *azureOps) GetDeviceID(disk interface{}) (string, error) {
 	} else if s, ok := disk.(*compute.Snapshot); ok {
 		return *s.Name, nil
 	}
-	return "", storageops.NewStorageError(
-		storageops.ErrVolInval,
+	return "", cloudops.NewStorageError(
+		cloudops.ErrVolInval,
 		"Invalid volume given",
 		a.instance,
 	)
@@ -336,7 +336,7 @@ func (a *azureOps) FreeDevices(
 	blockDeviceMappings []interface{},
 	rootDeviceName string,
 ) ([]string, error) {
-	return nil, storageops.ErrNotSupported
+	return nil, cloudops.ErrNotSupported
 }
 
 func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
@@ -350,8 +350,8 @@ func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
 		if d, ok := allDisks[*id]; ok {
 			disks = append(disks, d)
 		} else {
-			return nil, storageops.NewStorageError(
-				storageops.ErrVolNotFound,
+			return nil, cloudops.NewStorageError(
+				cloudops.ErrVolNotFound,
 				fmt.Sprintf("disk %s not found", *id),
 				a.instance,
 			)
@@ -371,8 +371,8 @@ func (a *azureOps) DeviceMappings() (map[string]string, error) {
 	for _, d := range *vm.StorageProfile.DataDisks {
 		devPath, err := lunToBlockDevPath(*d.Lun)
 		if err != nil {
-			return nil, storageops.NewStorageError(
-				storageops.ErrInvalidDevicePath,
+			return nil, cloudops.NewStorageError(
+				cloudops.ErrInvalidDevicePath,
 				fmt.Sprintf("unable to find block dev path for lun%v: %v", *d.Lun, err),
 				a.instance,
 			)
@@ -396,19 +396,19 @@ func (a *azureOps) Enumerate(
 	sets := make(map[string][]interface{})
 	for _, disk := range allDisks {
 		if len(setIdentifier) == 0 {
-			storageops.AddElementToMap(sets, disk, storageops.SetIdentifierNone)
+			cloudops.AddElementToMap(sets, disk, cloudops.SetIdentifierNone)
 		} else {
 			found := false
 			for key, value := range disk.Tags {
 				if key == setIdentifier && value != nil {
-					storageops.AddElementToMap(sets, disk, *value)
+					cloudops.AddElementToMap(sets, disk, *value)
 					found = true
 					break
 				}
 			}
 
 			if !found {
-				storageops.AddElementToMap(sets, disk, storageops.SetIdentifierNone)
+				cloudops.AddElementToMap(sets, disk, cloudops.SetIdentifierNone)
 			}
 		}
 	}
@@ -425,8 +425,8 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 	if derr, ok := err.(autorest.DetailedError); ok {
 		code, ok := derr.StatusCode.(int)
 		if ok && code == 404 {
-			return "", storageops.NewStorageError(
-				storageops.ErrVolNotFound,
+			return "", cloudops.NewStorageError(
+				cloudops.ErrVolNotFound,
 				fmt.Sprintf("disk: %s not found", diskName),
 				a.instance,
 			)
@@ -437,8 +437,8 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 	}
 
 	if disk.ManagedBy == nil || len(*disk.ManagedBy) == 0 {
-		return "", storageops.NewStorageError(
-			storageops.ErrVolDetached,
+		return "", cloudops.NewStorageError(
+			cloudops.ErrVolDetached,
 			fmt.Sprintf("Disk: %s is detached", diskName),
 			a.instance,
 		)
@@ -461,16 +461,16 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 			if err == nil {
 				return devPath, nil
 			}
-			return "", storageops.NewStorageError(
-				storageops.ErrInvalidDevicePath,
+			return "", cloudops.NewStorageError(
+				cloudops.ErrInvalidDevicePath,
 				fmt.Sprintf("unable to find block dev path for lun%v: %v", *d.Lun, err),
 				a.instance,
 			)
 		}
 	}
 
-	return "", storageops.NewStorageError(
-		storageops.ErrVolAttachedOnRemoteNode,
+	return "", cloudops.NewStorageError(
+		cloudops.ErrVolAttachedOnRemoteNode,
 		fmt.Sprintf("disk %s is not attached on: %s (Attached on: %v)",
 			diskName, a.instance, disk.ManagedBy),
 		a.instance,
@@ -657,8 +657,8 @@ func (a *azureOps) waitForAttach(diskName string) (string, error) {
 	devicePath, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
 			devicePath, err := a.DevicePath(diskName)
-			if se, ok := err.(*storageops.StorageError); ok &&
-				se.Code == storageops.ErrVolAttachedOnRemoteNode {
+			if se, ok := err.(*cloudops.StorageError); ok &&
+				se.Code == cloudops.ErrVolAttachedOnRemoteNode {
 				return "", false, err
 			} else if err != nil {
 				return "", true, err
@@ -666,8 +666,8 @@ func (a *azureOps) waitForAttach(diskName string) (string, error) {
 
 			return devicePath, false, nil
 		},
-		storageops.ProviderOpsTimeout,
-		storageops.ProviderOpsRetryInterval,
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval,
 	)
 	if err != nil {
 		return "", err
@@ -698,8 +698,8 @@ func (a *azureOps) waitForDetach(diskName string) error {
 
 			return nil, false, nil
 		},
-		storageops.ProviderOpsTimeout,
-		storageops.ProviderOpsRetryInterval,
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval,
 	)
 
 	return err

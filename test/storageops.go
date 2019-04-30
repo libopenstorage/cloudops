@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libopenstorage/openstorage/pkg/storageops"
+	"github.com/libopenstorage/cloudops"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ var diskLabels = map[string]string{
 }
 
 func RunTest(
-	drivers map[string]storageops.Ops,
+	drivers map[string]cloudops.Ops,
 	diskTemplates map[string]map[string]interface{},
 	t *testing.T) {
 	for _, d := range drivers {
@@ -40,12 +40,12 @@ func RunTest(
 	}
 }
 
-func name(t *testing.T, driver storageops.Ops) {
+func name(t *testing.T, driver cloudops.Ops) {
 	name := driver.Name()
 	require.NotEmpty(t, name, "driver returned empty name")
 }
 
-func create(t *testing.T, driver storageops.Ops, template interface{}) interface{} {
+func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {
 	d, err := driver.Create(template, nil)
 	require.NoError(t, err, "failed to create disk")
 	require.NotNil(t, d, "got nil disk from create api")
@@ -53,16 +53,16 @@ func create(t *testing.T, driver storageops.Ops, template interface{}) interface
 	return d
 }
 
-func id(t *testing.T, driver storageops.Ops, disk interface{}) string {
+func id(t *testing.T, driver cloudops.Ops, disk interface{}) string {
 	id, err := driver.GetDeviceID(disk)
 	require.NoError(t, err, "failed to get disk ID")
 	require.NotEmpty(t, id, "got empty disk name/ID")
 	return id
 }
 
-func snapshot(t *testing.T, driver storageops.Ops, diskName string) {
+func snapshot(t *testing.T, driver cloudops.Ops, diskName string) {
 	snap, err := driver.Snapshot(diskName, true)
-	if err == storageops.ErrNotSupported {
+	if err == cloudops.ErrNotSupported {
 		return
 	}
 
@@ -77,9 +77,9 @@ func snapshot(t *testing.T, driver storageops.Ops, diskName string) {
 	require.NoError(t, err, "failed to delete snapshot")
 }
 
-func tags(t *testing.T, driver storageops.Ops, diskName string) {
+func tags(t *testing.T, driver cloudops.Ops, diskName string) {
 	err := driver.ApplyTags(diskName, diskLabels)
-	if err == storageops.ErrNotSupported {
+	if err == cloudops.ErrNotSupported {
 		return
 	}
 
@@ -100,9 +100,9 @@ func tags(t *testing.T, driver storageops.Ops, diskName string) {
 	require.NoError(t, err, "failed to apply tags to disk")
 }
 
-func enumerate(t *testing.T, driver storageops.Ops, diskName string) {
-	disks, err := driver.Enumerate([]*string{&diskName}, diskLabels, storageops.SetIdentifierNone)
-	if err == storageops.ErrNotSupported {
+func enumerate(t *testing.T, driver cloudops.Ops, diskName string) {
+	disks, err := driver.Enumerate([]*string{&diskName}, diskLabels, cloudops.SetIdentifierNone)
+	if err == cloudops.ErrNotSupported {
 		return
 	}
 
@@ -115,14 +115,14 @@ func enumerate(t *testing.T, driver storageops.Ops, diskName string) {
 	invalidLabels := map[string]string{
 		fmt.Sprintf("key%s", randomStr): fmt.Sprintf("val%s", randomStr),
 	}
-	disks, err = driver.Enumerate([]*string{&diskName}, invalidLabels, storageops.SetIdentifierNone)
+	disks, err = driver.Enumerate([]*string{&diskName}, invalidLabels, cloudops.SetIdentifierNone)
 	require.NoError(t, err, "failed to enumerate disk")
 	require.Len(t, disks, 0, "enumerate returned invalid length")
 }
 
-func inspect(t *testing.T, driver storageops.Ops, diskName string) {
+func inspect(t *testing.T, driver cloudops.Ops, diskName string) {
 	disks, err := driver.Inspect([]*string{&diskName})
-	if err == storageops.ErrNotSupported {
+	if err == cloudops.ErrNotSupported {
 		return
 	}
 
@@ -130,7 +130,7 @@ func inspect(t *testing.T, driver storageops.Ops, diskName string) {
 	require.Len(t, disks, 1, fmt.Sprintf("inspect returned invalid length: %d", len(disks)))
 }
 
-func attach(t *testing.T, driver storageops.Ops, diskName string) {
+func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 	devPath, err := driver.Attach(diskName)
 	require.NoError(t, err, "disk attach returned error")
 	require.NotEmpty(t, devPath, "disk attach returned empty devicePath")
@@ -151,13 +151,13 @@ func attach(t *testing.T, driver storageops.Ops, diskName string) {
 	require.NotEmpty(t, mappings, "received empty device mappings")
 }
 
-func devicePath(t *testing.T, driver storageops.Ops, diskName string) {
+func devicePath(t *testing.T, driver cloudops.Ops, diskName string) {
 	devPath, err := driver.DevicePath(diskName)
 	require.NoError(t, err, "get device path returned error")
 	require.NotEmpty(t, devPath, "received empty devicePath")
 }
 
-func teardown(t *testing.T, driver storageops.Ops, diskID string) {
+func teardown(t *testing.T, driver cloudops.Ops, diskID string) {
 	err := driver.Detach(diskID)
 	require.NoError(t, err, "disk detach returned error")
 

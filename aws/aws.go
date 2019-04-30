@@ -14,8 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/opsworks"
 	sh "github.com/codeskyblue/go-sh"
-	oexec "github.com/libopenstorage/openstorage/pkg/exec"
-	"github.com/libopenstorage/openstorage/pkg/storageops"
+	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/pkg/exec"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 )
@@ -37,22 +37,22 @@ type ec2Ops struct {
 var (
 	// ErrAWSEnvNotAvailable is the error type when aws credentials are not set
 	ErrAWSEnvNotAvailable = fmt.Errorf("AWS credentials are not set in environment")
-	nvmeCmd               = oexec.Which("nvme")
+	nvmeCmd               = exec.Which("nvme")
 )
 
 // NewEnvClient creates a new AWS storage ops instance using environment vars
-func NewEnvClient() (storageops.Ops, error) {
-	region, err := storageops.GetEnvValueStrict("AWS_REGION")
+func NewEnvClient() (cloudops.Ops, error) {
+	region, err := cloudops.GetEnvValueStrict("AWS_REGION")
 	if err != nil {
 		return nil, err
 	}
 
-	instance, err := storageops.GetEnvValueStrict("AWS_INSTANCE_NAME")
+	instance, err := cloudops.GetEnvValueStrict("AWS_INSTANCE_NAME")
 	if err != nil {
 		return nil, err
 	}
 
-	instanceType, err := storageops.GetEnvValueStrict("AWS_INSTANCE_TYPE")
+	instanceType, err := cloudops.GetEnvValueStrict("AWS_INSTANCE_TYPE")
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func NewEnvClient() (storageops.Ops, error) {
 }
 
 // NewEc2Storage creates a new aws storage ops instance
-func NewEc2Storage(instance, instanceType string, ec2 *ec2.EC2) storageops.Ops {
+func NewEc2Storage(instance, instanceType string, ec2 *ec2.EC2) cloudops.Ops {
 	return &ec2Ops{
 		instance:     instance,
 		instanceType: instanceType,
@@ -153,8 +153,8 @@ func (s *ec2Ops) waitStatus(id string, desired string) error {
 				id, desired, actual)
 
 		},
-		storageops.ProviderOpsTimeout,
-		storageops.ProviderOpsRetryInterval)
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval)
 
 	return err
 
@@ -204,7 +204,7 @@ func (s *ec2Ops) waitAttachmentStatus(
 	if vol, ok := outVol.(*ec2.Volume); ok {
 		return vol, nil
 	}
-	return nil, storageops.NewStorageError(storageops.ErrVolInval,
+	return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 		fmt.Sprintf("Invalid volume object for volume %s", volumeID), "")
 }
 
@@ -255,8 +255,8 @@ func (s *ec2Ops) DeviceMappings() (map[string]string, error) {
 
 			devicePath, err := s.getActualDevicePath(devName, *d.Ebs.VolumeId)
 			if err != nil {
-				return nil, storageops.NewStorageError(
-					storageops.ErrInvalidDevicePath,
+				return nil, cloudops.NewStorageError(
+					cloudops.ErrInvalidDevicePath,
 					fmt.Sprintf("unable to get actual device path for %s. %v", devName, err),
 					s.instance)
 			}
@@ -482,7 +482,7 @@ func (s *ec2Ops) refreshVol(id *string) (*ec2.Volume, error) {
 
 	resp, ok := vols[0].(*ec2.Volume)
 	if !ok {
-		return nil, storageops.NewStorageError(storageops.ErrVolInval,
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			fmt.Sprintf("Invalid volume returned by inspect API for vol: %s", *id),
 			"")
 	}
@@ -559,18 +559,18 @@ func (s *ec2Ops) Enumerate(
 			continue
 		}
 		if len(setIdentifier) == 0 {
-			storageops.AddElementToMap(sets, vol, storageops.SetIdentifierNone)
+			cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
 		} else {
 			found = false
 			for _, tag := range vol.Tags {
 				if s.matchTag(tag, setIdentifier) {
-					storageops.AddElementToMap(sets, vol, *tag.Value)
+					cloudops.AddElementToMap(sets, vol, *tag.Value)
 					found = true
 					break
 				}
 			}
 			if !found {
-				storageops.AddElementToMap(sets, vol, storageops.SetIdentifierNone)
+				cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
 			}
 		}
 	}
@@ -584,7 +584,7 @@ func (s *ec2Ops) Create(
 ) (interface{}, error) {
 	vol, ok := v.(*ec2.Volume)
 	if !ok {
-		return nil, storageops.NewStorageError(storageops.ErrVolInval,
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Invalid volume template given", "")
 	}
 
@@ -735,36 +735,36 @@ func (s *ec2Ops) DevicePath(volumeID string) (string, error) {
 	}
 
 	if vol.Attachments == nil || len(vol.Attachments) == 0 {
-		return "", storageops.NewStorageError(storageops.ErrVolDetached,
+		return "", cloudops.NewStorageError(cloudops.ErrVolDetached,
 			"Volume is detached", *vol.VolumeId)
 	}
 	if vol.Attachments[0].InstanceId == nil {
-		return "", storageops.NewStorageError(storageops.ErrVolInval,
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Unable to determine volume instance attachment", "")
 	}
 	if s.instance != *vol.Attachments[0].InstanceId {
-		return "", storageops.NewStorageError(storageops.ErrVolAttachedOnRemoteNode,
+		return "", cloudops.NewStorageError(cloudops.ErrVolAttachedOnRemoteNode,
 			fmt.Sprintf("Volume attached on %q current instance %q",
 				*vol.Attachments[0].InstanceId, s.instance),
 			*vol.Attachments[0].InstanceId)
 
 	}
 	if vol.Attachments[0].State == nil {
-		return "", storageops.NewStorageError(storageops.ErrVolInval,
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Unable to determine volume attachment state", "")
 	}
 	if *vol.Attachments[0].State != ec2.VolumeAttachmentStateAttached {
-		return "", storageops.NewStorageError(storageops.ErrVolInval,
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			fmt.Sprintf("Invalid state %q, volume is not attached",
 				*vol.Attachments[0].State), "")
 	}
 	if vol.Attachments[0].Device == nil {
-		return "", storageops.NewStorageError(storageops.ErrVolInval,
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Unable to determine volume attachment path", "")
 	}
 	devicePath, err := s.getActualDevicePath(*vol.Attachments[0].Device, volumeID)
 	if err != nil {
-		return "", storageops.NewStorageError(storageops.ErrVolInval,
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			err.Error(), "")
 	}
 	return devicePath, nil

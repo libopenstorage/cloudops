@@ -1,4 +1,4 @@
-package storageops
+package cloudops
 
 import "fmt"
 

@@ -6,9 +6,9 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/libopenstorage/openstorage/pkg/storageops"
-	"github.com/libopenstorage/openstorage/pkg/storageops/azure"
-	"github.com/libopenstorage/openstorage/pkg/storageops/test"
+	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/azure"
+	"github.com/libopenstorage/cloudops/test"
 	"github.com/pborman/uuid"
 )
 
@@ -19,7 +19,7 @@ const (
 
 var diskName = fmt.Sprintf("%s-%s", newDiskPrefix, uuid.New())
 
-func initAzure(t *testing.T) (storageops.Ops, map[string]interface{}) {
+func initAzure(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 	driver, err := azure.NewEnvClient()
 	if err != nil {
 		t.Skipf("skipping Azure tests as environment is not set...\n")
@@ -48,7 +48,7 @@ func initAzure(t *testing.T) (storageops.Ops, map[string]interface{}) {
 }
 
 func TestAll(t *testing.T) {
-	drivers := make(map[string]storageops.Ops)
+	drivers := make(map[string]cloudops.Ops)
 	diskTemplates := make(map[string]map[string]interface{})
 
 	d, disks := initAzure(t)

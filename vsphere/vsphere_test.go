@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/libopenstorage/openstorage/pkg/storageops"
-	"github.com/libopenstorage/openstorage/pkg/storageops/test"
+	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/test"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/require"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
@@ -19,14 +19,14 @@ const (
 
 var diskName = fmt.Sprintf("%s-%s", newDiskPrefix, uuid.New())
 
-func initVsphere(t *testing.T) (storageops.Ops, map[string]interface{}) {
+func initVsphere(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 	cfg, err := ReadVSphereConfigFromEnv()
 	require.NoError(t, err, "failed to get vsphere config from env")
 
-	cfg.VMUUID, err = storageops.GetEnvValueStrict("VSPHERE_VM_UUID")
+	cfg.VMUUID, err = cloudops.GetEnvValueStrict("VSPHERE_VM_UUID")
 	require.NoError(t, err, "failed to get vsphere config from env variable VSPHERE_VM_UUID")
 
-	datastoreForTest, err := storageops.GetEnvValueStrict("VSPHERE_TEST_DATASTORE")
+	datastoreForTest, err := cloudops.GetEnvValueStrict("VSPHERE_TEST_DATASTORE")
 	require.NoError(t, err, "failed to get datastore from env variable VSPHERE_TEST_DATASTORE")
 
 	driver, err := NewClient(cfg)
@@ -49,7 +49,7 @@ func initVsphere(t *testing.T) (storageops.Ops, map[string]interface{}) {
 
 func TestAll(t *testing.T) {
 	if IsDevMode() {
-		drivers := make(map[string]storageops.Ops)
+		drivers := make(map[string]cloudops.Ops)
 		diskTemplates := make(map[string]map[string]interface{})
 
 		d, disks := initVsphere(t)
