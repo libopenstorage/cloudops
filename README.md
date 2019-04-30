@@ -1,7 +1,7 @@
 # cloudops
 
-[![Build Status](https://travis-ci.org/libopenstorage/cloudops.svg?branch=master)](https://travis-ci.org/libopenstorage/cloudops)
 [![Go Report Card](https://goreportcard.com/badge/github.com/libopenstorage/cloudops)](https://goreportcard.com/report/github.com/libopenstorage/cloudops)
+[![Build Status](https://travis-ci.org/libopenstorage/cloudops.svg?branch=master)](https://travis-ci.org/libopenstorage/cloudops)
 
 
 ## Goal
