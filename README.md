@@ -13,7 +13,7 @@
 
 2. Provide implementation for variety of clouds.
 
-Cloudops will provide a set of binaries for debugging but it's main purpose is to be used a library.
+Cloudops will provide a set of binaries for debugging but its main purpose is to be used a library.
 
 ## Building and running Cloudops
 
