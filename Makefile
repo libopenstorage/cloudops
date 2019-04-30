@@ -20,7 +20,7 @@ BUILD_OPTIONS := -ldflags=$(LDFLAGS)
 .DEFAULT_GOAL=all
 .PHONY: clean vendor vendor-update container deploy
 
-all: build vet lint staticcheck
+all: build vet lint
 
 vendor-update:
 	dep ensure -update
@@ -33,6 +33,7 @@ lint:
 	for file in $$(find . -name '*.go' | grep -v vendor | \
                                        grep -v '\.pb\.go' | \
                                        grep -v '\.pb\.gw\.go' | \
+                                       grep -v 'vsphere' | \
                                        grep -v 'externalversions' | \
                                        grep -v 'versioned' | \
                                        grep -v 'generated'); do \

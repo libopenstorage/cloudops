@@ -51,6 +51,7 @@ func (a *azureOps) InstanceID() string {
 	return a.instance
 }
 
+// NewEnvClient make new client from well known environment variables.
 func NewEnvClient() (cloudops.Ops, error) {
 	instance, err := cloudops.GetEnvValueStrict(envInstanceName)
 	if err != nil {
@@ -67,6 +68,7 @@ func NewEnvClient() (cloudops.Ops, error) {
 	return NewClient(instance, subscriptionID, resourceGroupName)
 }
 
+// NewClient make new clunet from specified parameters.
 func NewClient(
 	instance, subscriptionID, resourceGroupName string,
 ) (cloudops.Ops, error) {
@@ -123,17 +125,15 @@ func (a *azureOps) Create(
 	)
 	if err == nil {
 		return "", fmt.Errorf("disk with id %v already exists", *d.Name)
-	} else {
-		derr, ok := err.(autorest.DetailedError)
-		if !ok {
-			return "", err
-		}
-		code, ok := derr.StatusCode.(int)
-		if !ok || code != 404 {
-			return "", err
-		}
 	}
-
+	derr, ok := err.(autorest.DetailedError)
+	if !ok {
+		return "", err
+	}
+	code, ok := derr.StatusCode.(int)
+	if !ok || code != 404 {
+		return "", err
+	}
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
 		ctx,

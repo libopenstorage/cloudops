@@ -17,6 +17,7 @@ var diskLabels = map[string]string{
 	"Test":   "UPPER_CASE",
 }
 
+// RunTest runs all tests
 func RunTest(
 	drivers map[string]cloudops.Ops,
 	diskTemplates map[string]map[string]interface{},

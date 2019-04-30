@@ -16,8 +16,8 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
 )
 
-// derived from https://github.com/kubernetes/kubernetes/blob/release-1.9/pkg/cloudprovider/providers/vsphere/vsphere_util.go#L94
 // VSphereConfig represents the vsphere configuration
+// derived from https://github.com/kubernetes/kubernetes/blob/release-1.9/pkg/cloudprovider/providers/vsphere/vsphere_util.go#L94
 type VSphereConfig struct {
 	// User is the vCenter username.
 	User string
@@ -37,14 +37,14 @@ type VSphereConfig struct {
 	VMUUID string
 }
 
-// Represents a vSphere instance where one or more kubernetes nodes are running.
+// VSphereInstance Represents a vSphere instance where one or more kubernetes nodes are running.
 type VSphereInstance struct {
 	conn *vclib.VSphereConnection
 }
 
 var datastoreFolderIDMap = make(map[string]map[string]string)
 
-// Structure that represents Virtual Center configuration
+// VirtualCenterConfig represents Virtual Center configuration
 type VirtualCenterConfig struct {
 	// vCenter username.
 	User string
@@ -58,6 +58,7 @@ type VirtualCenterConfig struct {
 	RoundTripperCount uint
 }
 
+// ReadVSphereConfigFromEnv sources vsphere config from well known environment variables
 func ReadVSphereConfigFromEnv() (*VSphereConfig, error) {
 	var cfg VSphereConfig
 	var err error
