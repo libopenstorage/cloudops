@@ -60,7 +60,7 @@ pretest: lint vet errcheck staticcheck
 build:
 	go build -tags "$(TAGS)" $(BUILDFLAGS) $(PKGS)
 
-install: 
+install:
 	go install -tags "$(TAGS)" $(BUILDFLAGS) $(PKGS)
 
 cloudops:
@@ -73,6 +73,21 @@ container:
 
 deploy: container
 	sudo docker push $(CLOUDOPS_IMG)
+
+docker-build-osd-dev:
+	# This image is local only and will not be pushed
+	docker build -t openstorage/osd-dev -f Dockerfile.osd-dev .
+
+docker-build: docker-build-osd-dev
+	docker run \
+		--privileged \
+		-e AWS_ACCESS_KEY_ID \
+		-e AWS_SECRET_ACCESS_KEY \
+		-e "TAGS=$(TAGS)" \
+		-e "PKGS=$(PKGS)" \
+		-e "BUILDFLAGS=$(BUILDFLAGS)" \
+		openstorage/osd-dev \
+			make
 
 clean:
 	go clean -i $(PKGS)
