@@ -25,7 +25,7 @@ var notFoundRegex = regexp.MustCompile(`.*notFound`)
 
 const googleDiskPrefix = "/dev/disk/by-id/google-"
 
-const statusReady = "Ready"
+const StatusReady = "Ready"
 
 const (
 	devicePathMaxRetryCount = 3
@@ -181,7 +181,7 @@ func (s *gceOps) Create(
 		return nil, err
 	}
 
-	if err = s.checkDiskStatus(newDisk.Name, newDisk.Zone, statusReady); err != nil {
+	if err = s.checkDiskStatus(newDisk.Name, newDisk.Zone, StatusReady); err != nil {
 		return nil, s.rollbackCreate(resp.Name, err)
 	}
 
@@ -434,7 +434,7 @@ func (s *gceOps) Snapshot(
 		return nil, err
 	}
 
-	if err = s.checkSnapStatus(rb.Name, statusReady); err != nil {
+	if err = s.checkSnapStatus(rb.Name, StatusReady); err != nil {
 		return nil, err
 	}
 
@@ -461,7 +461,7 @@ func (s *gceOps) Tags(diskName string) (map[string]string, error) {
 }
 
 func (s *gceOps) available(v *compute.Disk) bool {
-	return v.Status == statusReady
+	return v.Status == StatusReady
 }
 
 func (s *gceOps) checkDiskStatus(id string, zone string, desired string) error {
