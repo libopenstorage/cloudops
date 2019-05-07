@@ -1,6 +1,9 @@
 package cloudops
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 const (
 	// SetIdentifierNone is a default identifier to group all disks from a
@@ -24,6 +27,11 @@ const (
 	ErrInvalidDevicePath
 )
 
+var (
+	// ErrUnsupported operation is unsupported.
+	ErrUnsupported = errors.New("Unsupported Operation")
+)
+
 // ErrNotSupported is returned when a particular operation is not supported
 var ErrNotSupported = fmt.Errorf("operation not supported")
 
@@ -37,12 +45,51 @@ type StorageError struct {
 	Instance string
 }
 
-// Ops interface to perform basic storage operations.
-type Ops interface {
-	// Name returns name of the storage operations driver
-	Name() string
-	// InstanceID returns the ID of the instance of the default instance the operations are performed on
+// CloudResourceInfo provides metadata information on a cloud resource.
+type CloudResourceInfo struct {
+	// Name of the cloud resource.
+	Name string
+	// ID of the cloud resource.
+	ID string
+	// Labels on the cloud resource.
+	Labels map[string]string
+	// Zone where the resource exists.
+	Zone string
+	// Region where the resource exists.
+	Region string
+}
+
+// InstanceGroupInfo encapsulates info for a cloud instance group. In AWS this
+// maps to ASG.
+type InstanceGroupInfo struct {
+	CloudResourceInfo
+	// AutoscalingEnabled is true if auto scaling is turned on
+	AutoscalingEnabled bool
+	// Min number of nodes in the instance group
+	Min int64
+	// Max number of nodes in the instance group
+	Max int64
+	// Zones that the instance group is part of
+	Zones []string
+}
+
+// InstanceInfo encapsulates info for a cloud instance
+type InstanceInfo struct {
+	CloudResourceInfo
+}
+
+// Compute interface to manage compute instances.
+type Compute interface {
+	// InstanceID of instance where command is executed.
 	InstanceID() string
+	// Inspect instance identified by ID.
+	InspectIntance(ID string) (*InstanceInfo, error)
+	// InspectInstanceGroup returns instanceGroupInfo matching labels.
+	InspectInstanceGroup(labels map[string]string) (*InstanceInfo, error)
+}
+
+// Storage interface to manage storage operations.
+type Storage interface {
 	// Create volume based on input template volume and also apply given labels.
 	Create(template interface{}, labels map[string]string) (interface{}, error)
 	// GetDeviceID returns ID/Name of the given device/disk or snapshot
@@ -87,6 +134,16 @@ type Ops interface {
 	RemoveTags(volumeID string, labels map[string]string) error
 	// Tags will list the existing labels/tags on the given volume
 	Tags(volumeID string) (map[string]string, error)
+}
+
+// Ops interface to perform basic cloud operations.
+type Ops interface {
+	// Name returns name of the cloud operations driver
+	Name() string
+	// Storage operations in the cloud
+	Storage
+	// Compute operations in the cloud
+	Compute
 }
 
 // NewStorageError creates a new custom storage error instance

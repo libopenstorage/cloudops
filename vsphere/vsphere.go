@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
@@ -27,6 +28,7 @@ const (
 )
 
 type vsphereOps struct {
+	cloudops.Compute
 	vm   *vclib.VirtualMachine
 	conn *vclib.VSphereConnection
 	cfg  *VSphereConfig
@@ -64,9 +66,10 @@ func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 	logrus.Debugf("  VMUUID: %s", cfg.VMUUID)
 
 	return &vsphereOps{
-		cfg:  cfg,
-		vm:   vmObj,
-		conn: vSphereConn,
+		Compute: unsupported.NewUnsupportedCompute(),
+		cfg:     cfg,
+		vm:      vmObj,
+		conn:    vSphereConn,
 	}, nil
 }
 

@@ -14,6 +14,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
@@ -25,6 +26,7 @@ var notFoundRegex = regexp.MustCompile(`.*notFound`)
 
 const googleDiskPrefix = "/dev/disk/by-id/google-"
 
+// StatusReady ready status
 const StatusReady = "Ready"
 
 const (
@@ -33,6 +35,7 @@ const (
 )
 
 type gceOps struct {
+	cloudops.Compute
 	inst    *instance
 	service *compute.Service
 	mutex   sync.Mutex
@@ -81,6 +84,7 @@ func NewClient() (cloudops.Ops, error) {
 	}
 
 	return &gceOps{
+		Compute: unsupported.NewUnsupportedCompute(),
 		inst:    i,
 		service: service,
 	}, nil

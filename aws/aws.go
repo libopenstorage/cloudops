@@ -16,6 +16,7 @@ import (
 	sh "github.com/codeskyblue/go-sh"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/pkg/exec"
+	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 )
@@ -28,6 +29,7 @@ const (
 )
 
 type ec2Ops struct {
+	cloudops.Compute
 	instanceType string
 	instance     string
 	ec2          *ec2.EC2
@@ -76,6 +78,7 @@ func NewEnvClient() (cloudops.Ops, error) {
 // NewEc2Storage creates a new aws storage ops instance
 func NewEc2Storage(instance, instanceType string, ec2 *ec2.EC2) cloudops.Ops {
 	return &ec2Ops{
+		Compute:      unsupported.NewUnsupportedCompute(),
 		instance:     instance,
 		instanceType: instanceType,
 		ec2:          ec2,

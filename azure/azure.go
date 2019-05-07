@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 )
@@ -36,6 +37,7 @@ const (
 )
 
 type azureOps struct {
+	cloudops.Compute
 	instance          string
 	resourceGroupName string
 	disksClient       *compute.DisksClient
@@ -96,6 +98,7 @@ func NewClient(
 	snapshotsClient.AddToUserAgent(userAgentExtension)
 
 	return &azureOps{
+		Compute:           unsupported.NewUnsupportedCompute(),
 		instance:          instance,
 		resourceGroupName: resourceGroupName,
 		disksClient:       &disksClient,
