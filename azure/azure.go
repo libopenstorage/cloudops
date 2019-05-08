@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	envInstanceName      = "AZURE_INSTANCE_NAME"
+	envInstanceID        = "AZURE_INSTANCE_ID"
+	envScaleSetName      = "AZURE_SCALE_SET_NAME"
 	envSubscriptionID    = "AZURE_SUBSCRIPTION_ID"
 	envResourceGroupName = "AZURE_RESOURCE_GROUP_NAME"
 )
@@ -41,7 +42,7 @@ type azureOps struct {
 	instance          string
 	resourceGroupName string
 	disksClient       *compute.DisksClient
-	vmsClient         *compute.VirtualMachinesClient
+	vmsClient         vmsClient
 	snapshotsClient   *compute.SnapshotsClient
 }
 
@@ -55,7 +56,7 @@ func (a *azureOps) InstanceID() string {
 
 // NewEnvClient make new client from well known environment variables.
 func NewEnvClient() (cloudops.Ops, error) {
-	instance, err := cloudops.GetEnvValueStrict(envInstanceName)
+	instance, err := cloudops.GetEnvValueStrict(envInstanceID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,12 +68,13 @@ func NewEnvClient() (cloudops.Ops, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(instance, subscriptionID, resourceGroupName)
+	scaleSetName := os.Getenv(envScaleSetName)
+	return NewClient(instance, scaleSetName, subscriptionID, resourceGroupName)
 }
 
-// NewClient make new clunet from specified parameters.
+// NewClient creates new client from specified parameters.
 func NewClient(
-	instance, subscriptionID, resourceGroupName string,
+	instance, scaleSetName, subscriptionID, resourceGroupName string,
 ) (cloudops.Ops, error) {
 	authorizer, err := auth.NewAuthorizerFromEnvironment()
 	if err != nil {
@@ -85,11 +87,7 @@ func NewClient(
 	disksClient.RetryAttempts = clientRetryAttempts
 	disksClient.AddToUserAgent(userAgentExtension)
 
-	vmsClient := compute.NewVirtualMachinesClient(subscriptionID)
-	vmsClient.Authorizer = authorizer
-	vmsClient.PollingDelay = clientPollingDelay
-	vmsClient.RetryAttempts = clientRetryAttempts
-	vmsClient.AddToUserAgent(userAgentExtension)
+	vmsClient := newVMsClient(scaleSetName, subscriptionID, resourceGroupName, authorizer)
 
 	snapshotsClient := compute.NewSnapshotsClient(subscriptionID)
 	snapshotsClient.Authorizer = authorizer
@@ -102,7 +100,7 @@ func NewClient(
 		instance:          instance,
 		resourceGroupName: resourceGroupName,
 		disksClient:       &disksClient,
-		vmsClient:         &vmsClient,
+		vmsClient:         vmsClient,
 		snapshotsClient:   &snapshotsClient,
 	}, nil
 }
@@ -137,6 +135,7 @@ func (a *azureOps) Create(
 	if !ok || code != 404 {
 		return "", err
 	}
+
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
 		ctx,
@@ -185,9 +184,9 @@ func (a *azureOps) GetDeviceID(disk interface{}) (string, error) {
 }
 
 func (a *azureOps) Attach(diskName string) (string, error) {
-	vm, err := a.describeInstance()
+	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
 	if err != nil {
-		return "", fmt.Errorf("cannot get vm %v: %v", a.instance, err)
+		return "", err
 	}
 
 	disk, err := a.disksClient.Get(
@@ -199,14 +198,14 @@ func (a *azureOps) Attach(diskName string) (string, error) {
 		return "", fmt.Errorf("cannot get disk %v: %v", diskName, err)
 	}
 
-	nextLun := nextAvailableLun(*vm.StorageProfile.DataDisks)
+	nextLun := nextAvailableLun(dataDisks)
 	if nextLun < 0 {
 		return "", fmt.Errorf("No LUN available to attach the disk. "+
-			"%v disks attached to the VM instance", len(*vm.StorageProfile.DataDisks))
+			"%v disks attached to the VM instance", len(dataDisks))
 	}
 
-	*vm.StorageProfile.DataDisks = append(
-		*vm.StorageProfile.DataDisks,
+	newDataDisks := append(
+		dataDisks,
 		compute.DataDisk{
 			Lun:          &nextLun,
 			Name:         to.StringPtr(diskName),
@@ -217,22 +216,8 @@ func (a *azureOps) Attach(diskName string) (string, error) {
 			},
 		},
 	)
-	vm.Resources = nil
-
-	ctx := context.Background()
-	future, err := a.vmsClient.CreateOrUpdate(
-		ctx,
-		a.resourceGroupName,
-		a.instance,
-		vm,
-	)
-	if err != nil {
-		return "", fmt.Errorf("cannot update vm %v: %v", a.instance, err)
-	}
-
-	err = future.WaitForCompletionRef(ctx, a.vmsClient.Client)
-	if err != nil {
-		return "", fmt.Errorf("cannot get the vm create or update future response: %v", err)
+	if err := a.vmsClient.updateDataDisks(a.instance, newDataDisks); err != nil {
+		return "", err
 	}
 
 	return a.waitForAttach(diskName)
@@ -242,19 +227,14 @@ func (a *azureOps) Detach(diskName string) error {
 	return a.detachInternal(diskName, a.instance)
 }
 
-func (a *azureOps) DetachFrom(diskName, instanceName string) error {
-	return a.detachInternal(diskName, instanceName)
+func (a *azureOps) DetachFrom(diskName, instance string) error {
+	return a.detachInternal(diskName, instance)
 }
 
-func (a *azureOps) detachInternal(diskName, instanceName string) error {
-	vm, err := a.vmsClient.Get(
-		context.Background(),
-		a.resourceGroupName,
-		instanceName,
-		compute.InstanceView,
-	)
+func (a *azureOps) detachInternal(diskName, instance string) error {
+	dataDisks, err := a.vmsClient.getDataDisks(instance)
 	if err != nil {
-		return fmt.Errorf("cannot get vm %v: %v", instanceName, err)
+		return err
 	}
 
 	disk, err := a.disksClient.Get(
@@ -268,38 +248,19 @@ func (a *azureOps) detachInternal(diskName, instanceName string) error {
 
 	diskToDetach := strings.ToLower(*disk.ID)
 
-	disks := make([]compute.DataDisk, 0)
-	for _, d := range *vm.StorageProfile.DataDisks {
+	newDataDisks := make([]compute.DataDisk, 0)
+	for _, d := range dataDisks {
 		if strings.ToLower(*d.ManagedDisk.ID) == diskToDetach {
 			continue
 		}
-		disks = append(disks, d)
+		newDataDisks = append(newDataDisks, d)
 	}
 
-	if len(disks) == 0 {
-		vm.StorageProfile.DataDisks = &[]compute.DataDisk{}
-	} else {
-		vm.StorageProfile.DataDisks = &disks
-	}
-	vm.Resources = nil
-
-	ctx := context.Background()
-	future, err := a.vmsClient.CreateOrUpdate(
-		ctx,
-		a.resourceGroupName,
-		instanceName,
-		vm,
-	)
-	if err != nil {
-		return fmt.Errorf("cannot update vm %v: %v", instanceName, err)
+	if err := a.vmsClient.updateDataDisks(instance, newDataDisks); err != nil {
+		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, a.vmsClient.Client)
-	if err != nil {
-		return fmt.Errorf("cannot get the vm create or update future response: %v", err)
-	}
-
-	return a.waitForDetach(diskName)
+	return a.waitForDetach(diskName, instance)
 }
 
 func (a *azureOps) Delete(diskName string) error {
@@ -323,16 +284,7 @@ func (a *azureOps) DeleteFrom(diskName, _ string) error {
 }
 
 func (a *azureOps) Describe() (interface{}, error) {
-	return a.describeInstance()
-}
-
-func (a *azureOps) describeInstance() (compute.VirtualMachine, error) {
-	return a.vmsClient.Get(
-		context.Background(),
-		a.resourceGroupName,
-		a.instance,
-		compute.InstanceView,
-	)
+	return a.vmsClient.describe(a.instance)
 }
 
 func (a *azureOps) FreeDevices(
@@ -365,13 +317,13 @@ func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
 }
 
 func (a *azureOps) DeviceMappings() (map[string]string, error) {
-	vm, err := a.describeInstance()
+	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
 	if err != nil {
 		return nil, err
 	}
 
 	devMap := make(map[string]string)
-	for _, d := range *vm.StorageProfile.DataDisks {
+	for _, d := range dataDisks {
 		devPath, err := lunToBlockDevPath(*d.Lun)
 		if err != nil {
 			return nil, cloudops.NewStorageError(
@@ -447,16 +399,12 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 		)
 	}
 
-	vm, err := a.describeInstance()
+	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
 	if err != nil {
 		return "", err
 	}
 
-	if vm.StorageProfile == nil || vm.StorageProfile.DataDisks == nil {
-		return "", fmt.Errorf("instance does not have any disks attached")
-	}
-
-	for _, d := range *vm.StorageProfile.DataDisks {
+	for _, d := range dataDisks {
 		if *d.Name == diskName {
 			// Retry to get the block dev path as it may take few seconds for the path
 			// to be created even after the disk shows attached.
@@ -679,23 +627,19 @@ func (a *azureOps) waitForAttach(diskName string) (string, error) {
 	return devicePath.(string), nil
 }
 
-func (a *azureOps) waitForDetach(diskName string) error {
+func (a *azureOps) waitForDetach(diskName, instance string) error {
 	_, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
-			vm, err := a.describeInstance()
+			dataDisks, err := a.vmsClient.getDataDisks(instance)
 			if err != nil {
 				return nil, true, err
 			}
 
-			if vm.StorageProfile == nil || vm.StorageProfile.DataDisks == nil {
-				return nil, true, fmt.Errorf("vm in invalid state")
-			}
-
-			for _, d := range *vm.StorageProfile.DataDisks {
+			for _, d := range dataDisks {
 				if *d.Name == diskName {
 					return nil, true,
 						fmt.Errorf("disk %s is still attached to instance %s",
-							diskName, a.instance)
+							diskName, instance)
 				}
 			}
 
