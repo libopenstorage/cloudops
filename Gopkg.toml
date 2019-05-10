@@ -50,7 +50,8 @@
   version = "1.2.0"
 
 [[constraint]]
-  branch = "master"
+# revert to master once https://github.com/portworx/sched-ops/pull/122 is merged
+  branch = "return-err-detail"
   name = "github.com/portworx/sched-ops"
 
 [[constraint]]

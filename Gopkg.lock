@@ -48,7 +48,7 @@
   version = "v11.9.0"
 
 [[projects]]
-  digest = "1:8da0addc3b6557d5fb7dc80dbe19157a045f0ba825cf2df743adbb3a03d6de65"
+  digest = "1:5c0ac359611406eed01dece9b2545766c9d77324f00837a988dddac1c1d6a8a1"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -82,6 +82,7 @@
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
+    "service/autoscaling",
     "service/ec2",
     "service/opsworks",
     "service/sts",
@@ -226,6 +227,22 @@
   version = "v1.0.2"
 
 [[projects]]
+  digest = "1:aa4c9cc32ff73326d53ca92bcd7042a100cc1da41f6ecbad731c66fd278fbff7"
+  name = "github.com/libopenstorage/openstorage"
+  packages = ["pkg/parser"]
+  pruneopts = "UT"
+  revision = "4c9c952a83e4f31e97538e4bda698712f711d3e8"
+  version = "v8.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:7bfbecf456ab4ef70beb321ddba45ed4beaac9006e197f614c29022eab219b8b"
+  name = "github.com/libopenstorage/secrets"
+  packages = ["aws/credentials"]
+  pruneopts = "UT"
+  revision = "c282e8dc17bf6b7fd08a71de317d50654ef056ea"
+
+[[projects]]
   digest = "1:ff5ebae34cfbf047d505ee150de27e60570e8c394b3b8fdbb720ff6ac71985fc"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
@@ -258,12 +275,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:ef878d65765e37cad809086d5b7f9fc1d962a40037f24c06d0855d0b05a50f7d"
+  branch = "return-err-detail"
+  digest = "1:9f4dbfa1f67b2e30440d19deab60ccf720505ce25df57dd18dd08dc7b63bd982"
   name = "github.com/portworx/sched-ops"
   packages = ["task"]
   pruneopts = "UT"
-  revision = "b92be460399bb7358ddcf5ae40eb8332738ae819"
+  revision = "3a9bb710c2cedc49568ca7538e509559c5e31c6b"
 
 [[projects]]
   digest = "1:75d51eeab0df85a3cea9e1297ccd3183b20a10cb4b48c753d8ec8d113cc14250"
@@ -461,10 +478,11 @@
   version = "v0.3.2"
 
 [[projects]]
-  digest = "1:864c09d698e2fb2ea676fcbc4f12d70ff5b390d520f924707f4653c9cc1637ab"
+  digest = "1:92a588a8fe49244262ab8da83bd7e65f16e0eccfc5f908b554205e5a82c61dd6"
   name = "google.golang.org/api"
   packages = [
     "compute/v1",
+    "container/v1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
@@ -572,11 +590,15 @@
     "github.com/Azure/go-autorest/autorest/azure/auth",
     "github.com/Azure/go-autorest/autorest/to",
     "github.com/aws/aws-sdk-go/aws",
+    "github.com/aws/aws-sdk-go/aws/awserr",
     "github.com/aws/aws-sdk-go/aws/credentials",
     "github.com/aws/aws-sdk-go/aws/session",
+    "github.com/aws/aws-sdk-go/service/autoscaling",
     "github.com/aws/aws-sdk-go/service/ec2",
     "github.com/aws/aws-sdk-go/service/opsworks",
     "github.com/codeskyblue/go-sh",
+    "github.com/libopenstorage/openstorage/pkg/parser",
+    "github.com/libopenstorage/secrets/aws/credentials",
     "github.com/pborman/uuid",
     "github.com/portworx/sched-ops/task",
     "github.com/sirupsen/logrus",
@@ -589,9 +611,10 @@
     "github.com/vmware/govmomi/vim25",
     "github.com/vmware/govmomi/vim25/mo",
     "github.com/vmware/govmomi/vim25/types",
-    "golang.org/x/oauth2/google",
     "google.golang.org/api/compute/v1",
+    "google.golang.org/api/container/v1",
     "google.golang.org/api/googleapi",
+    "google.golang.org/api/option",
     "k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib",
     "k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib/diskmanagers",
   ]
