@@ -66,9 +66,9 @@ type InstanceGroupInfo struct {
 	// AutoscalingEnabled is true if auto scaling is turned on
 	AutoscalingEnabled bool
 	// Min number of nodes in the instance group
-	Min int64
+	Min *int64
 	// Max number of nodes in the instance group
-	Max int64
+	Max *int64
 	// Zones that the instance group is part of
 	Zones []string
 }
@@ -82,10 +82,12 @@ type InstanceInfo struct {
 type Compute interface {
 	// InstanceID of instance where command is executed.
 	InstanceID() string
-	// Inspect instance identified by ID.
-	InspectIntance(ID string) (*InstanceInfo, error)
-	// InspectInstanceGroup returns instanceGroupInfo matching labels.
-	InspectInstanceGroup(labels map[string]string) (*InstanceInfo, error)
+	// InspectSelf inspects the node where the code is invoked. Hence this assumes
+	// this is invoked from within a cloud instance
+	InspectSelf() (*InstanceInfo, error)
+	// InspectSelfInstanceGroup inspects the instance group within which the current
+	// instance resides
+	InspectSelfInstanceGroup() (*InstanceGroupInfo, error)
 }
 
 // Storage interface to manage storage operations.

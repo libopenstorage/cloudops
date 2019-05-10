@@ -2,6 +2,8 @@ package aws
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,14 +11,17 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/opsworks"
 	sh "github.com/codeskyblue/go-sh"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/pkg/exec"
 	"github.com/libopenstorage/cloudops/unsupported"
+	scredentials "github.com/libopenstorage/secrets/aws/credentials"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 )
@@ -28,11 +33,14 @@ const (
 	awsDevicePrefixNvme  = "/dev/nvme"
 )
 
-type ec2Ops struct {
+type awsOps struct {
 	cloudops.Compute
 	instanceType string
 	instance     string
+	zone         string
+	region       string
 	ec2          *ec2.EC2
+	autoscaling  *autoscaling.AutoScaling
 	mutex        sync.Mutex
 }
 
@@ -42,53 +50,60 @@ var (
 	nvmeCmd               = exec.Which("nvme")
 )
 
-// NewEnvClient creates a new AWS storage ops instance using environment vars
-func NewEnvClient() (cloudops.Ops, error) {
-	region, err := cloudops.GetEnvValueStrict("AWS_REGION")
+// NewClient creates a new cloud operations client for AWS
+func NewClient() (cloudops.Ops, error) {
+	zone, instanceID, instanceType, err := getInfoFromMetadata()
+	if err != nil {
+		// try to get it from env
+		zone, instanceID, instanceType, err = getInfoFromEnv()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	region := zone[:len(zone)-1]
+	awsCreds, err := scredentials.NewAWSCredentials("", "", "")
 	if err != nil {
 		return nil, err
 	}
-
-	instance, err := cloudops.GetEnvValueStrict("AWS_INSTANCE_NAME")
+	creds, err := awsCreds.Get()
 	if err != nil {
 		return nil, err
-	}
-
-	instanceType, err := cloudops.GetEnvValueStrict("AWS_INSTANCE_TYPE")
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := credentials.NewEnvCredentials().Get(); err != nil {
-		return nil, ErrAWSEnvNotAvailable
 	}
 
 	ec2 := ec2.New(
 		session.New(
 			&aws.Config{
 				Region:      &region,
-				Credentials: credentials.NewEnvCredentials(),
+				Credentials: creds,
 			},
 		),
 	)
 
-	return NewEc2Storage(instance, instanceType, ec2), nil
-}
+	autoscaling := autoscaling.New(
+		session.New(
+			&aws.Config{
+				Region:      &region,
+				Credentials: creds,
+			},
+		),
+	)
 
-// NewEc2Storage creates a new aws storage ops instance
-func NewEc2Storage(instance, instanceType string, ec2 *ec2.EC2) cloudops.Ops {
-	return &ec2Ops{
+	return &awsOps{
 		Compute:      unsupported.NewUnsupportedCompute(),
-		instance:     instance,
+		instance:     instanceID,
 		instanceType: instanceType,
 		ec2:          ec2,
-	}
+		zone:         zone,
+		region:       region,
+		autoscaling:  autoscaling,
+	}, nil
 }
 
 // nvmeInstanceTypes are list of instance types whose EBS volumes are exposed as NVMe block devices
 var nvmeInstanceTypes = []string{"c5", "c5d", "i3.metal", "m5", "m5d", "r5", "r5d", "z1d"}
 
-func (s *ec2Ops) filters(
+func (s *awsOps) filters(
 	labels map[string]string,
 	keys []string,
 ) []*ec2.Filter {
@@ -111,7 +126,7 @@ func (s *ec2Ops) filters(
 	return f
 }
 
-func (s *ec2Ops) tags(labels map[string]string) []*ec2.Tag {
+func (s *awsOps) tags(labels map[string]string) []*ec2.Tag {
 	if len(labels) == 0 {
 		return nil
 	}
@@ -126,7 +141,7 @@ func (s *ec2Ops) tags(labels map[string]string) []*ec2.Tag {
 	return t
 }
 
-func (s *ec2Ops) waitStatus(id string, desired string) error {
+func (s *awsOps) waitStatus(id string, desired string) error {
 	request := &ec2.DescribeVolumesInput{VolumeIds: []*string{&id}}
 	actual := ""
 
@@ -163,7 +178,7 @@ func (s *ec2Ops) waitStatus(id string, desired string) error {
 
 }
 
-func (s *ec2Ops) waitAttachmentStatus(
+func (s *awsOps) waitAttachmentStatus(
 	volumeID string,
 	desired string,
 	timeout time.Duration,
@@ -211,11 +226,83 @@ func (s *ec2Ops) waitAttachmentStatus(
 		fmt.Sprintf("Invalid volume object for volume %s", volumeID), "")
 }
 
-func (s *ec2Ops) Name() string { return "aws" }
+func (s *awsOps) Name() string { return "aws" }
 
-func (s *ec2Ops) InstanceID() string { return s.instance }
+func (s *awsOps) InstanceID() string { return s.instance }
 
-func (s *ec2Ops) ApplyTags(volumeID string, labels map[string]string) error {
+func (s *awsOps) InspectSelf() (*cloudops.InstanceInfo, error) {
+	inst, err := DescribeInstanceByID(s.ec2, s.instance)
+	if err != nil {
+		return nil, err
+	}
+
+	instInfo := &cloudops.InstanceInfo{
+		CloudResourceInfo: cloudops.CloudResourceInfo{
+			Name:   s.instance,
+			ID:     *inst.InstanceId,
+			Zone:   s.zone,
+			Region: s.region,
+			Labels: labelsFromTags(inst.Tags),
+		},
+	}
+	return instInfo, nil
+}
+
+func (s *awsOps) InspectSelfInstanceGroup() (*cloudops.InstanceGroupInfo, error) {
+	selfInfo, err := s.InspectSelf()
+	if err != nil {
+		return nil, err
+	}
+
+	for tag, value := range selfInfo.Labels {
+		// https://docs.aws.amazon.com/autoscaling/ec2/userguide/autoscaling-tagging.html#tag-lifecycle
+		if tag == "aws:autoscaling:groupName" {
+			input := &autoscaling.DescribeAutoScalingGroupsInput{
+				AutoScalingGroupNames: []*string{
+					aws.String(value),
+				},
+			}
+
+			result, err := s.autoscaling.DescribeAutoScalingGroups(input)
+			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					return nil, aerr
+				}
+				return nil, err
+			}
+
+			if len(result.AutoScalingGroups) != 1 {
+				return nil, fmt.Errorf("DescribeAutoScalingGroups (%v) returned %v groups, expect 1",
+					value, len(result.AutoScalingGroups))
+			}
+
+			group := result.AutoScalingGroups[0]
+			zones := make([]string, 0)
+			for _, z := range group.AvailabilityZones {
+				zones = append(zones, *z)
+			}
+
+			retval := &cloudops.InstanceGroupInfo{
+				CloudResourceInfo: cloudops.CloudResourceInfo{
+					Name:   *group.AutoScalingGroupName,
+					Zone:   s.zone,
+					Region: s.region,
+					Labels: labelsFromTags(group.Tags),
+				},
+				Zones:              zones,
+				AutoscalingEnabled: true,
+				Min:                group.MinSize,
+				Max:                group.MaxSize,
+			}
+
+			return retval, nil
+		}
+	}
+
+	return nil, fmt.Errorf("instance doesn't belong to an instance group")
+}
+
+func (s *awsOps) ApplyTags(volumeID string, labels map[string]string) error {
 	req := &ec2.CreateTagsInput{
 		Resources: []*string{&volumeID},
 		Tags:      s.tags(labels),
@@ -224,7 +311,7 @@ func (s *ec2Ops) ApplyTags(volumeID string, labels map[string]string) error {
 	return err
 }
 
-func (s *ec2Ops) RemoveTags(volumeID string, labels map[string]string) error {
+func (s *awsOps) RemoveTags(volumeID string, labels map[string]string) error {
 	req := &ec2.DeleteTagsInput{
 		Resources: []*string{&volumeID},
 		Tags:      s.tags(labels),
@@ -233,7 +320,7 @@ func (s *ec2Ops) RemoveTags(volumeID string, labels map[string]string) error {
 	return err
 }
 
-func (s *ec2Ops) matchTag(tag *ec2.Tag, match string) bool {
+func (s *awsOps) matchTag(tag *ec2.Tag, match string) bool {
 	return tag.Key != nil &&
 		tag.Value != nil &&
 		len(*tag.Key) != 0 &&
@@ -241,7 +328,7 @@ func (s *ec2Ops) matchTag(tag *ec2.Tag, match string) bool {
 		*tag.Key == match
 }
 
-func (s *ec2Ops) DeviceMappings() (map[string]string, error) {
+func (s *awsOps) DeviceMappings() (map[string]string, error) {
 	instance, err := s.describe()
 	if err != nil {
 		return nil, err
@@ -270,11 +357,11 @@ func (s *ec2Ops) DeviceMappings() (map[string]string, error) {
 }
 
 // Describe current instance.
-func (s *ec2Ops) Describe() (interface{}, error) {
+func (s *awsOps) Describe() (interface{}, error) {
 	return s.describe()
 }
 
-func (s *ec2Ops) describe() (*ec2.Instance, error) {
+func (s *awsOps) describe() (*ec2.Instance, error) {
 	request := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{&s.instance},
 	}
@@ -293,7 +380,7 @@ func (s *ec2Ops) describe() (*ec2.Instance, error) {
 	return out.Reservations[0].Instances[0], nil
 }
 
-func (s *ec2Ops) getPrefixFromRootDeviceName(rootDeviceName string) (string, error) {
+func (s *awsOps) getPrefixFromRootDeviceName(rootDeviceName string) (string, error) {
 	devPrefix := awsDevicePrefix
 	if !strings.HasPrefix(rootDeviceName, devPrefix) {
 		devPrefix = awsDevicePrefixWithX
@@ -311,7 +398,7 @@ func (s *ec2Ops) getPrefixFromRootDeviceName(rootDeviceName string) (string, err
 // getParentDevice returns the parent device of the given device path
 // by following the symbolic link. It is expected that the input device
 // path exists
-func (s *ec2Ops) getParentDevice(ipDevPath string) (string, error) {
+func (s *awsOps) getParentDevice(ipDevPath string) (string, error) {
 	// Check if the path is a symbolic link
 	var parentDevPath string
 	fi, err := os.Lstat(ipDevPath)
@@ -336,7 +423,7 @@ func (s *ec2Ops) getParentDevice(ipDevPath string) (string, error) {
 // If not found it will try all the different devicePrefixes provided by AWS
 // such as /dev/sd and /dev/xvd and return the devicePath which is found
 // or return an error
-func (s *ec2Ops) getActualDevicePath(ipDevicePath, volumeID string) (string, error) {
+func (s *awsOps) getActualDevicePath(ipDevicePath, volumeID string) (string, error) {
 	letter := ipDevicePath[len(ipDevicePath)-1:]
 	devicePath := awsDevicePrefix + letter
 	if _, err := os.Stat(devicePath); err == nil {
@@ -377,7 +464,7 @@ func (s *ec2Ops) getActualDevicePath(ipDevicePath, volumeID string) (string, err
 
 }
 
-func (s *ec2Ops) getNvmeDeviceFromVolumeID(volumeID string) (string, error) {
+func (s *awsOps) getNvmeDeviceFromVolumeID(volumeID string) (string, error) {
 	// We will use nvme list command to find nvme device mappings
 	// A typical output of nvme list looks like this
 	// # nvme list
@@ -393,7 +480,7 @@ func (s *ec2Ops) getNvmeDeviceFromVolumeID(volumeID string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func (s *ec2Ops) FreeDevices(
+func (s *awsOps) FreeDevices(
 	blockDeviceMappings []interface{},
 	rootDeviceName string,
 ) ([]string, error) {
@@ -463,7 +550,7 @@ func (s *ec2Ops) FreeDevices(
 	return free[:count], nil
 }
 
-func (s *ec2Ops) rollbackCreate(id string, createErr error) error {
+func (s *awsOps) rollbackCreate(id string, createErr error) error {
 	logrus.Warnf("Rollback create volume %v, Error %v", id, createErr)
 	err := s.Delete(id)
 	if err != nil {
@@ -472,7 +559,7 @@ func (s *ec2Ops) rollbackCreate(id string, createErr error) error {
 	return createErr
 }
 
-func (s *ec2Ops) refreshVol(id *string) (*ec2.Volume, error) {
+func (s *awsOps) refreshVol(id *string) (*ec2.Volume, error) {
 	vols, err := s.Inspect([]*string{id})
 	if err != nil {
 		return nil, err
@@ -493,16 +580,16 @@ func (s *ec2Ops) refreshVol(id *string) (*ec2.Volume, error) {
 	return resp, nil
 }
 
-func (s *ec2Ops) deleted(v *ec2.Volume) bool {
+func (s *awsOps) deleted(v *ec2.Volume) bool {
 	return *v.State == ec2.VolumeStateDeleting ||
 		*v.State == ec2.VolumeStateDeleted
 }
 
-func (s *ec2Ops) available(v *ec2.Volume) bool {
+func (s *awsOps) available(v *ec2.Volume) bool {
 	return *v.State == ec2.VolumeStateAvailable
 }
 
-func (s *ec2Ops) GetDeviceID(vol interface{}) (string, error) {
+func (s *awsOps) GetDeviceID(vol interface{}) (string, error) {
 	if d, ok := vol.(*ec2.Volume); ok {
 		return *d.VolumeId, nil
 	} else if d, ok := vol.(*ec2.Snapshot); ok {
@@ -512,7 +599,7 @@ func (s *ec2Ops) GetDeviceID(vol interface{}) (string, error) {
 	}
 }
 
-func (s *ec2Ops) Inspect(volumeIds []*string) ([]interface{}, error) {
+func (s *awsOps) Inspect(volumeIds []*string) ([]interface{}, error) {
 	req := &ec2.DescribeVolumesInput{VolumeIds: volumeIds}
 	resp, err := s.ec2.DescribeVolumes(req)
 	if err != nil {
@@ -527,7 +614,7 @@ func (s *ec2Ops) Inspect(volumeIds []*string) ([]interface{}, error) {
 	return awsVols, nil
 }
 
-func (s *ec2Ops) Tags(volumeID string) (map[string]string, error) {
+func (s *awsOps) Tags(volumeID string) (map[string]string, error) {
 	vol, err := s.refreshVol(&volumeID)
 	if err != nil {
 		return nil, err
@@ -540,7 +627,7 @@ func (s *ec2Ops) Tags(volumeID string) (map[string]string, error) {
 	return labels, nil
 }
 
-func (s *ec2Ops) Enumerate(
+func (s *awsOps) Enumerate(
 	volumeIds []*string,
 	labels map[string]string,
 	setIdentifier string,
@@ -580,7 +667,7 @@ func (s *ec2Ops) Enumerate(
 	return sets, nil
 }
 
-func (s *ec2Ops) Create(
+func (s *awsOps) Create(
 	v interface{},
 	labels map[string]string,
 ) (interface{}, error) {
@@ -639,17 +726,17 @@ func (s *ec2Ops) Create(
 	return s.refreshVol(resp.VolumeId)
 }
 
-func (s *ec2Ops) DeleteFrom(id, _ string) error {
+func (s *awsOps) DeleteFrom(id, _ string) error {
 	return s.Delete(id)
 }
 
-func (s *ec2Ops) Delete(id string) error {
+func (s *awsOps) Delete(id string) error {
 	req := &ec2.DeleteVolumeInput{VolumeId: &id}
 	_, err := s.ec2.DeleteVolume(req)
 	return err
 }
 
-func (s *ec2Ops) Attach(volumeID string) (string, error) {
+func (s *awsOps) Attach(volumeID string) (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -686,15 +773,15 @@ func (s *ec2Ops) Attach(volumeID string) (string, error) {
 	return s.DevicePath(*vol.VolumeId)
 }
 
-func (s *ec2Ops) Detach(volumeID string) error {
+func (s *awsOps) Detach(volumeID string) error {
 	return s.detachInternal(volumeID, s.instance)
 }
 
-func (s *ec2Ops) DetachFrom(volumeID, instanceName string) error {
+func (s *awsOps) DetachFrom(volumeID, instanceName string) error {
 	return s.detachInternal(volumeID, instanceName)
 }
 
-func (s *ec2Ops) detachInternal(volumeID, instanceName string) error {
+func (s *awsOps) detachInternal(volumeID, instanceName string) error {
 	force := false
 	req := &ec2.DetachVolumeInput{
 		InstanceId: &instanceName,
@@ -711,7 +798,7 @@ func (s *ec2Ops) detachInternal(volumeID, instanceName string) error {
 	return err
 }
 
-func (s *ec2Ops) Snapshot(
+func (s *awsOps) Snapshot(
 	volumeID string,
 	readonly bool,
 ) (interface{}, error) {
@@ -721,7 +808,7 @@ func (s *ec2Ops) Snapshot(
 	return s.ec2.CreateSnapshot(request)
 }
 
-func (s *ec2Ops) SnapshotDelete(snapID string) error {
+func (s *awsOps) SnapshotDelete(snapID string) error {
 	request := &ec2.DeleteSnapshotInput{
 		SnapshotId: &snapID,
 	}
@@ -730,7 +817,7 @@ func (s *ec2Ops) SnapshotDelete(snapID string) error {
 	return err
 }
 
-func (s *ec2Ops) DevicePath(volumeID string) (string, error) {
+func (s *awsOps) DevicePath(volumeID string) (string, error) {
 	vol, err := s.refreshVol(&volumeID)
 	if err != nil {
 		return "", err
@@ -770,4 +857,132 @@ func (s *ec2Ops) DevicePath(volumeID string) (string, error) {
 			err.Error(), "")
 	}
 	return devicePath, nil
+}
+
+func getInfoFromMetadata() (string, string, string, error) {
+	zone, err := metadata("placement/availability-zone")
+	if err != nil {
+		return "", "", "", err
+	}
+
+	instanceID, err := metadata("instance-id")
+	if err != nil {
+		return "", "", "", err
+	}
+
+	instanceType, err := metadata("instance-type")
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return zone, instanceID, instanceType, nil
+}
+
+func getInfoFromEnv() (string, string, string, error) {
+	zone, err := cloudops.GetEnvValueStrict("AWS_ZONE")
+	if err != nil {
+		return "", "", "", err
+	}
+
+	instance, err := cloudops.GetEnvValueStrict("AWS_INSTANCE_NAME")
+	if err != nil {
+		return "", "", "", err
+	}
+
+	instanceType, err := cloudops.GetEnvValueStrict("AWS_INSTANCE_TYPE")
+	if err != nil {
+		return "", "", "", err
+	}
+
+	if _, err := credentials.NewEnvCredentials().Get(); err != nil {
+		return "", "", "", ErrAWSEnvNotAvailable
+	}
+
+	return zone, instance, instanceType, nil
+}
+
+func metadata(key string) (string, error) {
+	return instanceData("meta-data/" + key)
+}
+
+// instanceData retrieves instance data specified by key.
+func instanceData(key string) (string, error) {
+	client := http.Client{Timeout: time.Second * 3}
+	url := "http://169.254.169.254/latest/" + key
+	res, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		err = fmt.Errorf("Code %d returned for url %s", res.StatusCode, url)
+		return "", fmt.Errorf("Error querying AWS metadata for key %s: %v", key, err)
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("Error querying AWS metadata for key %s: %v", key, err)
+	}
+	if len(body) == 0 {
+		return "", fmt.Errorf("Failed to retrieve AWS metadata for key %s: %v", key, err)
+	}
+	return string(body), nil
+}
+
+// DescribeInstanceByID describes the given instance by instance ID
+func DescribeInstanceByID(service *ec2.EC2, id string) (*ec2.Instance, error) {
+	request := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{&id},
+	}
+	out, err := service.DescribeInstances(request)
+	if err != nil {
+		return nil, err
+	}
+	if len(out.Reservations) != 1 {
+		return nil, fmt.Errorf("DescribeInstances(%v) returned %v reservations, expect 1",
+			id, len(out.Reservations))
+	}
+	if len(out.Reservations[0].Instances) != 1 {
+		return nil, fmt.Errorf("DescribeInstances(%v) returned %v Reservations, expect 1",
+			id, len(out.Reservations[0].Instances))
+	}
+	return out.Reservations[0].Instances[0], nil
+}
+
+func labelsFromTags(input interface{}) map[string]string {
+	labels := make(map[string]string)
+	ec2Tags, ok := input.([]*ec2.Tag)
+	if ok {
+		for _, tag := range ec2Tags {
+			if tag == nil {
+				continue
+			}
+
+			if tag.Key == nil || tag.Value == nil {
+				continue
+			}
+
+			labels[*tag.Key] = *tag.Value
+		}
+
+		return labels
+	}
+
+	autoscalingTags, ok := input.([]*autoscaling.TagDescription)
+	if ok {
+		for _, tag := range autoscalingTags {
+			if tag == nil {
+				continue
+			}
+
+			if tag.Key == nil || tag.Value == nil {
+				continue
+			}
+
+			labels[*tag.Key] = *tag.Value
+		}
+
+		return labels
+	}
+
+	return labels
 }

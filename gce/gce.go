@@ -15,11 +15,13 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/unsupported"
+	"github.com/libopenstorage/openstorage/pkg/parser"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
+	container "google.golang.org/api/container/v1"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/option"
 )
 
 var notFoundRegex = regexp.MustCompile(`.*notFound`)
@@ -27,18 +29,24 @@ var notFoundRegex = regexp.MustCompile(`.*notFound`)
 const googleDiskPrefix = "/dev/disk/by-id/google-"
 
 // StatusReady ready status
-const StatusReady = "Ready"
+const StatusReady = "ready"
 
 const (
 	devicePathMaxRetryCount = 3
 	devicePathRetryInterval = 2 * time.Second
+	clusterNameKey          = "cluster-name"
+	clusterLocationKey      = "cluster-location"
+	kubeLabelsKey           = "kube-labels"
+	nodePoolKey             = "cloud.google.com/gke-nodepool"
+	instanceTemplateKey     = "instance-template"
 )
 
 type gceOps struct {
 	cloudops.Compute
-	inst    *instance
-	service *compute.Service
-	mutex   sync.Mutex
+	inst             *instance
+	computeService   *compute.Service
+	containerService *container.Service
+	mutex            sync.Mutex
 }
 
 // instance stores the metadata of the running GCE instance
@@ -46,6 +54,7 @@ type instance struct {
 	name     string
 	hostname string
 	zone     string
+	region   string
 	project  string
 }
 
@@ -73,20 +82,22 @@ func NewClient() (cloudops.Ops, error) {
 		return nil, fmt.Errorf("error fetching instance info. Err: %v", err)
 	}
 
-	c, err := google.DefaultClient(context.Background(), compute.ComputeScope)
-	if err != nil {
-		return nil, fmt.Errorf("failed to authenticate with google api. Err: %v", err)
-	}
-
-	service, err := compute.New(c)
+	ctx := context.Background()
+	computeService, err := compute.NewService(ctx, option.WithScopes(compute.ComputeScope))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Compute service: %v", err)
 	}
 
+	containerService, err := container.NewService(ctx, option.WithScopes(compute.CloudPlatformScope))
+	if err != nil {
+		return nil, fmt.Errorf("unable to create Container service: %v", err)
+	}
+
 	return &gceOps{
-		Compute: unsupported.NewUnsupportedCompute(),
-		inst:    i,
-		service: service,
+		Compute:          unsupported.NewUnsupportedCompute(),
+		inst:             i,
+		computeService:   computeService,
+		containerService: containerService,
 	}, nil
 }
 
@@ -94,10 +105,138 @@ func (s *gceOps) Name() string { return "gce" }
 
 func (s *gceOps) InstanceID() string { return s.inst.name }
 
+func (s *gceOps) InspectSelf() (*cloudops.InstanceInfo, error) {
+	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	instInfo := &cloudops.InstanceInfo{
+		CloudResourceInfo: cloudops.CloudResourceInfo{
+			Name:   inst.Name,
+			ID:     fmt.Sprintf("%d", inst.Id),
+			Zone:   inst.Zone,
+			Region: s.inst.region,
+			Labels: inst.Labels,
+		},
+	}
+	return instInfo, nil
+}
+
+func (s *gceOps) InspectSelfInstanceGroup() (*cloudops.InstanceGroupInfo, error) {
+	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	meta := inst.Metadata
+	if meta == nil {
+		return nil, fmt.Errorf("instance doesn't have metadata set")
+	}
+
+	var (
+		gkeClusterName   string
+		instanceTemplate string
+		clusterLocation  string
+		kubeLabels       map[string]string
+	)
+
+	for _, item := range meta.Items {
+		if item == nil {
+			continue
+		}
+
+		if item.Key == clusterNameKey {
+			if item.Value == nil {
+				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", clusterNameKey)
+			}
+
+			gkeClusterName = *item.Value
+		}
+
+		if item.Key == instanceTemplateKey {
+			if item.Value == nil {
+				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", instanceTemplateKey)
+			}
+
+			instanceTemplate = *item.Value
+		}
+
+		if item.Key == clusterLocationKey {
+			if item.Value == nil {
+				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", clusterLocationKey)
+			}
+
+			clusterLocation = *item.Value
+		}
+
+		if item.Key == kubeLabelsKey {
+			if item.Value == nil {
+				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", kubeLabelsKey)
+			}
+
+			kubeLabels, err = parser.LabelsFromString(*item.Value)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if len(gkeClusterName) == 0 ||
+		len(instanceTemplate) == 0 ||
+		len(clusterLocation) == 0 ||
+		len(kubeLabels) == 0 {
+		return nil, fmt.Errorf("API is currently only supported on the GKE platform")
+	}
+
+	for labelKey, labelValue := range kubeLabels {
+		if labelKey == nodePoolKey {
+			nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
+				s.inst.project, clusterLocation, gkeClusterName, labelValue)
+			nodePool, err := s.containerService.Projects.Locations.Clusters.NodePools.Get(nodePoolPath).Do()
+			if err != nil {
+				logrus.Errorf("failed to get node pool")
+				return nil, err
+			}
+
+			zones := make([]string, 0)
+			for _, igURL := range nodePool.InstanceGroupUrls {
+				// e.g https://www.googleapis.com/compute/v1/projects/portworx-eng/zones/us-east1-b/instanceGroupManagers/gke-harsh-regional-asg-t-default-pool-a8750fe9-grp
+				parts := strings.Split(igURL, "/")
+				if len(parts) < 3 {
+					return nil, fmt.Errorf("failed to parse zones for a node pool")
+				}
+
+				zones = append(zones, parts[len(parts)-3])
+			}
+
+			retval := &cloudops.InstanceGroupInfo{
+				CloudResourceInfo: cloudops.CloudResourceInfo{
+					Name:   nodePool.Name,
+					Zone:   s.inst.zone,
+					Region: s.inst.region,
+				},
+				Zones:              zones,
+				AutoscalingEnabled: nodePool.Autoscaling.Enabled,
+				Min:                &nodePool.Autoscaling.MinNodeCount,
+				Max:                &nodePool.Autoscaling.MaxNodeCount,
+			}
+
+			if nodePool.Config != nil {
+				retval.Labels = nodePool.Config.Labels
+			}
+
+			return retval, nil
+		}
+	}
+
+	return nil, fmt.Errorf("instance doesn't belong to a GKE node pool")
+}
+
 func (s *gceOps) ApplyTags(
 	diskName string,
 	labels map[string]string) error {
-	d, err := s.service.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
+	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if err != nil {
 		return err
 	}
@@ -118,7 +257,7 @@ func (s *gceOps) ApplyTags(
 		Labels:           currentLabels,
 	}
 
-	_, err = s.service.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
+	_, err = s.computeService.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
 	return err
 }
 
@@ -127,7 +266,7 @@ func (s *gceOps) Attach(diskName string) (string, error) {
 	defer s.mutex.Unlock()
 
 	var d *compute.Disk
-	d, err := s.service.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
+	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if err != nil {
 		return "", err
 	}
@@ -142,7 +281,7 @@ func (s *gceOps) Attach(diskName string) (string, error) {
 		Source:     diskURL,
 	}
 
-	_, err = s.service.Instances.AttachDisk(
+	_, err = s.computeService.Instances.AttachDisk(
 		s.inst.project,
 		s.inst.zone,
 		s.inst.name,
@@ -180,7 +319,7 @@ func (s *gceOps) Create(
 		Zone:           path.Base(v.Zone),
 	}
 
-	resp, err := s.service.Disks.Insert(s.inst.project, newDisk.Zone, newDisk).Do()
+	resp, err := s.computeService.Disks.Insert(s.inst.project, newDisk.Zone, newDisk).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +328,7 @@ func (s *gceOps) Create(
 		return nil, s.rollbackCreate(resp.Name, err)
 	}
 
-	d, err := s.service.Disks.Get(s.inst.project, newDisk.Zone, newDisk.Name).Do()
+	d, err := s.computeService.Disks.Get(s.inst.project, newDisk.Zone, newDisk.Name).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -204,13 +343,13 @@ func (s *gceOps) DeleteFrom(id, _ string) error {
 func (s *gceOps) Delete(id string) error {
 	ctx := context.Background()
 	found := false
-	req := s.service.Disks.AggregatedList(s.inst.project)
+	req := s.computeService.Disks.AggregatedList(s.inst.project)
 	if err := req.Pages(ctx, func(page *compute.DiskAggregatedList) error {
 		for _, diskScopedList := range page.Items {
 			for _, disk := range diskScopedList.Disks {
 				if disk.Name == id {
 					found = true
-					_, err := s.service.Disks.Delete(s.inst.project, path.Base(disk.Zone), id).Do()
+					_, err := s.computeService.Disks.Delete(s.inst.project, path.Base(disk.Zone), id).Do()
 					return err
 				}
 			}
@@ -237,7 +376,7 @@ func (s *gceOps) DetachFrom(devicePath, instanceName string) error {
 }
 
 func (s *gceOps) detachInternal(devicePath, instanceName string) error {
-	_, err := s.service.Instances.DetachDisk(
+	_, err := s.computeService.Instances.DetachDisk(
 		s.inst.project,
 		s.inst.zone,
 		instanceName,
@@ -247,7 +386,7 @@ func (s *gceOps) detachInternal(devicePath, instanceName string) error {
 	}
 
 	var d *compute.Disk
-	d, err = s.service.Disks.Get(s.inst.project, s.inst.zone, devicePath).Do()
+	d, err = s.computeService.Disks.Get(s.inst.project, s.inst.zone, devicePath).Do()
 	if err != nil {
 		return err
 	}
@@ -286,7 +425,7 @@ func (s *gceOps) DeviceMappings() (map[string]string, error) {
 }
 
 func (s *gceOps) DevicePath(diskName string) (string, error) {
-	d, err := s.service.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
+	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if gerr, ok := err.(*googleapi.Error); ok &&
 		gerr.Code == http.StatusNotFound {
 		return "", cloudops.NewStorageError(
@@ -403,7 +542,7 @@ func (s *gceOps) RemoveTags(
 	diskName string,
 	labels map[string]string,
 ) error {
-	d, err := s.service.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
+	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if err != nil {
 		return err
 	}
@@ -419,7 +558,7 @@ func (s *gceOps) RemoveTags(
 			Labels:           currentLabels,
 		}
 
-		_, err = s.service.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
+		_, err = s.computeService.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
 	}
 
 	return err
@@ -433,7 +572,7 @@ func (s *gceOps) Snapshot(
 		Name: fmt.Sprintf("snap-%d%02d%02d", time.Now().Year(), time.Now().Month(), time.Now().Day()),
 	}
 
-	_, err := s.service.Disks.CreateSnapshot(s.inst.project, s.inst.zone, disk, rb).Do()
+	_, err := s.computeService.Disks.CreateSnapshot(s.inst.project, s.inst.zone, disk, rb).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +581,7 @@ func (s *gceOps) Snapshot(
 		return nil, err
 	}
 
-	snap, err := s.service.Snapshots.Get(s.inst.project, rb.Name).Do()
+	snap, err := s.computeService.Snapshots.Get(s.inst.project, rb.Name).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -451,12 +590,12 @@ func (s *gceOps) Snapshot(
 }
 
 func (s *gceOps) SnapshotDelete(snapID string) error {
-	_, err := s.service.Snapshots.Delete(s.inst.project, snapID).Do()
+	_, err := s.computeService.Snapshots.Delete(s.inst.project, snapID).Do()
 	return err
 }
 
 func (s *gceOps) Tags(diskName string) (map[string]string, error) {
-	d, err := s.service.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
+	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -465,18 +604,18 @@ func (s *gceOps) Tags(diskName string) (map[string]string, error) {
 }
 
 func (s *gceOps) available(v *compute.Disk) bool {
-	return v.Status == StatusReady
+	return strings.ToLower(v.Status) == StatusReady
 }
 
 func (s *gceOps) checkDiskStatus(id string, zone string, desired string) error {
 	_, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
-			d, err := s.service.Disks.Get(s.inst.project, zone, id).Do()
+			d, err := s.computeService.Disks.Get(s.inst.project, zone, id).Do()
 			if err != nil {
 				return nil, true, err
 			}
 
-			actual := d.Status
+			actual := strings.ToLower(d.Status)
 			if len(actual) == 0 {
 				return nil, true, fmt.Errorf("nil volume state for %v", id)
 			}
@@ -498,12 +637,12 @@ func (s *gceOps) checkDiskStatus(id string, zone string, desired string) error {
 func (s *gceOps) checkSnapStatus(id string, desired string) error {
 	_, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
-			snap, err := s.service.Snapshots.Get(s.inst.project, id).Do()
+			snap, err := s.computeService.Snapshots.Get(s.inst.project, id).Do()
 			if err != nil {
 				return nil, true, err
 			}
 
-			actual := snap.Status
+			actual := strings.ToLower(snap.Status)
 			if len(actual) == 0 {
 				return nil, true, fmt.Errorf("nil snapshot state for %v", id)
 			}
@@ -528,7 +667,7 @@ func (s *gceOps) Describe() (interface{}, error) {
 }
 
 func (s *gceOps) describeinstance() (*compute.Instance, error) {
-	return s.service.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+	return s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
 }
 
 // gceInfo fetches the GCE instance metadata from the metadata server
@@ -538,6 +677,8 @@ func gceInfo(inst *instance) error {
 	if err != nil {
 		return err
 	}
+
+	inst.region = inst.zone[:len(inst.zone)-2]
 
 	inst.name, err = metadata.InstanceName()
 	if err != nil {
@@ -568,6 +709,8 @@ func gceInfoFromEnv(inst *instance) error {
 	if err != nil {
 		return err
 	}
+
+	inst.region = inst.zone[:len(inst.zone)-2]
 
 	inst.project, err = cloudops.GetEnvValueStrict("GCE_INSTANCE_PROJECT")
 	if err != nil {
@@ -660,9 +803,9 @@ func (s *gceOps) getDisksFromAllZones(labels map[string]string) (map[string]*com
 
 	if len(labels) > 0 {
 		filter := generateListFilterFromLabels(labels)
-		req = s.service.Disks.AggregatedList(s.inst.project).Filter(filter)
+		req = s.computeService.Disks.AggregatedList(s.inst.project).Filter(filter)
 	} else {
-		req = s.service.Disks.AggregatedList(s.inst.project)
+		req = s.computeService.Disks.AggregatedList(s.inst.project)
 	}
 
 	if err := req.Pages(ctx, func(page *compute.DiskAggregatedList) error {
