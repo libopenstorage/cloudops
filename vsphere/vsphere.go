@@ -277,14 +277,18 @@ func (ops *vsphereOps) Describe() (interface{}, error) {
 
 // FreeDevices is not supported by this provider
 func (ops *vsphereOps) FreeDevices(blockDeviceMappings []interface{}, rootDeviceName string) ([]string, error) {
-	return nil, cloudops.ErrNotSupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "FreeDevices",
+	}
 }
 
 func (ops *vsphereOps) Inspect(diskPaths []*string) ([]interface{}, error) {
 	// TODO find a way to map diskPaths to unattached/attached virtual disks and query info
 	// currently returning the disks directly
 
-	return nil, cloudops.ErrNotSupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "Inspect",
+	}
 }
 
 // DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME
@@ -354,32 +358,44 @@ func (ops *vsphereOps) Enumerate(volumeIds []*string,
 	labels map[string]string,
 	setIdentifier string,
 ) (map[string][]interface{}, error) {
-	return nil, cloudops.ErrNotSupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "Enumerate",
+	}
 }
 
 // Snapshot the volume with given volumeID
 func (ops *vsphereOps) Snapshot(volumeID string, readonly bool) (interface{}, error) {
-	return nil, cloudops.ErrNotSupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "Snapshot",
+	}
 }
 
 // SnapshotDelete deletes the snapshot with given ID
 func (ops *vsphereOps) SnapshotDelete(snapID string) error {
-	return cloudops.ErrNotSupported
+	return &cloudops.ErrNotSupported{
+		Operation: "SnapshotDelete",
+	}
 }
 
 // ApplyTags will apply given labels/tags on the given volume
 func (ops *vsphereOps) ApplyTags(volumeID string, labels map[string]string) error {
-	return cloudops.ErrNotSupported
+	return &cloudops.ErrNotSupported{
+		Operation: "ApplyTags",
+	}
 }
 
 // RemoveTags removes labels/tags from the given volume
 func (ops *vsphereOps) RemoveTags(volumeID string, labels map[string]string) error {
-	return cloudops.ErrNotSupported
+	return &cloudops.ErrNotSupported{
+		Operation: "RemoveTags",
+	}
 }
 
 // Tags will list the existing labels/tags on the given volume
 func (ops *vsphereOps) Tags(volumeID string) (map[string]string, error) {
-	return nil, cloudops.ErrNotSupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "Tags",
+	}
 }
 
 // GetVMObject fetches the VirtualMachine object corresponding to the given virtual machine uuid

@@ -4,26 +4,26 @@ import (
 	"github.com/libopenstorage/cloudops"
 )
 
-type unsupportedCompte struct {
+type unsupportedCompute struct {
 }
 
-// NewUnsupportedCompute return wrapper for cloudOps
+// NewUnsupportedCompute return wrapper for cloudOps where all methods are not supported
 func NewUnsupportedCompute() cloudops.Compute {
-	return &unsupportedCompte{}
+	return &unsupportedCompute{}
 }
 
-func (u *unsupportedCompte) InstanceID() string {
+func (u *unsupportedCompute) InstanceID() string {
 	return "Unsupported"
 }
 
-// Inspect instance identified by ID.
-func (u *unsupportedCompte) InspectIntance(ID string) (*cloudops.InstanceInfo, error) {
-	return nil, cloudops.ErrUnsupported
+func (u *unsupportedCompute) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "InspectInstance",
+	}
 }
 
-// InspectInstanceGroup returns instanceGroupInfo matching labels.
-func (u *unsupportedCompte) InspectInstanceGroup(
-	labels map[string]string,
-) (*cloudops.InstanceInfo, error) {
-	return nil, cloudops.ErrUnsupported
+func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "InspectInstanceGroupForInstance",
+	}
 }

@@ -23,7 +23,7 @@ func TestAll(t *testing.T) {
 	drivers := make(map[string]cloudops.Ops)
 	diskTemplates := make(map[string]map[string]interface{})
 
-	if d, err := NewEnvClient(); err == nil {
+	if d, err := NewClient(); err == nil {
 		volType := opsworks.VolumeTypeGp2
 		volSize := int64(newDiskSizeInGB)
 		zone, _ := cloudops.GetEnvValueStrict("AWS_ZONE")
@@ -44,7 +44,7 @@ func TestAll(t *testing.T) {
 }
 
 func TestAwsGetPrefixFromRootDeviceName(t *testing.T) {
-	a := &ec2Ops{}
+	a := &awsOps{}
 	tests := []struct {
 		deviceName     string
 		expectedPrefix string

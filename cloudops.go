@@ -1,49 +1,10 @@
 package cloudops
 
-import (
-	"errors"
-	"fmt"
-)
-
 const (
 	// SetIdentifierNone is a default identifier to group all disks from a
 	// particular set
 	SetIdentifierNone = "None"
 )
-
-// Custom storage operation error codes.
-const (
-	_ = iota + 5000
-	// ErrVolDetached is code for a volume is detached on the instance
-	ErrVolDetached
-	// ErrVolInval is the code for a invalid volume
-	ErrVolInval
-	// ErrVolAttachedOnRemoteNode is code when a volume is not attached locally
-	// but attached on a remote node
-	ErrVolAttachedOnRemoteNode
-	// ErrVolNotFound is code when a volume is not found
-	ErrVolNotFound
-	// ErrInvalidDevicePath is code when a volume/disk has invalid device path
-	ErrInvalidDevicePath
-)
-
-var (
-	// ErrUnsupported operation is unsupported.
-	ErrUnsupported = errors.New("Unsupported Operation")
-)
-
-// ErrNotSupported is returned when a particular operation is not supported
-var ErrNotSupported = fmt.Errorf("operation not supported")
-
-// StorageError error returned for storage operations
-type StorageError struct {
-	// Code is one of storage operation driver error codes.
-	Code int
-	// Msg is human understandable error message.
-	Msg string
-	// Instance provides more information on the error.
-	Instance string
-}
 
 // CloudResourceInfo provides metadata information on a cloud resource.
 type CloudResourceInfo struct {
@@ -66,9 +27,9 @@ type InstanceGroupInfo struct {
 	// AutoscalingEnabled is true if auto scaling is turned on
 	AutoscalingEnabled bool
 	// Min number of nodes in the instance group
-	Min int64
+	Min *int64
 	// Max number of nodes in the instance group
-	Max int64
+	Max *int64
 	// Zones that the instance group is part of
 	Zones []string
 }
@@ -82,10 +43,11 @@ type InstanceInfo struct {
 type Compute interface {
 	// InstanceID of instance where command is executed.
 	InstanceID() string
-	// Inspect instance identified by ID.
-	InspectIntance(ID string) (*InstanceInfo, error)
-	// InspectInstanceGroup returns instanceGroupInfo matching labels.
-	InspectInstanceGroup(labels map[string]string) (*InstanceInfo, error)
+	// InspectInstance inspects the node with the given instance ID
+	InspectInstance(instanceID string) (*InstanceInfo, error)
+	// InspectInstanceGroupForInstance inspects the instance group to which the
+	// cloud instance with given ID belongs
+	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
 }
 
 // Storage interface to manage storage operations.
@@ -144,13 +106,4 @@ type Ops interface {
 	Storage
 	// Compute operations in the cloud
 	Compute
-}
-
-// NewStorageError creates a new custom storage error instance
-func NewStorageError(code int, msg string, instance string) error {
-	return &StorageError{Code: code, Msg: msg, Instance: instance}
-}
-
-func (e *StorageError) Error() string {
-	return e.Msg
 }

@@ -291,7 +291,9 @@ func (a *azureOps) FreeDevices(
 	blockDeviceMappings []interface{},
 	rootDeviceName string,
 ) ([]string, error) {
-	return nil, cloudops.ErrNotSupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "FreeDevices",
+	}
 }
 
 func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
