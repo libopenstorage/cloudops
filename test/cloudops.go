@@ -25,13 +25,7 @@ func RunTest(
 	t *testing.T) {
 	for _, d := range drivers {
 		name(t, d)
-		info, err := d.InspectSelf()
-		require.NoError(t, err, "failed to inspect instance")
-		require.NotNil(t, info, "got nil instance info from inspect")
-
-		groupInfo, err := d.InspectSelfInstanceGroup()
-		require.NoError(t, err, "failed to inspect instance group")
-		require.NotNil(t, groupInfo, "got nil instance group info from inspect")
+		compute(t, d)
 
 		for _, template := range diskTemplates[d.Name()] {
 			disk := create(t, d, template)
@@ -52,6 +46,19 @@ func RunTest(
 func name(t *testing.T, driver cloudops.Ops) {
 	name := driver.Name()
 	require.NotEmpty(t, name, "driver returned empty name")
+}
+
+func compute(t *testing.T, driver cloudops.Ops) {
+	instanceID := driver.InstanceID()
+	require.NotEmpty(t, instanceID, "failed to get instance ID")
+
+	info, err := driver.InspectInstance(instanceID)
+	require.NoError(t, err, "failed to inspect instance")
+	require.NotNil(t, info, "got nil instance info from inspect")
+
+	groupInfo, err := driver.InspectInstanceGroupForInstance(instanceID)
+	require.NoError(t, err, "failed to inspect instance group")
+	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {
@@ -141,17 +148,16 @@ func inspect(t *testing.T, driver cloudops.Ops, diskName string) {
 
 func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 	devPath, err := driver.Attach(diskName)
-	if err != nil && strings.Contains(err.Error(), "no such file or directory") {
-		logrus.Infof("ignoring failure to attach as it tries to find device path " +
-			" and that works only when running test on the instance")
+	if err != nil && canErrBeIgnored(err) {
+		// don't check devPath
 	} else {
 		require.NoError(t, err, "failed to attach disk")
 		require.NotEmpty(t, devPath, "disk attach returned empty devicePath")
 	}
 
 	mappings, err := driver.DeviceMappings()
-	if err != nil && strings.Contains(err.Error(), "no such file or directory") {
-		logrus.Infof("ignoring failure to find device mappings as it works only when running test on the instance")
+	if err != nil && canErrBeIgnored(err) {
+		// don't check mappings
 	} else {
 		require.NoError(t, err, "failed to get device mappings")
 		require.NotEmpty(t, mappings, "received empty device mappings")
@@ -163,17 +169,16 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 	time.Sleep(3 * time.Second)
 
 	devPath, err = driver.Attach(diskName)
-	if err != nil && strings.Contains(err.Error(), "no such file or directory") {
-		logrus.Infof("ignoring failure to attach as it tries to find device path " +
-			" and that works only when running test on the instance")
+	if err != nil && canErrBeIgnored(err) {
+		// don't check devPath
 	} else {
 		require.NoError(t, err, "failed to attach disk")
 		require.NotEmpty(t, devPath, "disk attach returned empty devicePath")
 	}
 
 	mappings, err = driver.DeviceMappings()
-	if err != nil && strings.Contains(err.Error(), "no such file or directory") {
-		logrus.Infof("ignoring failure to find device mappings as it works on when running test on the instance")
+	if err != nil && canErrBeIgnored(err) {
+		// don't check mappings
 	} else {
 		require.NoError(t, err, "failed to get device mappings")
 		require.NotEmpty(t, mappings, "received empty device mappings")
@@ -182,8 +187,8 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 
 func devicePath(t *testing.T, driver cloudops.Ops, diskName string) {
 	devPath, err := driver.DevicePath(diskName)
-	if err != nil && strings.Contains(err.Error(), "no such file or directory") {
-		logrus.Infof("ignoring failure to find device path  as it works only when running test on the instance")
+	if err != nil && canErrBeIgnored(err) {
+		// don't check devPath
 	} else {
 		require.NoError(t, err, "get device path returned error")
 		require.NotEmpty(t, devPath, "received empty devicePath")
@@ -198,4 +203,19 @@ func teardown(t *testing.T, driver cloudops.Ops, diskID string) {
 
 	err = driver.Delete(diskID)
 	require.NoError(t, err, "failed to delete disk")
+}
+
+func canErrBeIgnored(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if strings.Contains(err.Error(), "no such file or directory") ||
+		strings.Contains(err.Error(), "unable to map volume") {
+		logrus.Infof("ignoring err: %v as it's expected when test is not running on the actual instance", err)
+		return true
+	}
+
+	return false
+
 }

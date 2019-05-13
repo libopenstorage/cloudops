@@ -16,11 +16,10 @@ func (u *unsupportedCompute) InstanceID() string {
 	return "Unsupported"
 }
 
-func (u *unsupportedCompute) InspectSelf() (*cloudops.InstanceInfo, error) {
+func (u *unsupportedCompute) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
 	return nil, cloudops.ErrUnsupported
 }
 
-// InspectInstanceGroup returns instanceGroupInfo matching labels.
-func (u *unsupportedCompute) InspectSelfInstanceGroup() (*cloudops.InstanceGroupInfo, error) {
+func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
 	return nil, cloudops.ErrUnsupported
 }

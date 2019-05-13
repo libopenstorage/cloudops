@@ -21,7 +21,7 @@ import (
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/pkg/exec"
 	"github.com/libopenstorage/cloudops/unsupported"
-	scredentials "github.com/libopenstorage/secrets/aws/credentials"
+	awscredentials "github.com/libopenstorage/secrets/aws/credentials"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 )
@@ -62,7 +62,7 @@ func NewClient() (cloudops.Ops, error) {
 	}
 
 	region := zone[:len(zone)-1]
-	awsCreds, err := scredentials.NewAWSCredentials("", "", "")
+	awsCreds, err := awscredentials.NewAWSCredentials("", "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -230,15 +230,15 @@ func (s *awsOps) Name() string { return "aws" }
 
 func (s *awsOps) InstanceID() string { return s.instance }
 
-func (s *awsOps) InspectSelf() (*cloudops.InstanceInfo, error) {
-	inst, err := DescribeInstanceByID(s.ec2, s.instance)
+func (s *awsOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
+	inst, err := DescribeInstanceByID(s.ec2, instanceID)
 	if err != nil {
 		return nil, err
 	}
 
 	instInfo := &cloudops.InstanceInfo{
 		CloudResourceInfo: cloudops.CloudResourceInfo{
-			Name:   s.instance,
+			Name:   instanceID,
 			ID:     *inst.InstanceId,
 			Zone:   s.zone,
 			Region: s.region,
@@ -248,8 +248,8 @@ func (s *awsOps) InspectSelf() (*cloudops.InstanceInfo, error) {
 	return instInfo, nil
 }
 
-func (s *awsOps) InspectSelfInstanceGroup() (*cloudops.InstanceGroupInfo, error) {
-	selfInfo, err := s.InspectSelf()
+func (s *awsOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
+	selfInfo, err := s.InspectInstance(instanceID)
 	if err != nil {
 		return nil, err
 	}

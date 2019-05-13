@@ -82,12 +82,11 @@ type InstanceInfo struct {
 type Compute interface {
 	// InstanceID of instance where command is executed.
 	InstanceID() string
-	// InspectSelf inspects the node where the code is invoked. Hence this assumes
-	// this is invoked from within a cloud instance
-	InspectSelf() (*InstanceInfo, error)
-	// InspectSelfInstanceGroup inspects the instance group within which the current
-	// instance resides
-	InspectSelfInstanceGroup() (*InstanceGroupInfo, error)
+	// InspectSelf inspects the node where the code is invoked.
+	InspectInstance(instanceID string) (*InstanceInfo, error)
+	// InspectSelfInstanceGroupForInstance inspects the instance group to which
+	// the cloud instance with given ID belongs
+	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
 }
 
 // Storage interface to manage storage operations.

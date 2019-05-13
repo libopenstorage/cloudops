@@ -105,8 +105,8 @@ func (s *gceOps) Name() string { return "gce" }
 
 func (s *gceOps) InstanceID() string { return s.inst.name }
 
-func (s *gceOps) InspectSelf() (*cloudops.InstanceInfo, error) {
-	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+func (s *gceOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
+	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, instanceID).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +123,8 @@ func (s *gceOps) InspectSelf() (*cloudops.InstanceInfo, error) {
 	return instInfo, nil
 }
 
-func (s *gceOps) InspectSelfInstanceGroup() (*cloudops.InstanceGroupInfo, error) {
-	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
+	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, instanceID).Do()
 	if err != nil {
 		return nil, err
 	}
