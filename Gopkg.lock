@@ -276,11 +276,11 @@
 
 [[projects]]
   branch = "return-err-detail"
-  digest = "1:9f4dbfa1f67b2e30440d19deab60ccf720505ce25df57dd18dd08dc7b63bd982"
+  digest = "1:8fa6d46c066c7d781d1c8e8bed9fce42938384690ea53d799e1364ef17b86a98"
   name = "github.com/portworx/sched-ops"
   packages = ["task"]
   pruneopts = "UT"
-  revision = "3a9bb710c2cedc49568ca7538e509559c5e31c6b"
+  revision = "397acec09f7a5c049c29d4ed24b007872c048265"
 
 [[projects]]
   digest = "1:75d51eeab0df85a3cea9e1297ccd3183b20a10cb4b48c753d8ec8d113cc14250"
