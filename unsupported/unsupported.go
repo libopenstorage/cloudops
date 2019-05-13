@@ -17,9 +17,13 @@ func (u *unsupportedCompute) InstanceID() string {
 }
 
 func (u *unsupportedCompute) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
-	return nil, cloudops.ErrUnsupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "InspectInstance",
+	}
 }
 
 func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
-	return nil, cloudops.ErrUnsupported
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "InspectInstanceGroupForInstance",
+	}
 }

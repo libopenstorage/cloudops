@@ -186,7 +186,10 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 		len(instanceTemplate) == 0 ||
 		len(clusterLocation) == 0 ||
 		len(kubeLabels) == 0 {
-		return nil, fmt.Errorf("API is currently only supported on the GKE platform")
+		return nil, &cloudops.ErrNotSupported{
+			Operation: "InspectInstanceGroupForInstance",
+			Reason:    "API is currently only supported on the GKE platform",
+		}
 	}
 
 	for labelKey, labelValue := range kubeLabels {

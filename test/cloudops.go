@@ -78,7 +78,7 @@ func id(t *testing.T, driver cloudops.Ops, disk interface{}) string {
 
 func snapshot(t *testing.T, driver cloudops.Ops, diskName string) {
 	snap, err := driver.Snapshot(diskName, true)
-	if err == cloudops.ErrNotSupported {
+	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
 
@@ -95,7 +95,7 @@ func snapshot(t *testing.T, driver cloudops.Ops, diskName string) {
 
 func tags(t *testing.T, driver cloudops.Ops, diskName string) {
 	err := driver.ApplyTags(diskName, diskLabels)
-	if err == cloudops.ErrNotSupported {
+	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
 
@@ -118,7 +118,7 @@ func tags(t *testing.T, driver cloudops.Ops, diskName string) {
 
 func enumerate(t *testing.T, driver cloudops.Ops, diskName string) {
 	disks, err := driver.Enumerate([]*string{&diskName}, diskLabels, cloudops.SetIdentifierNone)
-	if err == cloudops.ErrNotSupported {
+	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
 
@@ -138,7 +138,7 @@ func enumerate(t *testing.T, driver cloudops.Ops, diskName string) {
 
 func inspect(t *testing.T, driver cloudops.Ops, diskName string) {
 	disks, err := driver.Inspect([]*string{&diskName})
-	if err == cloudops.ErrNotSupported {
+	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
 

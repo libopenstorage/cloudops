@@ -236,13 +236,19 @@ func (s *awsOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, err
 		return nil, err
 	}
 
+	name := instanceID
+	labels := labelsFromTags(inst.Tags)
+	if nameFromTags, present := labels["Name"]; present && len(nameFromTags) > 0 {
+		name = nameFromTags
+	}
+
 	instInfo := &cloudops.InstanceInfo{
 		CloudResourceInfo: cloudops.CloudResourceInfo{
-			Name:   instanceID,
+			Name:   name,
 			ID:     *inst.InstanceId,
 			Zone:   s.zone,
 			Region: s.region,
-			Labels: labelsFromTags(inst.Tags),
+			Labels: labels,
 		},
 	}
 	return instInfo, nil
@@ -299,7 +305,7 @@ func (s *awsOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 		}
 	}
 
-	return nil, fmt.Errorf("instance doesn't belong to an instance group")
+	return nil, &cloudops.ErrNoInstanceGroup{}
 }
 
 func (s *awsOps) ApplyTags(volumeID string, labels map[string]string) error {
