@@ -567,6 +567,30 @@ func (s *gceOps) RemoveTags(
 	return err
 }
 
+func (s *gceOps) SetCountForInstanceGroup(instanceGroupInfo *cloudops.InstanceGroupInfo, count int64) error {
+	if count < 0 {
+		return fmt.Errorf("not valid value [%d] for desired count for node pool %s", count, instanceGroupInfo.Name)
+	}
+	clusterLocation := instanceGroupInfo.Zone
+	// TODO: Figure out how to get GKE cluster name
+	gkeClusterName := "torpedo-tp-2-2-gke-reboot-5"
+	nodePoolName := instanceGroupInfo.CloudResourceInfo.Name
+
+	nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
+		s.inst.project, clusterLocation, gkeClusterName, nodePoolName)
+
+	setSizeRequest := &container.SetNodePoolSizeRequest{
+		Name:      nodePoolPath,
+		NodeCount: count,
+	}
+	_, err := s.containerService.Projects.Locations.Clusters.NodePools.SetSize(nodePoolPath, setSizeRequest).Do()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *gceOps) Snapshot(
 	disk string,
 	readonly bool,

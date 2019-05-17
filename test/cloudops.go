@@ -59,6 +59,12 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	groupInfo, err := driver.InspectInstanceGroupForInstance(instanceID)
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
+
+	err = driver.SetCountForInstanceGroup(groupInfo, int64(4))
+	require.NoError(t, err, "failed to inspect instance group")
+	// TODO: Once current node count is tracked in instanceGroupInfo,
+	//       add more verifications
+
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {

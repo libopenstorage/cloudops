@@ -48,6 +48,9 @@ type Compute interface {
 	// InspectInstanceGroupForInstance inspects the instance group to which the
 	// cloud instance with given ID belongs
 	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
+	// SetCountForInstanceGroup sets desired count per availability zone
+	// for given instance group
+	SetCountForInstanceGroup(instanceGroupInfo *InstanceGroupInfo, count int64) error
 }
 
 // Storage interface to manage storage operations.

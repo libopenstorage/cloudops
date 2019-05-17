@@ -27,3 +27,9 @@ func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) 
 		Operation: "InspectInstanceGroupForInstance",
 	}
 }
+
+func (u *unsupportedCompute) SetCountForInstanceGroup(instanceGroupInfo *cloudops.InstanceGroupInfo, count int64) error {
+	return &cloudops.ErrNotSupported{
+		Operation: "SetCountForInstanceGroup",
+	}
+}
