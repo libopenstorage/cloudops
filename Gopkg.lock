@@ -570,6 +570,25 @@
   version = "v1.20.1"
 
 [[projects]]
+  branch = "master"
+  digest = "1:e03a99f0e214e2ddd351ded433f45033ab61bf24c22761c3cb9243f58ced0285"
+  name = "k8s.io/apimachinery"
+  packages = [
+    "pkg/util/runtime",
+    "pkg/util/wait",
+  ]
+  pruneopts = "UT"
+  revision = "b74e4c97951f106696db86d7593effcb1463ca30"
+
+[[projects]]
+  digest = "1:c696379ad201c1e86591785579e16bf6cf886c362e9a7534e8eb0d1028b20582"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e531227889390a39d9533dde61f590fe9f4b0035"
+  version = "v0.3.0"
+
+[[projects]]
   digest = "1:32a77a1bb4cf2454304ac075a05a87b7350c933406187b7b12bf183a07c130a3"
   name = "k8s.io/kubernetes"
   packages = [
@@ -615,6 +634,7 @@
     "google.golang.org/api/container/v1",
     "google.golang.org/api/googleapi",
     "google.golang.org/api/option",
+    "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib",
     "k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib/diskmanagers",
   ]
