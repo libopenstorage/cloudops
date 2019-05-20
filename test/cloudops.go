@@ -40,6 +40,7 @@ func RunTest(
 			teardown(t, d, diskID)
 			fmt.Printf("Tore down disk: %v\n", disk)
 		}
+
 	}
 }
 
@@ -60,11 +61,13 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
 
-	err = driver.SetCountForInstanceGroup(groupInfo, int64(4))
-	require.NoError(t, err, "failed to inspect instance group")
-	// TODO: Once current node count is tracked in instanceGroupInfo,
-	//       add more verifications
-
+	err = driver.SetCountForInstanceGroup(instanceID, int64(2))
+	if err != nil {
+		_, ok := err.(*cloudops.ErrNotSupported)
+		if !ok {
+			t.Error("Fialed to set node count")
+		}
+	}
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {

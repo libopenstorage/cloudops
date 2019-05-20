@@ -50,7 +50,7 @@ type Compute interface {
 	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
 	// SetCountForInstanceGroup sets desired count per availability zone
 	// for given instance group
-	SetCountForInstanceGroup(instanceGroupInfo *InstanceGroupInfo, count int64) error
+	SetCountForInstanceGroup(instanceID string, count int64) error
 }
 
 // Storage interface to manage storage operations.

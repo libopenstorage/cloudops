@@ -124,72 +124,16 @@ func (s *gceOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, err
 }
 
 func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
-	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, instanceID).Do()
-	if err != nil {
-		return nil, err
-	}
-
-	meta := inst.Metadata
-	if meta == nil {
-		return nil, fmt.Errorf("instance doesn't have metadata set")
-	}
 
 	var (
-		gkeClusterName   string
-		instanceTemplate string
-		clusterLocation  string
-		kubeLabels       map[string]string
+		gkeClusterName  string
+		clusterLocation string
+		kubeLabels      map[string]string
 	)
 
-	for _, item := range meta.Items {
-		if item == nil {
-			continue
-		}
-
-		if item.Key == clusterNameKey {
-			if item.Value == nil {
-				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", clusterNameKey)
-			}
-
-			gkeClusterName = *item.Value
-		}
-
-		if item.Key == instanceTemplateKey {
-			if item.Value == nil {
-				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", instanceTemplateKey)
-			}
-
-			instanceTemplate = *item.Value
-		}
-
-		if item.Key == clusterLocationKey {
-			if item.Value == nil {
-				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", clusterLocationKey)
-			}
-
-			clusterLocation = *item.Value
-		}
-
-		if item.Key == kubeLabelsKey {
-			if item.Value == nil {
-				return nil, fmt.Errorf("instance has %s key in metadata but has invalid value", kubeLabelsKey)
-			}
-
-			kubeLabels, err = parser.LabelsFromString(*item.Value)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	if len(gkeClusterName) == 0 ||
-		len(instanceTemplate) == 0 ||
-		len(clusterLocation) == 0 ||
-		len(kubeLabels) == 0 {
-		return nil, &cloudops.ErrNotSupported{
-			Operation: "InspectInstanceGroupForInstance",
-			Reason:    "API is currently only supported on the GKE platform",
-		}
+	gkeClusterName, _, clusterLocation, kubeLabels, err := s.getGKEClusterDetails(instanceID)
+	if err != nil {
+		return nil, err
 	}
 
 	for labelKey, labelValue := range kubeLabels {
@@ -567,25 +511,27 @@ func (s *gceOps) RemoveTags(
 	return err
 }
 
-func (s *gceOps) SetCountForInstanceGroup(instanceGroupInfo *cloudops.InstanceGroupInfo, count int64) error {
-	if count < 0 {
-		return fmt.Errorf("not valid value [%d] for desired count for node pool %s", count, instanceGroupInfo.Name)
-	}
-	clusterLocation := instanceGroupInfo.Zone
-	// TODO: Figure out how to get GKE cluster name
-	gkeClusterName := "torpedo-tp-2-2-gke-reboot-5"
-	nodePoolName := instanceGroupInfo.CloudResourceInfo.Name
+func (s *gceOps) SetCountForInstanceGroup(instanceID string, count int64) error {
 
-	nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
-		s.inst.project, clusterLocation, gkeClusterName, nodePoolName)
-
-	setSizeRequest := &container.SetNodePoolSizeRequest{
-		Name:      nodePoolPath,
-		NodeCount: count,
-	}
-	_, err := s.containerService.Projects.Locations.Clusters.NodePools.SetSize(nodePoolPath, setSizeRequest).Do()
+	gkeClusterName, _, clusterLocation, kubeLabels, err := s.getGKEClusterDetails(instanceID)
 	if err != nil {
 		return err
+	}
+
+	for labelKey, labelValue := range kubeLabels {
+		if labelKey == nodePoolKey {
+			nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
+				s.inst.project, clusterLocation, gkeClusterName, labelValue)
+
+			setSizeRequest := &container.SetNodePoolSizeRequest{
+				Name:      nodePoolPath,
+				NodeCount: count,
+			}
+			_, err := s.containerService.Projects.Locations.Clusters.NodePools.SetSize(nodePoolPath, setSizeRequest).Do()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -695,6 +641,87 @@ func (s *gceOps) Describe() (interface{}, error) {
 
 func (s *gceOps) describeinstance() (*compute.Instance, error) {
 	return s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+}
+
+func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string, map[string]string, error) {
+
+	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, instanceID).Do()
+	if err != nil {
+		return "", "", "", map[string]string{}, err
+	}
+
+	meta := inst.Metadata
+	if meta == nil {
+		return "", "", "", map[string]string{}, err
+	}
+
+	var (
+		gkeClusterName   string
+		instanceTemplate string
+		clusterLocation  string
+		kubeLabels       map[string]string
+	)
+
+	for _, item := range meta.Items {
+		if item == nil {
+			continue
+		}
+
+		if item.Key == clusterNameKey {
+			if item.Value == nil {
+				return "", "", "", map[string]string{},
+					fmt.Errorf("instance has %s key in metadata but has invalid value", clusterNameKey)
+			}
+
+			gkeClusterName = *item.Value
+		}
+
+		if item.Key == instanceTemplateKey {
+			if item.Value == nil {
+				return "", "", "", map[string]string{},
+					fmt.Errorf("instance has %s key in metadata but has invalid value", instanceTemplateKey)
+			}
+
+			instanceTemplate = *item.Value
+		}
+
+		if item.Key == clusterLocationKey {
+			if item.Value == nil {
+				return "", "", "", map[string]string{},
+					fmt.Errorf("instance has %s key in metadata but has invalid value", clusterLocationKey)
+			}
+
+			clusterLocation = *item.Value
+		}
+
+		if item.Key == kubeLabelsKey {
+			if item.Value == nil {
+				return "", "", "", map[string]string{},
+					fmt.Errorf("instance has %s key in metadata but has invalid value", kubeLabelsKey)
+			}
+
+			kubeLabels, err = parser.LabelsFromString(*item.Value)
+			if err != nil {
+				return "", "", "", map[string]string{}, err
+			}
+		}
+	}
+
+	if len(gkeClusterName) == 0 ||
+		len(instanceTemplate) == 0 ||
+		len(clusterLocation) == 0 ||
+		len(kubeLabels) == 0 {
+		return "", "", "", map[string]string{}, &cloudops.ErrNotSupported{
+			Operation: "InspectInstanceGroupForInstance",
+			Reason:    "API is currently only supported on the GKE platform",
+		}
+	}
+
+	return gkeClusterName,
+		instanceTemplate,
+		clusterLocation,
+		kubeLabels,
+		nil
 }
 
 // gceInfo fetches the GCE instance metadata from the metadata server
