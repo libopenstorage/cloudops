@@ -16,6 +16,8 @@ const (
 	ErrVolNotFound
 	// ErrInvalidDevicePath is code when a volume/disk has invalid device path
 	ErrInvalidDevicePath
+	// ErrExponentialTimeout is code when all the retries with exponential backoff have exhausted
+	ErrExponentialTimeout
 )
 
 // ErrNotSupported is the error type for unsupported operations

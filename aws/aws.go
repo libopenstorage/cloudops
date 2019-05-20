@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/opsworks"
 	sh "github.com/codeskyblue/go-sh"
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/backoff"
 	"github.com/libopenstorage/cloudops/pkg/exec"
 	"github.com/libopenstorage/cloudops/unsupported"
 	awscredentials "github.com/libopenstorage/secrets/aws/credentials"
@@ -89,15 +90,20 @@ func NewClient() (cloudops.Ops, error) {
 		),
 	)
 
-	return &awsOps{
-		Compute:      unsupported.NewUnsupportedCompute(),
-		instance:     instanceID,
-		instanceType: instanceType,
-		ec2:          ec2,
-		zone:         zone,
-		region:       region,
-		autoscaling:  autoscaling,
-	}, nil
+	return backoff.NewExponentialBackoffOps(
+		&awsOps{
+			Compute:      unsupported.NewUnsupportedCompute(),
+			instance:     instanceID,
+			instanceType: instanceType,
+			ec2:          ec2,
+			zone:         zone,
+			region:       region,
+			autoscaling:  autoscaling,
+		},
+		isExponentialError,
+		backoff.DefaultExponentialBackoff,
+	), nil
+
 }
 
 // nvmeInstanceTypes are list of instance types whose EBS volumes are exposed as NVMe block devices
@@ -991,4 +997,26 @@ func labelsFromTags(input interface{}) map[string]string {
 	}
 
 	return labels
+}
+
+func isExponentialError(err error) bool {
+	// Got the list of error codes from here
+	// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html
+	awsCodes := map[string]struct{}{
+		"VolumeLimitExceeded":     {},
+		"AttachmentLimitExceeded": {},
+		"MaxIOPSLimitExceeded":    {},
+		"ResourceLimitExceeded":   {},
+		"RequestLimitExceeded":    {},
+		"SnapshotLimitExceeded":   {},
+		"TagLimitExceeded":        {},
+	}
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			if _, exist := awsCodes[awsErr.Code()]; exist {
+				return true
+			}
+		}
+	}
+	return false
 }
