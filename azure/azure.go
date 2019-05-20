@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/backoff"
 	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
@@ -95,14 +96,18 @@ func NewClient(
 	snapshotsClient.RetryAttempts = clientRetryAttempts
 	snapshotsClient.AddToUserAgent(userAgentExtension)
 
-	return &azureOps{
-		Compute:           unsupported.NewUnsupportedCompute(),
-		instance:          instance,
-		resourceGroupName: resourceGroupName,
-		disksClient:       &disksClient,
-		vmsClient:         vmsClient,
-		snapshotsClient:   &snapshotsClient,
-	}, nil
+	return backoff.NewExponentialBackoffOps(
+		&azureOps{
+			Compute:           unsupported.NewUnsupportedCompute(),
+			instance:          instance,
+			resourceGroupName: resourceGroupName,
+			disksClient:       &disksClient,
+			vmsClient:         vmsClient,
+			snapshotsClient:   &snapshotsClient,
+		},
+		isExponentialError,
+		backoff.DefaultExponentialBackoff,
+	), nil
 }
 
 func (a *azureOps) Create(
@@ -738,4 +743,25 @@ func lunToBlockDevPath(lun int32) (string, error) {
 	}
 
 	return devPath, nil
+}
+
+func isExponentialError(err error) bool {
+	// Got the list of error codes from here
+	// https://docs.microsoft.com/en-us/rest/api/storageservices/common-rest-api-error-codes
+
+	azureCodes := map[int]struct{}{
+		int(429): {},
+	}
+	if err != nil {
+		if azErr, ok := err.(autorest.DetailedError); ok {
+			code, ok := azErr.StatusCode.(int)
+			if ok {
+				if _, exist := azureCodes[code]; exist {
+					return true
+				}
+			}
+		}
+
+	}
+	return false
 }

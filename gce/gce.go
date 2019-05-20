@@ -14,6 +14,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/backoff"
 	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/libopenstorage/openstorage/pkg/parser"
 	"github.com/portworx/sched-ops/task"
@@ -93,12 +94,16 @@ func NewClient() (cloudops.Ops, error) {
 		return nil, fmt.Errorf("unable to create Container service: %v", err)
 	}
 
-	return &gceOps{
-		Compute:          unsupported.NewUnsupportedCompute(),
-		inst:             i,
-		computeService:   computeService,
-		containerService: containerService,
-	}, nil
+	return backoff.NewExponentialBackoffOps(
+		&gceOps{
+			Compute:          unsupported.NewUnsupportedCompute(),
+			inst:             i,
+			computeService:   computeService,
+			containerService: containerService,
+		},
+		isExponentialError,
+		backoff.DefaultExponentialBackoff,
+	), nil
 }
 
 func (s *gceOps) Name() string { return "gce" }
@@ -876,4 +881,20 @@ func formatLabels(labels map[string]string) map[string]string {
 		newLabels[strings.ToLower(k)] = strings.ToLower(v)
 	}
 	return newLabels
+}
+
+func isExponentialError(err error) bool {
+	// Got the list of error codes from here
+	// https://cloud.google.com/apis/design/errors#handling_errors
+	gceCodes := map[int]struct{}{
+		int(429): {},
+	}
+	if err != nil {
+		if gceErr, ok := err.(*googleapi.Error); ok {
+			if _, exist := gceCodes[gceErr.Code]; exist {
+				return true
+			}
+		}
+	}
+	return false
 }
