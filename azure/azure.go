@@ -307,22 +307,31 @@ func (a *azureOps) FreeDevices(
 }
 
 func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
-	allDisks, err := a.getDisks(nil)
-	if err != nil {
-		return nil, err
-	}
-
 	var disks []interface{}
-	for _, id := range diskNames {
-		if d, ok := allDisks[*id]; ok {
-			disks = append(disks, d)
-		} else {
-			return nil, cloudops.NewStorageError(
-				cloudops.ErrVolNotFound,
-				fmt.Sprintf("disk %s not found", *id),
-				a.instance,
-			)
+
+	for _, diskName := range diskNames {
+		if diskName == nil {
+			continue
 		}
+		disk, err := a.disksClient.Get(
+			context.Background(),
+			a.resourceGroupName,
+			*diskName,
+		)
+		if derr, ok := err.(autorest.DetailedError); ok {
+			code, ok := derr.StatusCode.(int)
+			if ok && code == 404 {
+				return nil, cloudops.NewStorageError(
+					cloudops.ErrVolNotFound,
+					fmt.Sprintf("disk %s not found", *diskName),
+					a.instance,
+				)
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("cannot get disk %v: %v", *diskName, err)
+		}
+		disks = append(disks, &disk)
 	}
 
 	return disks, nil
@@ -622,7 +631,14 @@ func (a *azureOps) Tags(diskName string) (map[string]string, error) {
 func (a *azureOps) getDisks(labels map[string]string) (map[string]*compute.Disk, error) {
 	response := make(map[string]*compute.Disk)
 
-	for it, err := a.disksClient.ListComplete(context.Background()); it.NotDone(); err = it.Next() {
+	it, err := a.disksClient.ListByResourceGroupComplete(
+		context.Background(),
+		a.resourceGroupName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	for ; it.NotDone(); err = it.Next() {
 		if err != nil {
 			return nil, err
 		}
