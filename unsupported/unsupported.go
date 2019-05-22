@@ -1,6 +1,8 @@
 package unsupported
 
 import (
+	"time"
+
 	"github.com/libopenstorage/cloudops"
 )
 
@@ -28,8 +30,20 @@ func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) 
 	}
 }
 
-func (u *unsupportedCompute) SetCountForInstanceGroup(instanceID string, count int64) error {
+func (u *unsupportedCompute) SetInstanceGroupSize(instanceID string, count int64, timeout time.Duration) error {
 	return &cloudops.ErrNotSupported{
-		Operation: "SetCountForInstanceGroup",
+		Operation: "SetInstanceGroupSize",
+	}
+}
+
+func (u *unsupportedCompute) GetClusterSize(instanceID string) (int64, error) {
+	return 0, &cloudops.ErrNotSupported{
+		Operation: "GetClusterSize",
+	}
+}
+
+func (u *unsupportedCompute) GetClusterStatus(instanceID string) (cloudops.ClusterState, error) {
+	return cloudops.StatusUnspecified, &cloudops.ErrNotSupported{
+		Operation: "GetClusterStatus",
 	}
 }

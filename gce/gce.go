@@ -131,7 +131,7 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 		kubeLabels      map[string]string
 	)
 
-	gkeClusterName, _, clusterLocation, kubeLabels, err := s.getGKEClusterDetails(instanceID)
+	gkeClusterName, _, clusterLocation, _, _, kubeLabels, err := s.getGKEClusterDetails(instanceID)
 	if err != nil {
 		return nil, err
 	}
@@ -467,6 +467,41 @@ func (s *gceOps) GetDeviceID(disk interface{}) (string, error) {
 	}
 }
 
+func (s *gceOps) GetClusterSize(instanceID string) (int64, error) {
+
+	_, _, _, _, currentNodeCount, _, err := s.getGKEClusterDetails(instanceID)
+	if err != nil {
+		return 0, err
+	}
+
+	return currentNodeCount, nil
+}
+
+// GetClusterStatus returns any one of the bellow possible values
+// Possible values:
+// 		cloudops.Running
+// 		cloudops.Updating
+//		cloudops.Failed
+//		cloudops.StatusUnspecified
+func (s *gceOps) GetClusterStatus(instanceID string) (cloudops.ClusterState, error) {
+
+	_, _, _, clusterStatus, _, _, err := s.getGKEClusterDetails(instanceID)
+	if err != nil {
+		return 0, err
+	}
+
+	switch clusterStatus {
+	case "RUNNING":
+		return cloudops.Running, nil
+	case "RECONCILING":
+		return cloudops.Updating, nil
+	case "ERROR":
+		return cloudops.Failed, nil
+	default:
+		return cloudops.StatusUnspecified, nil
+	}
+}
+
 func (s *gceOps) Inspect(diskNames []*string) ([]interface{}, error) {
 	allDisks, err := s.getDisksFromAllZones(nil)
 	if err != nil {
@@ -511,13 +546,15 @@ func (s *gceOps) RemoveTags(
 	return err
 }
 
-func (s *gceOps) SetCountForInstanceGroup(instanceID string, count int64) error {
+// SetInstanceGroupSize sets node count for a instance group. Count here is per availability zone
+func (s *gceOps) SetInstanceGroupSize(instanceID string, count int64, timeout time.Duration) error {
 
-	gkeClusterName, _, clusterLocation, kubeLabels, err := s.getGKEClusterDetails(instanceID)
+	gkeClusterName, _, clusterLocation, _, _, kubeLabels, err := s.getGKEClusterDetails(instanceID)
 	if err != nil {
 		return err
 	}
 
+	zones := make([]string, 0)
 	for labelKey, labelValue := range kubeLabels {
 		if labelKey == nodePoolKey {
 			nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
@@ -531,9 +568,46 @@ func (s *gceOps) SetCountForInstanceGroup(instanceID string, count int64) error 
 			if err != nil {
 				return err
 			}
+
+			nodePool, err := s.containerService.Projects.Locations.Clusters.NodePools.Get(nodePoolPath).Do()
+			if err != nil {
+				logrus.Errorf("failed to get node pool")
+				return err
+			}
+
+			for _, igURL := range nodePool.InstanceGroupUrls {
+				// e.g https://www.googleapis.com/compute/v1/projects/portworx-eng/zones/us-east1-b/instanceGroupManagers/gke-harsh-regional-asg-t-default-pool-a8750fe9-grp
+				parts := strings.Split(igURL, "/")
+				if len(parts) < 3 {
+					return fmt.Errorf("failed to parse zones for a node pool")
+				}
+
+				zones = append(zones, parts[len(parts)-3])
+			}
 		}
 	}
 
+	if timeout > time.Nanosecond {
+		f := func() (interface{}, bool, error) {
+
+			actualClusterSize, err := s.GetClusterSize(instanceID)
+			if err != nil {
+				logrus.Errorf("Error while getting cluster size. Error:[%v]. Retrying ...\n", err)
+				return nil, true, err
+			}
+
+			if actualClusterSize == count*int64(len(zones)) {
+				return nil, false, nil
+			}
+
+			return nil, true, fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting", gkeClusterName, count*int64(len(zones)), actualClusterSize)
+		}
+
+		_, err = task.DoRetryWithTimeout(f, timeout, 30*time.Second)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -643,22 +717,24 @@ func (s *gceOps) describeinstance() (*compute.Instance, error) {
 	return s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
 }
 
-func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string, map[string]string, error) {
+func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string, string, int64, map[string]string, error) {
 
 	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, instanceID).Do()
 	if err != nil {
-		return "", "", "", map[string]string{}, err
+		return "", "", "", "", 0, map[string]string{}, err
 	}
 
 	meta := inst.Metadata
 	if meta == nil {
-		return "", "", "", map[string]string{}, err
+		return "", "", "", "", 0, map[string]string{}, err
 	}
 
 	var (
 		gkeClusterName   string
 		instanceTemplate string
 		clusterLocation  string
+		currentNodeCount int64
+		clusterStatus    string
 		kubeLabels       map[string]string
 	)
 
@@ -669,7 +745,7 @@ func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string
 
 		if item.Key == clusterNameKey {
 			if item.Value == nil {
-				return "", "", "", map[string]string{},
+				return "", "", "", "", 0, map[string]string{},
 					fmt.Errorf("instance has %s key in metadata but has invalid value", clusterNameKey)
 			}
 
@@ -678,7 +754,7 @@ func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string
 
 		if item.Key == instanceTemplateKey {
 			if item.Value == nil {
-				return "", "", "", map[string]string{},
+				return "", "", "", "", 0, map[string]string{},
 					fmt.Errorf("instance has %s key in metadata but has invalid value", instanceTemplateKey)
 			}
 
@@ -687,7 +763,7 @@ func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string
 
 		if item.Key == clusterLocationKey {
 			if item.Value == nil {
-				return "", "", "", map[string]string{},
+				return "", "", "", "", 0, map[string]string{},
 					fmt.Errorf("instance has %s key in metadata but has invalid value", clusterLocationKey)
 			}
 
@@ -696,22 +772,30 @@ func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string
 
 		if item.Key == kubeLabelsKey {
 			if item.Value == nil {
-				return "", "", "", map[string]string{},
+				return "", "", "", "", 0, map[string]string{},
 					fmt.Errorf("instance has %s key in metadata but has invalid value", kubeLabelsKey)
 			}
 
 			kubeLabels, err = parser.LabelsFromString(*item.Value)
 			if err != nil {
-				return "", "", "", map[string]string{}, err
+				return "", "", "", "", 0, map[string]string{}, err
 			}
 		}
 	}
+
+	cluster, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project, s.inst.zone, gkeClusterName).Do()
+	if err != nil {
+		return "", "", "", "", 0, map[string]string{}, err
+	}
+
+	currentNodeCount = cluster.CurrentNodeCount
+	clusterStatus = cluster.Status
 
 	if len(gkeClusterName) == 0 ||
 		len(instanceTemplate) == 0 ||
 		len(clusterLocation) == 0 ||
 		len(kubeLabels) == 0 {
-		return "", "", "", map[string]string{}, &cloudops.ErrNotSupported{
+		return "", "", "", "", 0, map[string]string{}, &cloudops.ErrNotSupported{
 			Operation: "InspectInstanceGroupForInstance",
 			Reason:    "API is currently only supported on the GKE platform",
 		}
@@ -720,6 +804,8 @@ func (s *gceOps) getGKEClusterDetails(instanceID string) (string, string, string
 	return gkeClusterName,
 		instanceTemplate,
 		clusterLocation,
+		clusterStatus,
+		currentNodeCount,
 		kubeLabels,
 		nil
 }

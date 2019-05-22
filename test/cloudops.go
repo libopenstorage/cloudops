@@ -18,6 +18,11 @@ var diskLabels = map[string]string{
 	"Test":   "UPPER_CASE",
 }
 
+const (
+	// clusterNodeCount node count per availability zone to use during tests
+	clusterNodeCount = 4
+)
+
 // RunTest runs all tests
 func RunTest(
 	drivers map[string]cloudops.Ops,
@@ -61,13 +66,34 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
 
-	err = driver.SetCountForInstanceGroup(instanceID, int64(2))
+	clusterStatus, err := driver.GetClusterStatus(instanceID)
+	require.NoError(t, err, "failed to get cluster status")
+	require.Equal(t, cloudops.Running, clusterStatus, "cluster is not in running state")
+
+	err = driver.SetInstanceGroupSize(instanceID, int64(clusterNodeCount), 5*time.Minute)
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {
-			t.Error("Fialed to set node count")
+			t.Errorf("Fialed to set node count. Error:[%v]", err)
 		}
 	}
+
+	currentCount, err := driver.GetClusterSize(instanceID)
+	require.NoError(t, err, "failed to get cluster node count")
+	// clusterNodeCount is per availability zone.
+	// So total cluster-wide node count is clusterNodeCount*num. of az
+	require.Equal(t, int64(clusterNodeCount*len(groupInfo.Zones)), currentCount,
+		"expected cluster node count does not match with actual node count")
+
+	// Validate when timeout is given as 0, API does not error out.
+	err = driver.SetInstanceGroupSize(instanceID, int64(clusterNodeCount+1), 0)
+	if err != nil {
+		_, ok := err.(*cloudops.ErrNotSupported)
+		if !ok {
+			t.Errorf("Fialed to set node count. Error:[%v]", err)
+		}
+	}
+
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {

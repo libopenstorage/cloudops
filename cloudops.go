@@ -1,9 +1,30 @@
 package cloudops
 
+import "time"
+
 const (
 	// SetIdentifierNone is a default identifier to group all disks from a
 	// particular set
 	SetIdentifierNone = "None"
+)
+
+// ClusterState is current state of the cluster represented in
+// cloud provider agnostic way
+type ClusterState int
+
+const (
+	// Running clusterState represents a cluster
+	// in fully usable condition
+	Running ClusterState = iota
+	// Updating clusterState indicates that some work is actively
+	// being done on cluster
+	Updating
+	// Failed clusterState indicates that cluster is not in usable
+	// condition
+	Failed
+	// StatusUnspecified indicates clusterState other than
+	// above states
+	StatusUnspecified
 )
 
 // CloudResourceInfo provides metadata information on a cloud resource.
@@ -48,9 +69,14 @@ type Compute interface {
 	// InspectInstanceGroupForInstance inspects the instance group to which the
 	// cloud instance with given ID belongs
 	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
-	// SetCountForInstanceGroup sets desired count per availability zone
+	// SetCountForInstanceGroup sets desired node count per availability zone
 	// for given instance group
-	SetCountForInstanceGroup(instanceID string, count int64) error
+	SetInstanceGroupSize(instanceID string, count int64, timeout time.Duration) error
+	// GetClusterSize returns current node count in given cluster
+	// This count is total node count accross all availability zones
+	GetClusterSize(instanceID string) (int64, error)
+	// GetClusterStatus returns current status of the cluster
+	GetClusterStatus(instanceID string) (ClusterState, error)
 }
 
 // Storage interface to manage storage operations.
