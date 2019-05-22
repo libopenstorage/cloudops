@@ -6,6 +6,7 @@ If you are running the tests on an instance under scale set, only then you need 
 
 ```bash
 export AZURE_INSTANCE_ID=<instance-id>
+export AZURE_INSTANCE_REGION=<instance-region>
 export AZURE_SCALE_SET_NAME=<scale-set-name>
 export AZURE_SUBSCRIPTION_ID=<subscription-id>
 export AZURE_RESOURCE_GROUP_NAME=<resource-group-name-of-instance>

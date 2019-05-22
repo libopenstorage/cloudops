@@ -53,10 +53,16 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	require.NotEmpty(t, instanceID, "failed to get instance ID")
 
 	info, err := driver.InspectInstance(instanceID)
+	if _, ok := err.(*cloudops.ErrNotSupported); ok {
+		return
+	}
 	require.NoError(t, err, "failed to inspect instance")
 	require.NotNil(t, info, "got nil instance info from inspect")
 
 	groupInfo, err := driver.InspectInstanceGroupForInstance(instanceID)
+	if _, ok := err.(*cloudops.ErrNotSupported); ok {
+		return
+	}
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
 }
@@ -124,6 +130,7 @@ func enumerate(t *testing.T, driver cloudops.Ops, diskName string) {
 
 	require.NoError(t, err, "failed to enumerate disk")
 	require.Len(t, disks, 1, "enumerate returned invalid length")
+	require.Len(t, disks[cloudops.SetIdentifierNone], 1, "enumerate returned invalid length")
 
 	// enumerate with invalid labels
 	randomStr := uuid.New()

@@ -2,6 +2,7 @@ package azure_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
@@ -25,9 +26,13 @@ func initAzure(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 		t.Skipf("skipping Azure tests as environment is not set...\n")
 	}
 
+	region, present := os.LookupEnv("AZURE_INSTANCE_REGION")
+	if !present {
+		t.Skipf("skipping Azure tests as AZURE_INSTANCE_REGION is not set...\n")
+	}
+
 	size := int32(newDiskSizeInGB)
 	name := diskName
-	region := "eastus2"
 
 	template := &compute.Disk{
 		Name:     &name,

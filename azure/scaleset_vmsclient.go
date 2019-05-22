@@ -30,6 +30,10 @@ func newScaleSetVMsClient(
 	}
 }
 
+func (s *scaleSetVMsClient) name(instanceID string) string {
+	return s.scaleSetName + "_" + instanceID
+}
+
 func (s *scaleSetVMsClient) describe(
 	instanceID string,
 ) (interface{}, error) {

@@ -47,14 +47,6 @@ type azureOps struct {
 	snapshotsClient   *compute.SnapshotsClient
 }
 
-func (a *azureOps) Name() string {
-	return name
-}
-
-func (a *azureOps) InstanceID() string {
-	return a.instance
-}
-
 // NewEnvClient make new client from well known environment variables.
 func NewEnvClient() (cloudops.Ops, error) {
 	instance, err := cloudops.GetEnvValueStrict(envInstanceID)
@@ -108,6 +100,14 @@ func NewClient(
 		isExponentialError,
 		backoff.DefaultExponentialBackoff,
 	), nil
+}
+
+func (a *azureOps) Name() string {
+	return name
+}
+
+func (a *azureOps) InstanceID() string {
+	return a.instance
 }
 
 func (a *azureOps) Create(
@@ -189,18 +189,18 @@ func (a *azureOps) GetDeviceID(disk interface{}) (string, error) {
 }
 
 func (a *azureOps) Attach(diskName string) (string, error) {
-	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
-	if err != nil {
+	disk, err := a.checkDiskAttachmentStatus(diskName)
+	if err == nil {
+		// Disk is already attached locally, return device path
+		return a.waitForAttach(diskName)
+	} else if se, ok := err.(*cloudops.StorageError); !ok ||
+		se.Code != cloudops.ErrVolDetached {
 		return "", err
 	}
 
-	disk, err := a.disksClient.Get(
-		context.Background(),
-		a.resourceGroupName,
-		diskName,
-	)
+	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
 	if err != nil {
-		return "", fmt.Errorf("cannot get disk %v: %v", diskName, err)
+		return "", err
 	}
 
 	nextLun := nextAvailableLun(dataDisks)
@@ -237,11 +237,6 @@ func (a *azureOps) DetachFrom(diskName, instance string) error {
 }
 
 func (a *azureOps) detachInternal(diskName, instance string) error {
-	dataDisks, err := a.vmsClient.getDataDisks(instance)
-	if err != nil {
-		return err
-	}
-
 	disk, err := a.disksClient.Get(
 		context.Background(),
 		a.resourceGroupName,
@@ -253,12 +248,22 @@ func (a *azureOps) detachInternal(diskName, instance string) error {
 
 	diskToDetach := strings.ToLower(*disk.ID)
 
+	dataDisks, err := a.vmsClient.getDataDisks(instance)
+	if err != nil {
+		return err
+	}
+
 	newDataDisks := make([]compute.DataDisk, 0)
 	for _, d := range dataDisks {
 		if strings.ToLower(*d.ManagedDisk.ID) == diskToDetach {
 			continue
 		}
 		newDataDisks = append(newDataDisks, d)
+	}
+
+	// If the disk is not attached, return success
+	if len(dataDisks) == len(newDataDisks) {
+		return nil
 	}
 
 	if err := a.vmsClient.updateDataDisks(instance, newDataDisks); err != nil {
@@ -379,6 +384,16 @@ func (a *azureOps) Enumerate(
 }
 
 func (a *azureOps) DevicePath(diskName string) (string, error) {
+	if _, err := a.checkDiskAttachmentStatus(diskName); err != nil {
+		return "", err
+	}
+	return a.devicePath(diskName)
+}
+
+// checkDiskAttachmentStatus returns the disk without any error if it is already
+// attached the Ops instance. It will return errors if the disk is not attached
+// or attached on remote node.
+func (a *azureOps) checkDiskAttachmentStatus(diskName string) (*compute.Disk, error) {
 	disk, err := a.disksClient.Get(
 		context.Background(),
 		a.resourceGroupName,
@@ -387,25 +402,36 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 	if derr, ok := err.(autorest.DetailedError); ok {
 		code, ok := derr.StatusCode.(int)
 		if ok && code == 404 {
-			return "", cloudops.NewStorageError(
+			return nil, cloudops.NewStorageError(
 				cloudops.ErrVolNotFound,
-				fmt.Sprintf("disk: %s not found", diskName),
+				fmt.Sprintf("disk %s not found", diskName),
 				a.instance,
 			)
 		}
-		return "", err
-	} else if err != nil {
-		return "", err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get disk %v: %v", diskName, err)
 	}
 
 	if disk.ManagedBy == nil || len(*disk.ManagedBy) == 0 {
-		return "", cloudops.NewStorageError(
+		return &disk, cloudops.NewStorageError(
 			cloudops.ErrVolDetached,
-			fmt.Sprintf("Disk: %s is detached", diskName),
+			fmt.Sprintf("disk %s is detached", diskName),
+			a.instance,
+		)
+	}
+	if !strings.HasSuffix(*disk.ManagedBy, a.vmsClient.name(a.instance)) {
+		return &disk, cloudops.NewStorageError(
+			cloudops.ErrVolAttachedOnRemoteNode,
+			fmt.Sprintf("disk %s is attached on remote node %s", diskName, *disk.ManagedBy),
 			a.instance,
 		)
 	}
 
+	return &disk, nil
+}
+
+func (a *azureOps) devicePath(diskName string) (string, error) {
 	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
 	if err != nil {
 		return "", err
@@ -428,9 +454,8 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 	}
 
 	return "", cloudops.NewStorageError(
-		cloudops.ErrVolAttachedOnRemoteNode,
-		fmt.Sprintf("disk %s is not attached on: %s (Attached on: %v)",
-			diskName, a.instance, disk.ManagedBy),
+		cloudops.ErrVolDetached,
+		fmt.Sprintf("disk %s does not have a device path", diskName),
 		a.instance,
 	)
 }
