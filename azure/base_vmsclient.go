@@ -28,6 +28,10 @@ func newBaseVMsClient(
 	}
 }
 
+func (b *baseVMsClient) name(instanceName string) string {
+	return instanceName
+}
+
 func (b *baseVMsClient) describe(
 	instanceName string,
 ) (interface{}, error) {

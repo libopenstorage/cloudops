@@ -7,6 +7,8 @@ import (
 
 // vmsClient is an interface for azure vm client operations
 type vmsClient interface {
+	// name returns the name of the instance
+	name(instanceID string) string
 	// describe returns the VM instance object
 	describe(instanceID string) (interface{}, error)
 	// getDataDisks returns a list of data disks attached to the given VM
