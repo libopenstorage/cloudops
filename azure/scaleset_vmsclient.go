@@ -21,7 +21,6 @@ func newScaleSetVMsClient(
 	vmsClient := compute.NewVirtualMachineScaleSetVMsClient(subscriptionID)
 	vmsClient.Authorizer = authorizer
 	vmsClient.PollingDelay = clientPollingDelay
-	vmsClient.RetryAttempts = clientRetryAttempts
 	vmsClient.AddToUserAgent(userAgentExtension)
 	return &scaleSetVMsClient{
 		scaleSetName:      scaleSetName,
@@ -45,7 +44,7 @@ func (s *scaleSetVMsClient) getDataDisks(
 ) ([]compute.DataDisk, error) {
 	vm, err := s.describeInstance(instanceID)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get vm %v_%v: %v", s.scaleSetName, instanceID, err)
+		return nil, err
 	}
 
 	if vm.StorageProfile == nil || vm.StorageProfile.DataDisks == nil {
@@ -61,7 +60,7 @@ func (s *scaleSetVMsClient) updateDataDisks(
 ) error {
 	vm, err := s.describeInstance(instanceID)
 	if err != nil {
-		return fmt.Errorf("cannot get vm %v_%v: %v", s.scaleSetName, instanceID, err)
+		return err
 	}
 
 	vm.StorageProfile.DataDisks = &dataDisks
@@ -75,12 +74,12 @@ func (s *scaleSetVMsClient) updateDataDisks(
 		vm,
 	)
 	if err != nil {
-		return fmt.Errorf("cannot update vm %v_%v: %v", s.scaleSetName, instanceID, err)
+		return err
 	}
 
 	err = future.WaitForCompletionRef(ctx, s.client.Client)
 	if err != nil {
-		return fmt.Errorf("cannot get the vm update future response: %v", err)
+		return err
 	}
 	return nil
 }

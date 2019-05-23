@@ -400,7 +400,7 @@ func (e *exponentialBackoff) handleError(origErr error, msg string) (bool, error
 			// do an exponential backoff
 			logrus.WithFields(logrus.Fields{
 				e.cloudOps.Name() + "-error": origErr,
-			}).Errorf("%v Retrying after a backoff...", msg)
+			}).Errorf("%v Retrying after a backoff.", msg)
 			return false, nil
 		} // for all other errors return immediately
 		return true, origErr
