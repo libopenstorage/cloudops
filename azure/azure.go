@@ -11,6 +11,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/libopenstorage/cloudops"
@@ -33,7 +34,6 @@ const (
 	azureDiskPrefix         = "/dev/disk/azure/scsi1/lun"
 	snapNameFormat          = "2006-01-02_15.04.05.999999"
 	clientPollingDelay      = 5 * time.Second
-	clientRetryAttempts     = 10
 	devicePathMaxRetryCount = 3
 	devicePathRetryInterval = 2 * time.Second
 )
@@ -77,7 +77,6 @@ func NewClient(
 	disksClient := compute.NewDisksClient(subscriptionID)
 	disksClient.Authorizer = authorizer
 	disksClient.PollingDelay = clientPollingDelay
-	disksClient.RetryAttempts = clientRetryAttempts
 	disksClient.AddToUserAgent(userAgentExtension)
 
 	vmsClient := newVMsClient(scaleSetName, subscriptionID, resourceGroupName, authorizer)
@@ -85,7 +84,6 @@ func NewClient(
 	snapshotsClient := compute.NewSnapshotsClient(subscriptionID)
 	snapshotsClient.Authorizer = authorizer
 	snapshotsClient.PollingDelay = clientPollingDelay
-	snapshotsClient.RetryAttempts = clientRetryAttempts
 	snapshotsClient.AddToUserAgent(userAgentExtension)
 
 	return backoff.NewExponentialBackoffOps(
@@ -163,12 +161,12 @@ func (a *azureOps) Create(
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create disk: %v", err)
+		return nil, err
 	}
 
 	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get the disk create or update future response: %v", err)
+		return nil, err
 	}
 
 	dd, err := future.Result(*a.disksClient)
@@ -243,7 +241,7 @@ func (a *azureOps) detachInternal(diskName, instance string) error {
 		diskName,
 	)
 	if err != nil {
-		return fmt.Errorf("cannot get disk %v: %v", diskName, err)
+		return err
 	}
 
 	diskToDetach := strings.ToLower(*disk.ID)
@@ -277,12 +275,12 @@ func (a *azureOps) Delete(diskName string) error {
 	ctx := context.Background()
 	future, err := a.disksClient.Delete(ctx, a.resourceGroupName, diskName)
 	if err != nil {
-		return fmt.Errorf("cannot delete disk %s: %v", diskName, err)
+		return err
 	}
 
 	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
 	if err != nil {
-		return fmt.Errorf("cannot delete the disk %s or update future response: %v", diskName, err)
+		return err
 	}
 
 	_, err = future.Result(*a.disksClient)
@@ -329,7 +327,7 @@ func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
 			}
 		}
 		if err != nil {
-			return nil, fmt.Errorf("cannot get disk %v: %v", *diskName, err)
+			return nil, err
 		}
 		disks = append(disks, &disk)
 	}
@@ -419,7 +417,7 @@ func (a *azureOps) checkDiskAttachmentStatus(diskName string) (*compute.Disk, er
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get disk %v: %v", diskName, err)
+		return nil, err
 	}
 
 	if disk.ManagedBy == nil || len(*disk.ManagedBy) == 0 {
@@ -495,12 +493,12 @@ func (a *azureOps) Snapshot(diskName string, readonly bool) (interface{}, error)
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create snapshot: %v", err)
+		return nil, err
 	}
 
 	err = future.WaitForCompletionRef(ctx, a.snapshotsClient.Client)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get the snapshot create or update future response: %v", err)
+		return nil, err
 	}
 
 	snap, err := future.Result(*a.snapshotsClient)
@@ -511,12 +509,12 @@ func (a *azureOps) SnapshotDelete(snapName string) error {
 	ctx := context.Background()
 	future, err := a.snapshotsClient.Delete(ctx, a.resourceGroupName, snapName)
 	if err != nil {
-		return fmt.Errorf("cannot delete snapshot %s: %v", snapName, err)
+		return err
 	}
 
 	err = future.WaitForCompletionRef(ctx, a.snapshotsClient.Client)
 	if err != nil {
-		return fmt.Errorf("cannot delete the snapshot %s or update future response: %v", snapName, err)
+		return err
 	}
 
 	_, err = future.Result(*a.snapshotsClient)
@@ -555,12 +553,12 @@ func (a *azureOps) ApplyTags(diskName string, labels map[string]string) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("cannot update disk: %v", err)
+		return err
 	}
 
 	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
 	if err != nil {
-		return fmt.Errorf("cannot get the disk create or update future response: %v", err)
+		return err
 	}
 
 	_, err = future.Result(*a.disksClient)
@@ -599,12 +597,12 @@ func (a *azureOps) RemoveTags(diskName string, labels map[string]string) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("cannot update disk: %v", err)
+		return err
 	}
 
 	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
 	if err != nil {
-		return fmt.Errorf("cannot get the disk create or update future response: %v", err)
+		return err
 	}
 
 	_, err = future.Result(*a.disksClient)
@@ -789,20 +787,27 @@ func lunToBlockDevPath(lun int32) (string, error) {
 func isExponentialError(err error) bool {
 	// Got the list of error codes from here
 	// https://docs.microsoft.com/en-us/rest/api/storageservices/common-rest-api-error-codes
+	// https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-manager-request-limits
 
-	azureCodes := map[int]struct{}{
-		int(429): {},
+	azureCodes := map[int]bool{
+		int(429): true,
 	}
+
+	serviceErrorCodes := map[string]bool{
+		"AttachDiskWhileBeingDetached": true,
+	}
+
 	if err != nil {
 		if azErr, ok := err.(autorest.DetailedError); ok {
 			code, ok := azErr.StatusCode.(int)
-			if ok {
-				if _, exist := azureCodes[code]; exist {
-					return true
-				}
+			if ok && azureCodes[code] {
+				return true
+			}
+			re, ok := azErr.Original.(azure.RequestError)
+			if ok && re.ServiceError != nil && serviceErrorCodes[re.ServiceError.Code] {
+				return true
 			}
 		}
-
 	}
 	return false
 }

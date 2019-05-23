@@ -20,7 +20,6 @@ func newBaseVMsClient(
 	vmsClient := compute.NewVirtualMachinesClient(subscriptionID)
 	vmsClient.Authorizer = authorizer
 	vmsClient.PollingDelay = clientPollingDelay
-	vmsClient.RetryAttempts = clientRetryAttempts
 	vmsClient.AddToUserAgent(userAgentExtension)
 	return &baseVMsClient{
 		resourceGroupName: resourceGroupName,
@@ -43,7 +42,7 @@ func (b *baseVMsClient) getDataDisks(
 ) ([]compute.DataDisk, error) {
 	vm, err := b.describeInstance(instanceName)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get vm %v: %v", instanceName, err)
+		return nil, err
 	}
 
 	if vm.StorageProfile == nil || vm.StorageProfile.DataDisks == nil {
@@ -73,12 +72,12 @@ func (b *baseVMsClient) updateDataDisks(
 		updatedVM,
 	)
 	if err != nil {
-		return fmt.Errorf("cannot update vm %v: %v", instanceName, err)
+		return err
 	}
 
 	err = future.WaitForCompletionRef(ctx, b.client.Client)
 	if err != nil {
-		return fmt.Errorf("cannot get the vm update future response: %v", err)
+		return err
 	}
 	return nil
 }
