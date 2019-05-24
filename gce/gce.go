@@ -40,6 +40,7 @@ const (
 	kubeLabelsKey           = "kube-labels"
 	nodePoolKey             = "cloud.google.com/gke-nodepool"
 	instanceTemplateKey     = "instance-template"
+	doneStatus              = "DONE"
 )
 
 type gceOps struct {
@@ -265,8 +266,11 @@ func (s *gceOps) ApplyTags(
 		Labels:           currentLabels,
 	}
 
-	_, err = s.computeService.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
-	return err
+	operation, err := s.computeService.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
+	if err != nil {
+		return err
+	}
+	return s.waitForOpCompletion("disk.ApplyTags", s.inst.zone, operation)
 }
 
 func (s *gceOps) Attach(diskName string) (string, error) {
@@ -289,13 +293,17 @@ func (s *gceOps) Attach(diskName string) (string, error) {
 		Source:     diskURL,
 	}
 
-	_, err = s.computeService.Instances.AttachDisk(
+	operation, err := s.computeService.Instances.AttachDisk(
 		s.inst.project,
 		s.inst.zone,
 		s.inst.name,
 		rb).Do()
 	if err != nil {
 		return "", err
+	}
+
+	if opErr := s.waitForOpCompletion("disk.Attach", s.inst.zone, operation); opErr != nil {
+		return "", opErr
 	}
 
 	devicePath, err := s.waitForAttach(d, time.Minute)
@@ -327,13 +335,17 @@ func (s *gceOps) Create(
 		Zone:           path.Base(v.Zone),
 	}
 
-	resp, err := s.computeService.Disks.Insert(s.inst.project, newDisk.Zone, newDisk).Do()
+	operation, err := s.computeService.Disks.Insert(s.inst.project, newDisk.Zone, newDisk).Do()
 	if err != nil {
 		return nil, err
 	}
 
+	if opErr := s.waitForOpCompletion("disk.Create", newDisk.Zone, operation); opErr != nil {
+		return nil, opErr
+	}
+
 	if err = s.checkDiskStatus(newDisk.Name, newDisk.Zone, StatusReady); err != nil {
-		return nil, s.rollbackCreate(resp.Name, err)
+		return nil, s.rollbackCreate(v.Name, err)
 	}
 
 	d, err := s.computeService.Disks.Get(s.inst.project, newDisk.Zone, newDisk.Name).Do()
@@ -357,8 +369,11 @@ func (s *gceOps) Delete(id string) error {
 			for _, disk := range diskScopedList.Disks {
 				if disk.Name == id {
 					found = true
-					_, err := s.computeService.Disks.Delete(s.inst.project, path.Base(disk.Zone), id).Do()
-					return err
+					operation, err := s.computeService.Disks.Delete(s.inst.project, path.Base(disk.Zone), id).Do()
+					if err != nil {
+						return err
+					}
+					return s.waitForOpCompletion("disk.Delete", s.inst.zone, operation)
 				}
 			}
 		}
@@ -369,7 +384,7 @@ func (s *gceOps) Delete(id string) error {
 	}
 
 	if !found {
-		return fmt.Errorf("failed to delete disk: %s as it wasn't found", id)
+		return fmt.Errorf("failed to delete disk %s: disk not found", id)
 	}
 
 	return nil
@@ -384,13 +399,17 @@ func (s *gceOps) DetachFrom(devicePath, instanceName string) error {
 }
 
 func (s *gceOps) detachInternal(devicePath, instanceName string) error {
-	_, err := s.computeService.Instances.DetachDisk(
+	operation, err := s.computeService.Instances.DetachDisk(
 		s.inst.project,
 		s.inst.zone,
 		instanceName,
 		devicePath).Do()
 	if err != nil {
 		return err
+	}
+
+	if opErr := s.waitForOpCompletion("disk.Detach", s.inst.zone, operation); opErr != nil {
+		return opErr
 	}
 
 	var d *compute.Disk
@@ -566,7 +585,11 @@ func (s *gceOps) RemoveTags(
 			Labels:           currentLabels,
 		}
 
-		_, err = s.computeService.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
+		operation, err := s.computeService.Disks.SetLabels(s.inst.project, s.inst.zone, d.Name, rb).Do()
+		if err != nil {
+			return err
+		}
+		return s.waitForOpCompletion("disk.SetLabels", s.inst.zone, operation)
 	}
 
 	return err
@@ -580,9 +603,13 @@ func (s *gceOps) Snapshot(
 		Name: fmt.Sprintf("snap-%d%02d%02d", time.Now().Year(), time.Now().Month(), time.Now().Day()),
 	}
 
-	_, err := s.computeService.Disks.CreateSnapshot(s.inst.project, s.inst.zone, disk, rb).Do()
+	operation, err := s.computeService.Disks.CreateSnapshot(s.inst.project, s.inst.zone, disk, rb).Do()
 	if err != nil {
 		return nil, err
+	}
+
+	if opErr := s.waitForOpCompletion("disk.CreateSnapshot", s.inst.zone, operation); opErr != nil {
+		return nil, opErr
 	}
 
 	if err = s.checkSnapStatus(rb.Name, StatusReady); err != nil {
@@ -598,8 +625,11 @@ func (s *gceOps) Snapshot(
 }
 
 func (s *gceOps) SnapshotDelete(snapID string) error {
-	_, err := s.computeService.Snapshots.Delete(s.inst.project, snapID).Do()
-	return err
+	operation, err := s.computeService.Snapshots.Delete(s.inst.project, snapID).Do()
+	if err != nil {
+		return err
+	}
+	return s.waitForOpCompletion("snapshot.Delete", s.inst.zone, operation)
 }
 
 func (s *gceOps) Tags(diskName string) (map[string]string, error) {
@@ -791,6 +821,58 @@ func (s *gceOps) waitForAttach(
 	}
 
 	return devicePath.(string), nil
+}
+
+// waitForOpCompletion is a blocking function that can be used to check the status
+// of any gce service call. It checks the status of the operation object passed
+// in as argument. It will keep on retrying until
+// 1. gce service returns that the operation has been completed
+// 2. the retry timeout is hit
+// this code has been inspired from kubernetes cloudprovider for gce
+// k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud
+func (s *gceOps) waitForOpCompletion(
+	cloudopsOperationName string,
+	opZone string,
+	operation *compute.Operation,
+) error {
+	_, gceOpErr := task.DoRetryWithTimeout(
+		func() (interface{}, bool, error) {
+			// get the status of the operation
+			op, err := s.computeService.ZoneOperations.Get(s.inst.project, opZone, operation.Name).Do()
+			if err != nil {
+				// failed to get operation status
+				// check again later
+				if gErr, ok := err.(*googleapi.Error); ok {
+					if gErr.Code == int(404) {
+						// operation does not exist
+						return nil, false, nil
+					}
+				}
+				return nil, true, fmt.Errorf("failed to query gce operation %v for %v: %v", operation.Name, cloudopsOperationName, err)
+			}
+
+			if op == nil || op.Status != doneStatus {
+				// operation is not done
+				// check again later
+				return nil, true, fmt.Errorf("gce operation %v for %v not completed", operation.Name, cloudopsOperationName)
+			}
+
+			if op.Error != nil && len(op.Error.Errors) > 0 && op.Error.Errors[0] != nil {
+				// operation is done
+				// and we got an error
+				return nil, false, &googleapi.Error{
+					Code:    int(op.HttpErrorStatusCode),
+					Message: fmt.Sprintf("%v - %v", op.Error.Errors[0].Code, op.Error.Errors[0].Message),
+				}
+			}
+			// operation is done with no error
+			logrus.Infof("gce operation %v for %v successfully completed", operation.Name, cloudopsOperationName)
+			return nil, false, nil
+		},
+		cloudops.ProviderOpsTimeout,
+		cloudops.ProviderOpsRetryInterval,
+	)
+	return gceOpErr
 }
 
 // generateListFilterFromLabels create a filter string based off --filter documentation at
