@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -29,13 +30,18 @@ const (
 )
 
 const (
-	name                    = "azure"
-	userAgentExtension      = "osd"
-	azureDiskPrefix         = "/dev/disk/azure/scsi1/lun"
-	snapNameFormat          = "2006-01-02_15.04.05.999999"
-	clientPollingDelay      = 5 * time.Second
-	devicePathMaxRetryCount = 3
-	devicePathRetryInterval = 2 * time.Second
+	name                                = "azure"
+	userAgentExtension                  = "osd"
+	azureDiskPrefix                     = "/dev/disk/azure/scsi1/lun"
+	snapNameFormat                      = "2006-01-02_15.04.05.999999"
+	clientPollingDelay                  = 5 * time.Second
+	devicePathMaxRetryCount             = 3
+	devicePathRetryInterval             = 2 * time.Second
+	errCodeAttachDiskWhileBeingDetached = "AttachDiskWhileBeingDetached"
+)
+
+var (
+	attachFailureMessageRegex = regexp.MustCompile(`^Cannot attach data disk '(.*)' to VM`)
 )
 
 type azureOps struct {
@@ -220,10 +226,29 @@ func (a *azureOps) Attach(diskName string) (string, error) {
 		},
 	)
 	if err := a.vmsClient.updateDataDisks(a.instance, newDataDisks); err != nil {
-		return "", err
+		return "", a.handleAttachError(err)
 	}
 
 	return a.waitForAttach(diskName)
+}
+
+func (a *azureOps) handleAttachError(err error) error {
+	if de, ok := err.(autorest.DetailedError); ok {
+		if re, ok := de.Original.(azure.RequestError); ok &&
+			re.ServiceError != nil &&
+			re.ServiceError.Code == errCodeAttachDiskWhileBeingDetached {
+			// Azure sometimes gets stuck on a disk that it previously tried to attach
+			// but did not succeed. We need to explicitly remove it to proceed.
+			matches := attachFailureMessageRegex.FindStringSubmatch(re.ServiceError.Message)
+			if len(matches) == 2 {
+				detachErr := a.Detach(matches[1])
+				if detachErr != nil {
+					logrus.Warnf("Failed to detach disk %v: %v", matches[1], detachErr)
+				}
+			}
+		}
+	}
+	return err
 }
 
 func (a *azureOps) Detach(diskName string) error {
@@ -398,7 +423,7 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 }
 
 // checkDiskAttachmentStatus returns the disk without any error if it is already
-// attached the Ops instance. It will return errors if the disk is not attached
+// attached to the Ops instance. It will return errors if the disk is not attached
 // or attached on remote node.
 func (a *azureOps) checkDiskAttachmentStatus(diskName string) (*compute.Disk, error) {
 	disk, err := a.disksClient.Get(
@@ -794,7 +819,7 @@ func isExponentialError(err error) bool {
 	}
 
 	serviceErrorCodes := map[string]bool{
-		"AttachDiskWhileBeingDetached": true,
+		errCodeAttachDiskWhileBeingDetached: true,
 	}
 
 	if err != nil {
