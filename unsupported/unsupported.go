@@ -1,6 +1,8 @@
 package unsupported
 
 import (
+	"time"
+
 	"github.com/libopenstorage/cloudops"
 )
 
@@ -25,5 +27,19 @@ func (u *unsupportedCompute) InspectInstance(instanceID string) (*cloudops.Insta
 func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "InspectInstanceGroupForInstance",
+	}
+}
+
+func (u *unsupportedCompute) SetInstanceGroupSize(instanceGroupInfo *cloudops.InstanceGroupInfo,
+	count int64,
+	timeout time.Duration) error {
+	return &cloudops.ErrNotSupported{
+		Operation: "SetInstanceGroupSize",
+	}
+}
+
+func (u *unsupportedCompute) GetClusterSize(instanceGroupInfo *cloudops.InstanceGroupInfo) (int64, error) {
+	return int64(0), &cloudops.ErrNotSupported{
+		Operation: "GetClusterSize",
 	}
 }
