@@ -34,8 +34,6 @@ type InstanceGroupInfo struct {
 	Max *int64
 	// Zones that the instance group is part of
 	Zones []string
-	// Metadata holds additional information regarding instance group
-	Metadata map[string]interface{}
 }
 
 // InstanceInfo encapsulates info for a cloud instance
@@ -54,12 +52,12 @@ type Compute interface {
 	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
 	// SetInstanceGroupSize sets desired node count per availability zone
 	// for given instance group
-	SetInstanceGroupSize(instanceGroupInfo *InstanceGroupInfo,
+	SetInstanceGroupSize(instanceGroupID string, clusterLocation string,
 		count int64,
 		timeout time.Duration) error
-	// GetClusterSize returns current node count in given cluster
+	// GetClusterSizeForInstance returns current node count in given cluster
 	// This count is total node count accross all availability zones
-	GetClusterSize(instanceGroupInfo *InstanceGroupInfo) (int64, error)
+	GetClusterSizeForInstance(instanceID string) (int64, error)
 }
 
 // Storage interface to manage storage operations.

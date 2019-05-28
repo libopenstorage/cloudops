@@ -218,20 +218,16 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 				zones = append(zones, parts[len(parts)-3])
 			}
 
-			instanceGroupMetadata := make(map[string]interface{})
-			instanceGroupMetadata[clusterNameKey] = gkeClusterName
-
 			retval := &cloudops.InstanceGroupInfo{
 				CloudResourceInfo: cloudops.CloudResourceInfo{
 					Name:   nodePool.Name,
 					Zone:   clusterLocation,
-					Region: clusterLocation,
+					Region: clusterLocation[:len(clusterLocation)-2],
 				},
 				Zones:              zones,
 				AutoscalingEnabled: nodePool.Autoscaling.Enabled,
 				Min:                &nodePool.Autoscaling.MinNodeCount,
 				Max:                &nodePool.Autoscaling.MaxNodeCount,
-				Metadata:           instanceGroupMetadata,
 			}
 
 			if nodePool.Config != nil {
@@ -577,36 +573,41 @@ func (s *gceOps) RemoveTags(
 }
 
 // SetInstanceGroupSize sets node count for a instance group. Count here is per availability zone
-func (s *gceOps) SetInstanceGroupSize(instanceGroupInfo *cloudops.InstanceGroupInfo, count int64, timeout time.Duration) error {
+func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation string, count int64, timeout time.Duration) error {
 
-	gkeClusterName := instanceGroupInfo.Metadata[clusterNameKey].(string)
+	clusterName, err := s.GetClusterName()
+	if err != nil {
+		return nil
+	}
+
 	nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
-		s.inst.project, instanceGroupInfo.Zone, gkeClusterName, instanceGroupInfo.Name)
+		s.inst.project, instanceGroupLocation, clusterName, instanceGroupID)
 
 	setSizeRequest := &container.SetNodePoolSizeRequest{
 		Name:      nodePoolPath,
 		NodeCount: count,
 	}
 
-	_, err := s.containerService.Projects.Locations.Clusters.NodePools.SetSize(nodePoolPath, setSizeRequest).Do()
+	_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(s.inst.project, instanceGroupLocation, clusterName, instanceGroupID, setSizeRequest).Do()
 	if err != nil {
 		return err
 	}
 
 	if timeout > time.Nanosecond {
 		f := func() (interface{}, bool, error) {
-
-			actualClusterSize, err := s.GetClusterSize(instanceGroupInfo)
+			clusterInfo, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project, instanceGroupLocation, clusterName).Do()
 			if err != nil {
-				logrus.Errorf("Error while getting cluster size. Error:[%v]. Retrying ...\n", err)
 				return nil, true, err
 			}
 
-			if actualClusterSize == count*int64(len(instanceGroupInfo.Zones)) {
+			if clusterInfo.CurrentNodeCount == count*int64(len(clusterInfo.Locations)) {
+				logrus.Infof("cluster node count of [%s] matches with expected count [%v]. Exiting", clusterName, clusterInfo.CurrentNodeCount)
 				return nil, false, nil
 			}
 
-			return nil, true, fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting", instanceGroupInfo.Metadata[clusterNameKey], count*int64(len(instanceGroupInfo.Zones)), actualClusterSize)
+			return nil,
+				true,
+				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting", clusterName, count*int64(len(clusterInfo.Locations)), clusterInfo.CurrentNodeCount)
 		}
 
 		_, err = task.DoRetryWithTimeout(f, timeout, 30*time.Second)
@@ -617,15 +618,54 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupInfo *cloudops.InstanceGroupI
 	return nil
 }
 
-func (s *gceOps) GetClusterSize(instanceGroupInfo *cloudops.InstanceGroupInfo) (int64, error) {
+func (s *gceOps) GetClusterSizeForInstance(instanceID string) (int64, error) {
+	groupInfo, err := s.InspectInstanceGroupForInstance(instanceID)
+	if err != nil {
+		return int64(0), nil
+	}
 
-	gkeClusterName := instanceGroupInfo.Metadata[clusterNameKey].(string)
-	cluster, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project, instanceGroupInfo.Zone, gkeClusterName).Do()
+	clusterName, err := s.GetClusterName()
+	if err != nil {
+		return int64(0), nil
+	}
+	cluster, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project, groupInfo.Zone, clusterName).Do()
 	if err != nil {
 		return int64(0), err
 	}
 
 	return cluster.CurrentNodeCount, nil
+}
+
+func (s *gceOps) GetClusterName() (string, error) {
+
+	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+	if err != nil {
+		return "", err
+	}
+
+	meta := inst.Metadata
+	if meta == nil {
+		return "", fmt.Errorf("instance doesn't have metadata set")
+	}
+
+	var (
+		gkeClusterName string
+	)
+
+	for _, item := range meta.Items {
+		if item == nil {
+			continue
+		}
+
+		if item.Key == clusterNameKey {
+			if item.Value == nil {
+				return "", fmt.Errorf("instance has %s key in metadata but has invalid value", clusterNameKey)
+			}
+
+			gkeClusterName = *item.Value
+		}
+	}
+	return gkeClusterName, nil
 }
 
 func (s *gceOps) Snapshot(
