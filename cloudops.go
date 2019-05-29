@@ -56,7 +56,7 @@ type Compute interface {
 		count int64,
 		timeout time.Duration) error
 	// GetClusterSizeForInstance returns current node count in given cluster
-	// This count is total node count accross all availability zones
+	// This count is total node count across all availability zones
 	GetClusterSizeForInstance(instanceID string) (int64, error)
 }
 

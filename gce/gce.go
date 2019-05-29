@@ -28,6 +28,7 @@ import (
 var notFoundRegex = regexp.MustCompile(`.*notFound`)
 
 const googleDiskPrefix = "/dev/disk/by-id/google-"
+const retrySeconds = 15
 
 // StatusReady ready status
 const StatusReady = "ready"
@@ -572,10 +573,12 @@ func (s *gceOps) RemoveTags(
 	return err
 }
 
-// SetInstanceGroupSize sets node count for a instance group. Count here is per availability zone
-func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation string, count int64, timeout time.Duration) error {
+// SetInstanceGroupSize sets node count for a instance group.
+// Count here is per availability zone
+func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation string,
+	count int64, timeout time.Duration) error {
 
-	clusterName, err := s.GetClusterName()
+	clusterName, err := s.getClusterName()
 	if err != nil {
 		return nil
 	}
@@ -588,29 +591,37 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation str
 		NodeCount: count,
 	}
 
-	_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(s.inst.project, instanceGroupLocation, clusterName, instanceGroupID, setSizeRequest).Do()
+	_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(s.inst.project,
+		instanceGroupLocation,
+		clusterName,
+		instanceGroupID,
+		setSizeRequest).Do()
 	if err != nil {
 		return err
 	}
 
 	if timeout > time.Nanosecond {
 		f := func() (interface{}, bool, error) {
-			clusterInfo, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project, instanceGroupLocation, clusterName).Do()
+			clusterInfo, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
+				instanceGroupLocation,
+				clusterName).Do()
 			if err != nil {
 				return nil, true, err
 			}
 
 			if clusterInfo.CurrentNodeCount == count*int64(len(clusterInfo.Locations)) {
-				logrus.Infof("cluster node count of [%s] matches with expected count [%v]. Exiting", clusterName, clusterInfo.CurrentNodeCount)
 				return nil, false, nil
 			}
 
 			return nil,
 				true,
-				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting", clusterName, count*int64(len(clusterInfo.Locations)), clusterInfo.CurrentNodeCount)
+				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
+					clusterName,
+					count*int64(len(clusterInfo.Locations)),
+					clusterInfo.CurrentNodeCount)
 		}
 
-		_, err = task.DoRetryWithTimeout(f, timeout, 30*time.Second)
+		_, err = task.DoRetryWithTimeout(f, timeout, retrySeconds*time.Second)
 		if err != nil {
 			return err
 		}
@@ -624,11 +635,13 @@ func (s *gceOps) GetClusterSizeForInstance(instanceID string) (int64, error) {
 		return int64(0), nil
 	}
 
-	clusterName, err := s.GetClusterName()
+	clusterName, err := s.getClusterName()
 	if err != nil {
 		return int64(0), nil
 	}
-	cluster, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project, groupInfo.Zone, clusterName).Do()
+	cluster, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
+		groupInfo.Zone,
+		clusterName).Do()
 	if err != nil {
 		return int64(0), err
 	}
@@ -636,7 +649,7 @@ func (s *gceOps) GetClusterSizeForInstance(instanceID string) (int64, error) {
 	return cluster.CurrentNodeCount, nil
 }
 
-func (s *gceOps) GetClusterName() (string, error) {
+func (s *gceOps) getClusterName() (string, error) {
 
 	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
 	if err != nil {
@@ -648,10 +661,6 @@ func (s *gceOps) GetClusterName() (string, error) {
 		return "", fmt.Errorf("instance doesn't have metadata set")
 	}
 
-	var (
-		gkeClusterName string
-	)
-
 	for _, item := range meta.Items {
 		if item == nil {
 			continue
@@ -662,10 +671,10 @@ func (s *gceOps) GetClusterName() (string, error) {
 				return "", fmt.Errorf("instance has %s key in metadata but has invalid value", clusterNameKey)
 			}
 
-			gkeClusterName = *item.Value
+			return *item.Value, nil
 		}
 	}
-	return gkeClusterName, nil
+	return "", fmt.Errorf("cluster name not found for instance [%s]", s.inst.name)
 }
 
 func (s *gceOps) Snapshot(

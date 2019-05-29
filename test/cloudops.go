@@ -8,6 +8,7 @@ import (
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/pborman/uuid"
+	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
@@ -15,6 +16,10 @@ import (
 const (
 	// clusterNodeCount node count per availability zone to use during tests
 	clusterNodeCount = 4
+	// retrySeconds interval in secs between consicutive retries
+	retrySeconds = 15
+	// timeoutMinutes timeout in minutes for cloud operation to complete
+	timeoutMinutes = 5
 )
 
 var diskLabels = map[string]string{
@@ -45,6 +50,7 @@ func RunTest(
 			teardown(t, d, diskID)
 			fmt.Printf("Tore down disk: %v\n", disk)
 		}
+
 	}
 }
 
@@ -69,7 +75,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {
-			t.Errorf("Fialed to set node count. Error:[%v]", err)
+			t.Errorf("failed to set node count. Error:[%v]", err)
 		}
 	}
 
@@ -77,7 +83,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {
-			t.Errorf("Falied to get node count. Error:[%v]", err)
+			t.Errorf("failed to get node count. Error:[%v]", err)
 		}
 	} else {
 		// clusterNodeCount is per availability zone.
@@ -94,6 +100,37 @@ func compute(t *testing.T, driver cloudops.Ops) {
 			t.Errorf("Fialed to set node count. Error:[%v]", err)
 		}
 	}
+
+	// Wait for count to get updated for an instance group
+	expectedNodeCount := (clusterNodeCount + 1) * int64(len(groupInfo.Zones))
+	f := func() (interface{}, bool, error) {
+		currentCount, err := driver.GetClusterSizeForInstance(instanceID)
+		if err != nil {
+			_, ok := err.(*cloudops.ErrNotSupported)
+			if !ok {
+				// Some err occured, retry
+				return nil, true, err
+			}
+			// If operation not supported by cloud-driver
+			// Ignore the error and don't retry
+			return nil, false, nil
+		}
+
+		if currentCount == expectedNodeCount {
+			return nil, false, nil
+		}
+
+		return nil,
+			true,
+			fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
+				groupInfo.Name,
+				expectedNodeCount,
+				currentCount)
+	}
+
+	_, err = task.DoRetryWithTimeout(f, timeoutMinutes*time.Minute, retrySeconds*time.Second)
+	require.NoErrorf(t, err, "error occured while getting cluster size after being set with 0 timeout")
+
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {
