@@ -71,7 +71,14 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
 
-	err = driver.SetInstanceGroupSize(groupInfo.Name, groupInfo.Zone, clusterNodeCount, 5*time.Minute)
+	var clusterLocation string
+	if groupInfo.Zone != "" {
+		clusterLocation = groupInfo.Zone
+	} else {
+		clusterLocation = groupInfo.Region
+	}
+
+	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterLocation, clusterNodeCount, 5*time.Minute)
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {
@@ -93,7 +100,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	}
 
 	// Validate when timeout is given as 0, API does not error out.
-	err = driver.SetInstanceGroupSize(groupInfo.Name, groupInfo.Zone, clusterNodeCount+1, 0)
+	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterLocation, clusterNodeCount+1, 0)
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {

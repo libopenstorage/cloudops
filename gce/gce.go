@@ -219,11 +219,25 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 				zones = append(zones, parts[len(parts)-3])
 			}
 
+			zonal, err := isZonalCluster(clusterLocation)
+			if err != nil {
+				return nil, err
+			}
+
+			var clusterZone, clusterRegion string
+			if zonal {
+				clusterZone = clusterLocation
+				clusterRegion = clusterLocation[:len(clusterLocation)-2]
+			} else {
+				// Regional GKE cluster does not have master zone
+				clusterZone = ""
+				clusterRegion = clusterLocation
+			}
 			retval := &cloudops.InstanceGroupInfo{
 				CloudResourceInfo: cloudops.CloudResourceInfo{
 					Name:   nodePool.Name,
-					Zone:   clusterLocation,
-					Region: clusterLocation[:len(clusterLocation)-2],
+					Zone:   clusterZone,
+					Region: clusterRegion,
 				},
 				Zones:              zones,
 				AutoscalingEnabled: nodePool.Autoscaling.Enabled,
@@ -591,25 +605,44 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation str
 		NodeCount: count,
 	}
 
-	_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(s.inst.project,
-		instanceGroupLocation,
-		clusterName,
-		instanceGroupID,
-		setSizeRequest).Do()
+	zonalCluster, err := isZonalCluster(instanceGroupLocation)
+	if err != nil {
+		return err
+	}
+
+	if zonalCluster {
+		_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(s.inst.project,
+			instanceGroupLocation,
+			clusterName,
+			instanceGroupID,
+			setSizeRequest).Do()
+	} else {
+		_, err = s.containerService.Projects.Locations.Clusters.NodePools.SetSize(nodePoolPath, setSizeRequest).Do()
+	}
+
 	if err != nil {
 		return err
 	}
 
 	if timeout > time.Nanosecond {
 		f := func() (interface{}, bool, error) {
-			clusterInfo, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
-				instanceGroupLocation,
-				clusterName).Do()
+
+			clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+				s.inst.project, instanceGroupLocation, clusterName)
+
+			var cluster *container.Cluster
+			if zonalCluster {
+				cluster, err = s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
+					instanceGroupLocation,
+					clusterName).Do()
+			} else {
+				cluster, err = s.containerService.Projects.Locations.Clusters.Get(clusterPath).Do()
+			}
+
 			if err != nil {
 				return nil, true, err
 			}
-
-			if clusterInfo.CurrentNodeCount == count*int64(len(clusterInfo.Locations)) {
+			if cluster.CurrentNodeCount == count*int64(len(cluster.Locations)) {
 				return nil, false, nil
 			}
 
@@ -617,8 +650,8 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation str
 				true,
 				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
 					clusterName,
-					count*int64(len(clusterInfo.Locations)),
-					clusterInfo.CurrentNodeCount)
+					count*int64(len(cluster.Locations)),
+					cluster.CurrentNodeCount)
 		}
 
 		_, err = task.DoRetryWithTimeout(f, timeout, retrySeconds*time.Second)
@@ -639,9 +672,21 @@ func (s *gceOps) GetClusterSizeForInstance(instanceID string) (int64, error) {
 	if err != nil {
 		return int64(0), nil
 	}
-	cluster, err := s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
-		groupInfo.Zone,
-		clusterName).Do()
+
+	var cluster *container.Cluster
+	if groupInfo.Zone != "" {
+		// Zonal cluster
+		cluster, err = s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
+			groupInfo.Zone,
+			clusterName).Do()
+	} else {
+		// Regional cluster
+		clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+			s.inst.project, groupInfo.Region, clusterName)
+
+		cluster, err = s.containerService.Projects.Locations.Clusters.Get(clusterPath).Do()
+	}
+
 	if err != nil {
 		return int64(0), err
 	}
@@ -1002,4 +1047,10 @@ func isExponentialError(err error) bool {
 		}
 	}
 	return false
+}
+
+func isZonalCluster(clusterLocation string) (bool, error) {
+	// Zone e.g. us-central1-a
+	zoneRegex := "[a-zA-z0-9]+-[a-zA-Z0-9]+-[a-zA-Z]"
+	return regexp.MatchString(zoneRegex, clusterLocation)
 }
