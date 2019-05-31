@@ -225,10 +225,13 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 					Zone:   s.inst.zone,
 					Region: s.inst.region,
 				},
-				Zones:              zones,
-				AutoscalingEnabled: nodePool.Autoscaling.Enabled,
-				Min:                &nodePool.Autoscaling.MinNodeCount,
-				Max:                &nodePool.Autoscaling.MaxNodeCount,
+				Zones: zones,
+			}
+
+			if nodePool.Autoscaling != nil {
+				retval.AutoscalingEnabled = nodePool.Autoscaling.Enabled
+				retval.Min = &nodePool.Autoscaling.MinNodeCount
+				retval.Max = &nodePool.Autoscaling.MaxNodeCount
 			}
 
 			if nodePool.Config != nil {
