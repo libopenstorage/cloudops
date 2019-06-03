@@ -8,8 +8,18 @@ import (
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/pborman/uuid"
+	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	// clusterNodeCount node count per availability zone to use during tests
+	clusterNodeCount = 4
+	// retrySeconds interval in secs between consicutive retries
+	retrySeconds = 15
+	// timeoutMinutes timeout in minutes for cloud operation to complete
+	timeoutMinutes = 5
 )
 
 var diskLabels = map[string]string{
@@ -40,6 +50,7 @@ func RunTest(
 			teardown(t, d, diskID)
 			fmt.Printf("Tore down disk: %v\n", disk)
 		}
+
 	}
 }
 
@@ -65,6 +76,74 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	}
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
+
+	var clusterLocation string
+	if groupInfo.Zone != "" {
+		clusterLocation = groupInfo.Zone
+	} else {
+		clusterLocation = groupInfo.Region
+	}
+
+	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterLocation, clusterNodeCount, 5*time.Minute)
+	if err != nil {
+		_, ok := err.(*cloudops.ErrNotSupported)
+		if !ok {
+			t.Errorf("failed to set node count. Error:[%v]", err)
+		}
+	}
+
+	currentCount, err := driver.GetClusterSizeForInstance(instanceID)
+	if err != nil {
+		_, ok := err.(*cloudops.ErrNotSupported)
+		if !ok {
+			t.Errorf("failed to get node count. Error:[%v]", err)
+		}
+	} else {
+		// clusterNodeCount is per availability zone.
+		// So total cluster-wide node count is clusterNodeCount*num. of az
+		require.Equal(t, int64(clusterNodeCount*len(groupInfo.Zones)), currentCount,
+			"expected cluster node count does not match with actual node count")
+	}
+
+	// Validate when timeout is given as 0, API does not error out.
+	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterLocation, clusterNodeCount+1, 0)
+	if err != nil {
+		_, ok := err.(*cloudops.ErrNotSupported)
+		if !ok {
+			t.Errorf("failed to set node count. Error:[%v]", err)
+		}
+	} else {
+		// Validate GetClusterSizeForInstance() only if set operation is successful
+		// Wait for count to get updated for an instance group
+		expectedNodeCount := (clusterNodeCount + 1) * int64(len(groupInfo.Zones))
+		f := func() (interface{}, bool, error) {
+			currentCount, err := driver.GetClusterSizeForInstance(instanceID)
+			if err != nil {
+				_, ok := err.(*cloudops.ErrNotSupported)
+				if !ok {
+					// Some err occured, retry
+					return nil, true, err
+				}
+				// If operation not supported by cloud-driver
+				// Ignore the error and don't retry
+				return nil, false, nil
+			}
+
+			if currentCount == expectedNodeCount {
+				return nil, false, nil
+			}
+
+			return nil,
+				true,
+				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
+					groupInfo.Name,
+					expectedNodeCount,
+					currentCount)
+		}
+
+		_, err = task.DoRetryWithTimeout(f, timeoutMinutes*time.Minute, retrySeconds*time.Second)
+		require.NoErrorf(t, err, "error occured while getting cluster size after being set with 0 timeout")
+	}
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {

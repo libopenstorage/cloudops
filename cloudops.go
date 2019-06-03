@@ -1,5 +1,7 @@
 package cloudops
 
+import "time"
+
 const (
 	// SetIdentifierNone is a default identifier to group all disks from a
 	// particular set
@@ -48,6 +50,14 @@ type Compute interface {
 	// InspectInstanceGroupForInstance inspects the instance group to which the
 	// cloud instance with given ID belongs
 	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
+	// SetInstanceGroupSize sets desired node count per availability zone
+	// for given instance group
+	SetInstanceGroupSize(instanceGroupID string, clusterLocation string,
+		count int64,
+		timeout time.Duration) error
+	// GetClusterSizeForInstance returns current node count in given cluster
+	// This count is total node count across all availability zones
+	GetClusterSizeForInstance(instanceID string) (int64, error)
 }
 
 // Storage interface to manage storage operations.

@@ -89,6 +89,41 @@ func (e *exponentialBackoff) InspectInstanceGroupForInstance(instanceID string) 
 	return instanceGroupInfo, origErr
 }
 
+func (e *exponentialBackoff) SetInstanceGroupSize(instanceGroupID string, clusterLocation string,
+	count int64,
+	timeout time.Duration) error {
+	var (
+		origErr error
+	)
+	conditionFn := func() (bool, error) {
+		origErr = e.cloudOps.SetInstanceGroupSize(instanceGroupID, clusterLocation, count, timeout)
+		return e.handleError(origErr, fmt.Sprintf("Failed to set instance group size for: %v.", instanceGroupID))
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return origErr
+
+}
+
+func (e *exponentialBackoff) GetClusterSizeForInstance(instanceID string) (int64, error) {
+	var (
+		count   int64
+		origErr error
+	)
+	conditionFn := func() (bool, error) {
+		count, origErr = e.cloudOps.GetClusterSizeForInstance(instanceID)
+		return e.handleError(origErr, fmt.Sprintf("Failed to get cluster size for instance: %v.", instanceID))
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return 0, cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return count, origErr
+
+}
+
 // Create volume based on input template volume and also apply given labels.
 func (e *exponentialBackoff) Create(template interface{}, labels map[string]string) (interface{}, error) {
 	var (

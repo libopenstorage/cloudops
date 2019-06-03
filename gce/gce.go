@@ -28,6 +28,7 @@ import (
 var notFoundRegex = regexp.MustCompile(`.*notFound`)
 
 const googleDiskPrefix = "/dev/disk/by-id/google-"
+const retrySeconds = 15
 
 // StatusReady ready status
 const StatusReady = "ready"
@@ -219,11 +220,25 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 				zones = append(zones, parts[len(parts)-3])
 			}
 
+			zonal, err := isZonalCluster(clusterLocation)
+			if err != nil {
+				return nil, err
+			}
+
+			var clusterZone, clusterRegion string
+			if zonal {
+				clusterZone = clusterLocation
+				clusterRegion = clusterLocation[:len(clusterLocation)-2]
+			} else {
+				// Regional GKE cluster does not have master zone
+				clusterZone = ""
+				clusterRegion = clusterLocation
+			}
 			retval := &cloudops.InstanceGroupInfo{
 				CloudResourceInfo: cloudops.CloudResourceInfo{
 					Name:   nodePool.Name,
-					Zone:   s.inst.zone,
-					Region: s.inst.region,
+					Zone:   clusterZone,
+					Region: clusterRegion,
 				},
 				Zones: zones,
 			}
@@ -596,6 +611,141 @@ func (s *gceOps) RemoveTags(
 	}
 
 	return err
+}
+
+// SetInstanceGroupSize sets node count for a instance group.
+// Count here is per availability zone
+func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation string,
+	count int64, timeout time.Duration) error {
+
+	clusterName, err := s.getClusterName()
+	if err != nil {
+		return nil
+	}
+
+	nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
+		s.inst.project, instanceGroupLocation, clusterName, instanceGroupID)
+
+	setSizeRequest := &container.SetNodePoolSizeRequest{
+		Name:      nodePoolPath,
+		NodeCount: count,
+	}
+
+	zonalCluster, err := isZonalCluster(instanceGroupLocation)
+	if err != nil {
+		return err
+	}
+
+	if zonalCluster {
+		_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(s.inst.project,
+			instanceGroupLocation,
+			clusterName,
+			instanceGroupID,
+			setSizeRequest).Do()
+	} else {
+		_, err = s.containerService.Projects.Locations.Clusters.NodePools.SetSize(nodePoolPath, setSizeRequest).Do()
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if timeout > time.Nanosecond {
+		f := func() (interface{}, bool, error) {
+
+			clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+				s.inst.project, instanceGroupLocation, clusterName)
+
+			var cluster *container.Cluster
+			if zonalCluster {
+				cluster, err = s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
+					instanceGroupLocation,
+					clusterName).Do()
+			} else {
+				cluster, err = s.containerService.Projects.Locations.Clusters.Get(clusterPath).Do()
+			}
+
+			if err != nil {
+				return nil, true, err
+			}
+			if cluster.CurrentNodeCount == count*int64(len(cluster.Locations)) {
+				return nil, false, nil
+			}
+
+			return nil,
+				true,
+				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
+					clusterName,
+					count*int64(len(cluster.Locations)),
+					cluster.CurrentNodeCount)
+		}
+
+		_, err = task.DoRetryWithTimeout(f, timeout, retrySeconds*time.Second)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *gceOps) GetClusterSizeForInstance(instanceID string) (int64, error) {
+	groupInfo, err := s.InspectInstanceGroupForInstance(instanceID)
+	if err != nil {
+		return int64(0), nil
+	}
+
+	clusterName, err := s.getClusterName()
+	if err != nil {
+		return int64(0), nil
+	}
+
+	var cluster *container.Cluster
+	if groupInfo.Zone != "" {
+		// Zonal cluster
+		cluster, err = s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
+			groupInfo.Zone,
+			clusterName).Do()
+	} else {
+		// Regional cluster
+		clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+			s.inst.project, groupInfo.Region, clusterName)
+
+		cluster, err = s.containerService.Projects.Locations.Clusters.Get(clusterPath).Do()
+	}
+
+	if err != nil {
+		return int64(0), err
+	}
+
+	return cluster.CurrentNodeCount, nil
+}
+
+func (s *gceOps) getClusterName() (string, error) {
+
+	inst, err := s.computeService.Instances.Get(s.inst.project, s.inst.zone, s.inst.name).Do()
+	if err != nil {
+		return "", err
+	}
+
+	meta := inst.Metadata
+	if meta == nil {
+		return "", fmt.Errorf("instance doesn't have metadata set")
+	}
+
+	for _, item := range meta.Items {
+		if item == nil {
+			continue
+		}
+
+		if item.Key == clusterNameKey {
+			if item.Value == nil {
+				return "", fmt.Errorf("instance has %s key in metadata but has invalid value", clusterNameKey)
+			}
+
+			return *item.Value, nil
+		}
+	}
+	return "", fmt.Errorf("cluster name not found for instance [%s]", s.inst.name)
 }
 
 func (s *gceOps) Snapshot(
@@ -982,4 +1132,10 @@ func isExponentialError(err error) bool {
 		}
 	}
 	return false
+}
+
+func isZonalCluster(clusterLocation string) (bool, error) {
+	// Zone e.g. us-central1-a
+	zoneRegex := "[a-zA-z0-9]+-[a-zA-Z0-9]+-[a-zA-Z]"
+	return regexp.MatchString(zoneRegex, clusterLocation)
 }
