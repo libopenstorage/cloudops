@@ -104,40 +104,40 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {
-			t.Errorf("Fialed to set node count. Error:[%v]", err)
+			t.Errorf("failed to set node count. Error:[%v]", err)
 		}
-	}
-
-	// Wait for count to get updated for an instance group
-	expectedNodeCount := (clusterNodeCount + 1) * int64(len(groupInfo.Zones))
-	f := func() (interface{}, bool, error) {
-		currentCount, err := driver.GetClusterSizeForInstance(instanceID)
-		if err != nil {
-			_, ok := err.(*cloudops.ErrNotSupported)
-			if !ok {
-				// Some err occured, retry
-				return nil, true, err
+	} else {
+		// Validate GetClusterSizeForInstance() only if set operation is successful
+		// Wait for count to get updated for an instance group
+		expectedNodeCount := (clusterNodeCount + 1) * int64(len(groupInfo.Zones))
+		f := func() (interface{}, bool, error) {
+			currentCount, err := driver.GetClusterSizeForInstance(instanceID)
+			if err != nil {
+				_, ok := err.(*cloudops.ErrNotSupported)
+				if !ok {
+					// Some err occured, retry
+					return nil, true, err
+				}
+				// If operation not supported by cloud-driver
+				// Ignore the error and don't retry
+				return nil, false, nil
 			}
-			// If operation not supported by cloud-driver
-			// Ignore the error and don't retry
-			return nil, false, nil
+
+			if currentCount == expectedNodeCount {
+				return nil, false, nil
+			}
+
+			return nil,
+				true,
+				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
+					groupInfo.Name,
+					expectedNodeCount,
+					currentCount)
 		}
 
-		if currentCount == expectedNodeCount {
-			return nil, false, nil
-		}
-
-		return nil,
-			true,
-			fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
-				groupInfo.Name,
-				expectedNodeCount,
-				currentCount)
+		_, err = task.DoRetryWithTimeout(f, timeoutMinutes*time.Minute, retrySeconds*time.Second)
+		require.NoErrorf(t, err, "error occured while getting cluster size after being set with 0 timeout")
 	}
-
-	_, err = task.DoRetryWithTimeout(f, timeoutMinutes*time.Minute, retrySeconds*time.Second)
-	require.NoErrorf(t, err, "error occured while getting cluster size after being set with 0 timeout")
-
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {
