@@ -107,7 +107,7 @@ func NewClient() (cloudops.Ops, error) {
 }
 
 // nvmeInstanceTypes are list of instance types whose EBS volumes are exposed as NVMe block devices
-var nvmeInstanceTypes = []string{"c5", "c5d", "i3.metal", "m5", "m5d", "r5", "r5d", "z1d"}
+var nvmeInstanceTypes = []string{"c5", "c5d", "i3", "m5", "m5d", "r5", "r5d", "z1d"}
 
 func (s *awsOps) filters(
 	labels map[string]string,
