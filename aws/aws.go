@@ -107,7 +107,7 @@ func NewClient() (cloudops.Ops, error) {
 }
 
 // nvmeInstanceTypes are list of instance types whose EBS volumes are exposed as NVMe block devices
-var nvmeInstanceTypes = []string{"c5", "c5d", "i3.metal", "m5", "m5d", "r5", "r5d", "z1d"}
+var nvmeInstanceTypes = []string{"c5", "c5d", "i3", "m5", "m5d", "r5", "r5d", "z1d"}
 
 func (s *awsOps) filters(
 	labels map[string]string,
@@ -362,6 +362,7 @@ func (s *awsOps) DeviceMappings() (map[string]string, error) {
 					fmt.Sprintf("unable to get actual device path for %s. %v", devName, err),
 					s.instance)
 			}
+
 			m[devicePath] = *d.Ebs.VolumeId
 		}
 	}
@@ -496,7 +497,36 @@ func (s *awsOps) FreeDevices(
 	blockDeviceMappings []interface{},
 	rootDeviceName string,
 ) ([]string, error) {
-	initial := []byte("fghijklmnop")
+	freeLetterTracker := []byte("fghijklmnop")
+	devNamesInUse := make(map[string]string) // used as a set, values not used
+
+	// We also need to fetch ephemeral device mappings as they are not populated
+	// in blockDeviceMappings
+	// See bottom of this page:
+	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html?icmpid=docs_ec2_console#instance-block-device-mapping
+	mappingsFromMetadata, err := metadata("block-device-mapping")
+	if err != nil {
+		return nil, err
+	}
+
+	devices := strings.Split(mappingsFromMetadata, "\n")
+	for _, device := range devices {
+		if device == "root" || device == "ami" {
+			continue
+		}
+
+		devName, err := metadata("block-device-mapping/" + device)
+		if err != nil {
+			return nil, err
+		}
+
+		if !strings.HasPrefix(devName, "/dev/") {
+			devName = "/dev/" + devName
+		}
+
+		devNamesInUse[devName] = ""
+	}
+
 	devPrefix := awsDevicePrefix
 	for _, d := range blockDeviceMappings {
 		dev := d.(*ec2.InstanceBlockDeviceMapping)
@@ -509,6 +539,13 @@ func (s *awsOps) FreeDevices(
 		if devName == rootDeviceName {
 			continue
 		}
+
+		devNamesInUse[devName] = ""
+	}
+
+	for devName := range devNamesInUse {
+
+		// Extract the letter from the devName (e.g extract 'f' from '/dev/sdf')
 		if !strings.HasPrefix(devName, devPrefix) {
 			devPrefix = awsDevicePrefixWithX
 			if !strings.HasPrefix(devName, devPrefix) {
@@ -530,7 +567,8 @@ func (s *awsOps) FreeDevices(
 			if index > ('p' - 'f') {
 				continue
 			}
-			initial[index] = '0'
+
+			freeLetterTracker[index] = '0' // mark as used
 		} else if len(letter) == 2 {
 			// We do not attach EBS volumes with "/dev/xvdc[a-z]" formats
 			continue
@@ -543,14 +581,14 @@ func (s *awsOps) FreeDevices(
 	// The reason we do this is based on the virtualization type AWS might attach
 	// the device "sda" at /dev/sda OR /dev/xvda. So we look at how the root device
 	// is attached and use that prefix
-	devPrefix, err := s.getPrefixFromRootDeviceName(rootDeviceName)
+	devPrefix, err = s.getPrefixFromRootDeviceName(rootDeviceName)
 	if err != nil {
 		return nil, err
 	}
 
-	free := make([]string, len(initial))
+	free := make([]string, len(freeLetterTracker))
 	count := 0
-	for _, b := range initial {
+	for _, b := range freeLetterTracker {
 		if b != '0' {
 			free[count] = devPrefix + string(b)
 			count++
@@ -559,7 +597,7 @@ func (s *awsOps) FreeDevices(
 	if count == 0 {
 		return nil, fmt.Errorf("No more free devices")
 	}
-	return free[:count], nil
+	return reverse(free[:count]), nil
 }
 
 func (s *awsOps) rollbackCreate(id string, createErr error) error {
@@ -766,23 +804,35 @@ func (s *awsOps) Attach(volumeID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req := &ec2.AttachVolumeInput{
-		Device:     &devices[0],
-		InstanceId: &s.instance,
-		VolumeId:   &volumeID,
+
+	for _, device := range devices {
+		req := &ec2.AttachVolumeInput{
+			Device:     &device,
+			InstanceId: &s.instance,
+			VolumeId:   &volumeID,
+		}
+		if _, err := s.ec2.AttachVolume(req); err != nil {
+			if strings.Contains(err.Error(), "is already in use") {
+				logrus.Infof("Skipping device: %s as it's in use. Will try next free device", device)
+				continue
+			}
+
+			return "", err
+		}
+
+		vol, err := s.waitAttachmentStatus(
+			volumeID,
+			ec2.VolumeAttachmentStateAttached,
+			time.Minute,
+		)
+		if err != nil {
+			return "", err
+		}
+
+		return s.DevicePath(*vol.VolumeId)
 	}
-	if _, err := s.ec2.AttachVolume(req); err != nil {
-		return "", err
-	}
-	vol, err := s.waitAttachmentStatus(
-		volumeID,
-		ec2.VolumeAttachmentStateAttached,
-		time.Minute,
-	)
-	if err != nil {
-		return "", err
-	}
-	return s.DevicePath(*vol.VolumeId)
+
+	return "", fmt.Errorf("failed to attach any of the free devices. Attempted: %v", devices)
 }
 
 func (s *awsOps) Detach(volumeID string) error {
@@ -1019,4 +1069,13 @@ func isExponentialError(err error) bool {
 		}
 	}
 	return false
+}
+
+func reverse(a []string) []string {
+	reversed := make([]string, len(a))
+	for i, item := range a {
+		reversed[len(a)-i-1] = item
+	}
+
+	return reversed
 }
