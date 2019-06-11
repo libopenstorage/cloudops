@@ -54,9 +54,11 @@ type Compute interface {
 	InspectInstanceGroupForInstance(instanceID string) (*InstanceGroupInfo, error)
 	// SetInstanceGroupSize sets desired node count per availability zone
 	// for given instance group
-	SetInstanceGroupSize(instanceGroupID string, clusterLocation string,
+	SetInstanceGroupSize(instanceGroupName string,
 		count int64,
 		timeout time.Duration) error
+	// GetInstanceGroupSize returns current node count of given instance group
+	GetInstanceGroupSize(instanceGroupName string) (int64, error)
 	// GetClusterSizeForInstance returns current node count in given cluster
 	// This count is total node count across all availability zones
 	GetClusterSizeForInstance(instanceID string) (int64, error)

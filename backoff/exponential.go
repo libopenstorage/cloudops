@@ -89,15 +89,15 @@ func (e *exponentialBackoff) InspectInstanceGroupForInstance(instanceID string) 
 	return instanceGroupInfo, origErr
 }
 
-func (e *exponentialBackoff) SetInstanceGroupSize(instanceGroupID string, clusterLocation string,
+func (e *exponentialBackoff) SetInstanceGroupSize(instanceGroupName string,
 	count int64,
 	timeout time.Duration) error {
 	var (
 		origErr error
 	)
 	conditionFn := func() (bool, error) {
-		origErr = e.cloudOps.SetInstanceGroupSize(instanceGroupID, clusterLocation, count, timeout)
-		return e.handleError(origErr, fmt.Sprintf("Failed to set instance group size for: %v.", instanceGroupID))
+		origErr = e.cloudOps.SetInstanceGroupSize(instanceGroupName, count, timeout)
+		return e.handleError(origErr, fmt.Sprintf("Failed to set cluster size"))
 	}
 	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
 	if expErr == wait.ErrWaitTimeout {
@@ -105,6 +105,22 @@ func (e *exponentialBackoff) SetInstanceGroupSize(instanceGroupID string, cluste
 	}
 	return origErr
 
+}
+
+func (e *exponentialBackoff) GetInstanceGroupSize(instanceGroupName string) (int64, error) {
+	var (
+		count   int64
+		origErr error
+	)
+	conditionFn := func() (bool, error) {
+		count, origErr = e.cloudOps.GetInstanceGroupSize(instanceGroupName)
+		return e.handleError(origErr, fmt.Sprintf("Failed to get instance group size"))
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return 0, cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return count, origErr
 }
 
 func (e *exponentialBackoff) GetClusterSizeForInstance(instanceID string) (int64, error) {

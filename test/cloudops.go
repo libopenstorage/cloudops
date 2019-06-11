@@ -104,7 +104,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 		}
 	}
 
-	currentCount, err := driver.GetClusterSizeForInstance(instanceID)
+	currentCount, err := driver.GetInstanceGroupSize(groupInfo.Name)
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {
@@ -118,18 +118,18 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	}
 
 	// Validate when timeout is given as 0, API does not error out.
-	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterLocation, clusterNodeCount+1, 0)
+	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterNodeCount+1, 0)
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {
 			t.Errorf("failed to set node count. Error:[%v]", err)
 		}
 	} else {
-		// Validate GetClusterSizeForInstance() only if set operation is successful
+		// Validate GetInstanceGroupSize() only if set operation is successful
 		// Wait for count to get updated for an instance group
 		expectedNodeCount := (clusterNodeCount + 1) * int64(len(groupInfo.Zones))
 		f := func() (interface{}, bool, error) {
-			currentCount, err := driver.GetClusterSizeForInstance(instanceID)
+			currentCount, err := driver.GetInstanceGroupSize(groupInfo.Name)
 			if err != nil {
 				_, ok := err.(*cloudops.ErrNotSupported)
 				if !ok {

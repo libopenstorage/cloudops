@@ -54,11 +54,14 @@ type gceOps struct {
 
 // instance stores the metadata of the running GCE instance
 type instance struct {
-	name     string
-	hostname string
-	zone     string
-	region   string
-	project  string
+	name            string
+	hostname        string
+	zone            string
+	region          string
+	project         string
+	clusterName     string
+	clusterLocation string
+	nodePoolID      string
 }
 
 // IsDevMode checks if the pkg is invoked in developer mode where GCE credentials
@@ -71,6 +74,7 @@ func IsDevMode() bool {
 
 // NewClient creates a new GCE operations client
 func NewClient() (cloudops.Ops, error) {
+
 	var i = new(instance)
 	var err error
 	if metadata.OnGCE() {
@@ -623,35 +627,37 @@ func (s *gceOps) RemoveTags(
 
 // SetInstanceGroupSize sets node count for a instance group.
 // Count here is per availability zone
-func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation string,
+func (s *gceOps) SetInstanceGroupSize(instanceGroupName string,
 	count int64, timeout time.Duration) error {
 
-	clusterName, err := s.getClusterName()
-	if err != nil {
-		return nil
-	}
-
-	nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
-		s.inst.project, instanceGroupLocation, clusterName, instanceGroupID)
+	clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+		s.inst.project, s.inst.clusterLocation, s.inst.clusterName)
+	nodePoolPath := fmt.Sprintf("%s/nodePools/%s",
+		clusterPath, instanceGroupName)
 
 	setSizeRequest := &container.SetNodePoolSizeRequest{
 		Name:      nodePoolPath,
 		NodeCount: count,
 	}
 
-	zonalCluster, err := isZonalCluster(instanceGroupLocation)
+	zonalCluster, err := isZonalCluster(s.inst.clusterLocation)
 	if err != nil {
 		return err
 	}
 
+	var cluster *container.Cluster
 	if zonalCluster {
-		_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(s.inst.project,
-			instanceGroupLocation,
-			clusterName,
-			instanceGroupID,
+		_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(
+			s.inst.project,
+			s.inst.clusterLocation,
+			s.inst.clusterName,
+			instanceGroupName,
 			setSizeRequest).Do()
+
 	} else {
-		_, err = s.containerService.Projects.Locations.Clusters.NodePools.SetSize(nodePoolPath, setSizeRequest).Do()
+		_, err = s.containerService.Projects.Locations.Clusters.NodePools.SetSize(
+			nodePoolPath,
+			setSizeRequest).Do()
 	}
 
 	if err != nil {
@@ -661,31 +667,31 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation str
 	if timeout > time.Nanosecond {
 		f := func() (interface{}, bool, error) {
 
-			clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
-				s.inst.project, instanceGroupLocation, clusterName)
-
-			var cluster *container.Cluster
 			if zonalCluster {
-				cluster, err = s.containerService.Projects.Zones.Clusters.Get(s.inst.project,
-					instanceGroupLocation,
-					clusterName).Do()
+				cluster, err = s.containerService.Projects.Zones.Clusters.Get(
+					s.inst.project,
+					s.inst.clusterLocation,
+					s.inst.clusterName).Do()
+
 			} else {
-				cluster, err = s.containerService.Projects.Locations.Clusters.Get(clusterPath).Do()
+				cluster, err = s.containerService.Projects.Locations.Clusters.Get(
+					clusterPath).Do()
+
 			}
 
 			if err != nil {
-				return nil, true, err
+				// Error occured, just retry
+				return nil, true, nil
 			}
-			if cluster.CurrentNodeCount == count*int64(len(cluster.Locations)) {
+
+			if cluster.Status == "RUNNING" {
 				return nil, false, nil
 			}
 
 			return nil,
 				true,
-				fmt.Errorf("cluster node count of [%s] does not match. Expected: [%v], Actual:[%v]. Waiting",
-					clusterName,
-					count*int64(len(cluster.Locations)),
-					cluster.CurrentNodeCount)
+				fmt.Errorf("cluster [%s] state is [%s]. Waiting to become running",
+					s.inst.clusterName, cluster.Status)
 		}
 
 		_, err = task.DoRetryWithTimeout(f, timeout, retrySeconds*time.Second)
@@ -694,6 +700,45 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID, instanceGroupLocation str
 		}
 	}
 	return nil
+}
+
+func (s *gceOps) GetInstanceGroupSize(instanceGroupName string) (int64, error) {
+
+	zonalCluster, err := isZonalCluster(s.inst.clusterLocation)
+	if err != nil {
+		return 0, err
+	}
+
+	var nodePool *container.NodePool
+	if zonalCluster {
+		nodePool, err = s.containerService.Projects.Zones.Clusters.NodePools.Get(
+			s.inst.project, s.inst.clusterLocation, s.inst.clusterName, instanceGroupName).Do()
+	} else {
+		nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
+			s.inst.project, s.inst.clusterLocation, s.inst.clusterLocation, instanceGroupName)
+		nodePool, err = s.containerService.Projects.Locations.Clusters.NodePools.Get(nodePoolPath).Do()
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	nodeCount := int64(0)
+	for _, instanceGroupURL := range nodePool.InstanceGroupUrls {
+
+		nodeGrpName := strings.TrimSpace(filepath.Base(instanceGroupURL))
+
+		temp := strings.SplitAfter(instanceGroupURL, "zones")[1]
+		zone := strings.Split(temp, "/")[1]
+
+		instGroup, err := s.computeService.InstanceGroups.Get(s.inst.project, zone, nodeGrpName).Do()
+		if err != nil {
+			return 0, err
+		}
+		nodeCount = nodeCount + instGroup.Size
+	}
+
+	return nodeCount, nil
 }
 
 func (s *gceOps) GetClusterSizeForInstance(instanceID string) (int64, error) {
@@ -894,6 +939,34 @@ func gceInfo(inst *instance) error {
 		return err
 	}
 
+	inst.clusterName, err = metadata.InstanceAttributeValue(clusterNameKey)
+	if err != nil {
+		// No need to error out for non-GKE compute instances
+		logrus.Warnf("no '%s' instance attribute found", clusterNameKey)
+	}
+
+	inst.clusterLocation, err = metadata.InstanceAttributeValue(clusterLocationKey)
+	if err != nil {
+		// No need to error out for non-GKE compute instances
+		logrus.Warnf("no '%s' instance attribute found", clusterLocationKey)
+	}
+
+	kubeLabels, err := metadata.InstanceAttributeValue(kubeLabelsKey)
+	if err != nil {
+		// No need to error out for non-GKE compute instances
+		logrus.Warnf("no '%s' instance attribute found", kubeLabelsKey)
+	} else {
+		kubeLabelList, err := parser.LabelsFromString(kubeLabels)
+		if err != nil {
+			return err
+		}
+
+		for labelKey, labelValue := range kubeLabelList {
+			if labelKey == nodePoolKey {
+				inst.nodePoolID = labelValue
+			}
+		}
+	}
 	return nil
 }
 
@@ -915,6 +988,10 @@ func gceInfoFromEnv(inst *instance) error {
 	if err != nil {
 		return err
 	}
+
+	inst.clusterName, _ = cloudops.GetEnvValueStrict("GKE_CLUSTER_NAME")
+	inst.clusterLocation, _ = cloudops.GetEnvValueStrict("GKE_CLUSTER_LOCATION")
+	inst.nodePoolID, _ = cloudops.GetEnvValueStrict("GKE_NODE_POOL")
 
 	return nil
 }
