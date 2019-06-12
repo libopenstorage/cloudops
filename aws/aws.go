@@ -106,9 +106,6 @@ func NewClient() (cloudops.Ops, error) {
 
 }
 
-// nvmeInstanceTypes are list of instance types whose EBS volumes are exposed as NVMe block devices
-var nvmeInstanceTypes = []string{"c5", "c5d", "i3", "m5", "m5d", "r5", "r5d", "z1d"}
-
 func (s *awsOps) filters(
 	labels map[string]string,
 	keys []string,
@@ -437,44 +434,30 @@ func (s *awsOps) getParentDevice(ipDevPath string) (string, error) {
 // such as /dev/sd and /dev/xvd and return the devicePath which is found
 // or return an error
 func (s *awsOps) getActualDevicePath(ipDevicePath, volumeID string) (string, error) {
+	var err error
 	letter := ipDevicePath[len(ipDevicePath)-1:]
 	devicePath := awsDevicePrefix + letter
-	if _, err := os.Stat(devicePath); err == nil {
+	if _, err = os.Stat(devicePath); err == nil {
 		return s.getParentDevice(devicePath)
 	}
 	devicePath = awsDevicePrefixWithX + letter
-	if _, err := os.Stat(devicePath); err == nil {
+	if _, err = os.Stat(devicePath); err == nil {
 		return s.getParentDevice(devicePath)
 	}
 
 	devicePath = awsDevicePrefixWithH + letter
-	if _, err := os.Stat(devicePath); err == nil {
+	if _, err = os.Stat(devicePath); err == nil {
 		return s.getParentDevice(devicePath)
 	}
 
-	// Check if the EBS volumes are exposed as NVMe drives
-	found := false
-	for _, instancePrefix := range nvmeInstanceTypes {
-		if strings.HasPrefix(s.instanceType, instancePrefix) {
-			found = true
-			break
+	if devicePath, err = s.getNvmeDeviceFromVolumeID(volumeID); err == nil {
+		if _, err = os.Stat(devicePath); err == nil {
+			return devicePath, nil
 		}
 	}
 
-	if !found {
-		return "", fmt.Errorf("unable to map volume %v with block device mapping %v to an"+
-			" actual device path on the host", volumeID, ipDevicePath)
-	}
-
-	devicePath, err := s.getNvmeDeviceFromVolumeID(volumeID)
-	if err != nil {
-		return "", err
-	}
-	if _, err := os.Stat(devicePath); err != nil {
-		return "", err
-	}
-	return devicePath, nil
-
+	return "", fmt.Errorf("unable to map volume %v with block device mapping %v to an"+
+		" actual device path on the host", volumeID, ipDevicePath)
 }
 
 func (s *awsOps) getNvmeDeviceFromVolumeID(volumeID string) (string, error) {
