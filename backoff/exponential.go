@@ -89,14 +89,14 @@ func (e *exponentialBackoff) InspectInstanceGroupForInstance(instanceID string) 
 	return instanceGroupInfo, origErr
 }
 
-func (e *exponentialBackoff) SetInstanceGroupSize(instanceGroupName string,
+func (e *exponentialBackoff) SetInstanceGroupSize(instanceGroupID string,
 	count int64,
 	timeout time.Duration) error {
 	var (
 		origErr error
 	)
 	conditionFn := func() (bool, error) {
-		origErr = e.cloudOps.SetInstanceGroupSize(instanceGroupName, count, timeout)
+		origErr = e.cloudOps.SetInstanceGroupSize(instanceGroupID, count, timeout)
 		return e.handleError(origErr, fmt.Sprintf("Failed to set cluster size"))
 	}
 	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
@@ -107,13 +107,13 @@ func (e *exponentialBackoff) SetInstanceGroupSize(instanceGroupName string,
 
 }
 
-func (e *exponentialBackoff) GetInstanceGroupSize(instanceGroupName string) (int64, error) {
+func (e *exponentialBackoff) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
 	var (
 		count   int64
 		origErr error
 	)
 	conditionFn := func() (bool, error) {
-		count, origErr = e.cloudOps.GetInstanceGroupSize(instanceGroupName)
+		count, origErr = e.cloudOps.GetInstanceGroupSize(instanceGroupID)
 		return e.handleError(origErr, fmt.Sprintf("Failed to get instance group size"))
 	}
 	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)

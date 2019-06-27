@@ -35,7 +35,7 @@ func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) 
 	}
 }
 
-func (u *unsupportedCompute) SetInstanceGroupSize(instanceGroupName string,
+func (u *unsupportedCompute) SetInstanceGroupSize(instanceGroupID string,
 	count int64,
 	timeout time.Duration) error {
 	return &cloudops.ErrNotSupported{
@@ -43,7 +43,7 @@ func (u *unsupportedCompute) SetInstanceGroupSize(instanceGroupName string,
 	}
 }
 
-func (u *unsupportedCompute) GetInstanceGroupSize(instanceGroupName string) (int64, error) {
+func (u *unsupportedCompute) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
 	return 0, &cloudops.ErrNotSupported{
 		Operation: "GetInstanceGroupSize",
 	}
