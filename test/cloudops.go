@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -36,21 +37,21 @@ func RunTest(
 	for _, d := range drivers {
 		name(t, d)
 		compute(t, d)
-
-		for _, template := range diskTemplates[d.Name()] {
-			disk := create(t, d, template)
-			fmt.Printf("Created disk: %v\n", disk)
-			diskID := id(t, d, disk)
-			snapshot(t, d, diskID)
-			tags(t, d, diskID)
-			enumerate(t, d, diskID)
-			inspect(t, d, diskID)
-			attach(t, d, diskID)
-			devicePath(t, d, diskID)
-			teardown(t, d, diskID)
-			fmt.Printf("Tore down disk: %v\n", disk)
-		}
-
+		/*
+			for _, template := range diskTemplates[d.Name()] {
+				disk := create(t, d, template)
+				fmt.Printf("Created disk: %v\n", disk)
+				diskID := id(t, d, disk)
+				snapshot(t, d, diskID)
+				tags(t, d, diskID)
+				enumerate(t, d, diskID)
+				inspect(t, d, diskID)
+				attach(t, d, diskID)
+				devicePath(t, d, diskID)
+				teardown(t, d, diskID)
+				fmt.Printf("Tore down disk: %v\n", disk)
+			}
+		*/
 	}
 }
 
@@ -76,6 +77,17 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	}
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
+
+	instanceToDelete := os.Getenv("INSTANCE_TO_DELETE")
+	instanceToDeleteZone := os.Getenv("INSTANCE_TO_DELETE_ZONE")
+
+	if instanceToDelete != "" && instanceToDeleteZone != "" {
+		fmt.Printf("In test: zone is:%v", instanceToDeleteZone)
+		err := driver.DeleteInstance(instanceToDelete, instanceToDeleteZone)
+		require.NoError(t, err, "failed to inspect instance group")
+	} else {
+		logrus.Fatalf("Set INSTANCE_TO_DELETE and INSTANCE_TO_DELETE_ZONE environment variable")
+	}
 
 	var clusterLocation string
 	if groupInfo.Zone != "" {
@@ -144,6 +156,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 		_, err = task.DoRetryWithTimeout(f, timeoutMinutes*time.Minute, retrySeconds*time.Second)
 		require.NoErrorf(t, err, "error occured while getting cluster size after being set with 0 timeout")
 	}
+
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {

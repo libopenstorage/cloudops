@@ -378,6 +378,14 @@ func (s *gceOps) DeleteFrom(id, _ string) error {
 	return s.Delete(id)
 }
 
+func (s *gceOps) DeleteInstance(instanceID string, zone string) error {
+	_, err := s.computeService.Instances.Delete(s.inst.project, zone, instanceID).Do()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *gceOps) Delete(id string) error {
 	ctx := context.Background()
 	found := false
