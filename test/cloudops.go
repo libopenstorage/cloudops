@@ -135,7 +135,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 		}
 
 		_, err = task.DoRetryWithTimeout(f, timeoutMinutes*time.Minute, retrySeconds*time.Second)
-		require.NoErrorf(t, err, "error occured while getting cluster size after being set with 0 timeout")
+		require.NoErrorf(t, err, fmt.Sprintf("error occured while getting cluster size after being set with 0 timeout. Error:[%v]", err))
 	}
 }
 

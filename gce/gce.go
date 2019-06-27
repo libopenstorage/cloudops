@@ -619,13 +619,12 @@ func (s *gceOps) RemoveTags(
 
 // SetInstanceGroupSize sets node count for a instance group.
 // Count here is per availability zone
-func (s *gceOps) SetInstanceGroupSize(instanceGroupName string,
+func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,
 	count int64, timeout time.Duration) error {
-
 	clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
 		s.inst.project, s.inst.clusterLocation, s.inst.clusterName)
 	nodePoolPath := fmt.Sprintf("%s/nodePools/%s",
-		clusterPath, instanceGroupName)
+		clusterPath, instanceGroupID)
 
 	setSizeRequest := &container.SetNodePoolSizeRequest{
 		Name:      nodePoolPath,
@@ -643,7 +642,7 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupName string,
 			s.inst.project,
 			s.inst.clusterLocation,
 			s.inst.clusterName,
-			instanceGroupName,
+			instanceGroupID,
 			setSizeRequest).Do()
 
 	} else {
@@ -673,7 +672,7 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupName string,
 
 			if err != nil {
 				// Error occured, just retry
-				return nil, true, nil
+				return nil, true, err
 			}
 
 			if cluster.Status == "RUNNING" {
@@ -694,7 +693,7 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupName string,
 	return nil
 }
 
-func (s *gceOps) GetInstanceGroupSize(instanceGroupName string) (int64, error) {
+func (s *gceOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
 
 	zonalCluster, err := isZonalCluster(s.inst.clusterLocation)
 	if err != nil {
@@ -704,10 +703,10 @@ func (s *gceOps) GetInstanceGroupSize(instanceGroupName string) (int64, error) {
 	var nodePool *container.NodePool
 	if zonalCluster {
 		nodePool, err = s.containerService.Projects.Zones.Clusters.NodePools.Get(
-			s.inst.project, s.inst.clusterLocation, s.inst.clusterName, instanceGroupName).Do()
+			s.inst.project, s.inst.clusterLocation, s.inst.clusterName, instanceGroupID).Do()
 	} else {
 		nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
-			s.inst.project, s.inst.clusterLocation, s.inst.clusterLocation, instanceGroupName)
+			s.inst.project, s.inst.clusterLocation, s.inst.clusterName, instanceGroupID)
 		nodePool, err = s.containerService.Projects.Locations.Clusters.NodePools.Get(nodePoolPath).Do()
 	}
 
@@ -718,10 +717,22 @@ func (s *gceOps) GetInstanceGroupSize(instanceGroupName string) (int64, error) {
 	nodeCount := int64(0)
 	for _, instanceGroupURL := range nodePool.InstanceGroupUrls {
 
+		var zoneInfo, zone string
 		nodeGrpName := strings.TrimSpace(filepath.Base(instanceGroupURL))
 
-		temp := strings.SplitAfter(instanceGroupURL, "zones")[1]
-		zone := strings.Split(temp, "/")[1]
+		temp := strings.SplitAfter(instanceGroupURL, "zones")
+		if len(temp) > 1 {
+			zoneInfo = temp[1]
+		} else {
+			return int64(0), fmt.Errorf("no zone information found from instance group url")
+		}
+
+		temp = strings.Split(zoneInfo, "/")
+		if len(temp) > 1 {
+			zone = temp[1]
+		} else {
+			return int64(0), fmt.Errorf("no zone information found from instance group url")
+		}
 
 		instGroup, err := s.computeService.InstanceGroups.Get(s.inst.project, zone, nodeGrpName).Do()
 		if err != nil {
