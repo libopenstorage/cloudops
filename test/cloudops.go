@@ -37,21 +37,20 @@ func RunTest(
 	for _, d := range drivers {
 		name(t, d)
 		compute(t, d)
-		/*
-			for _, template := range diskTemplates[d.Name()] {
-				disk := create(t, d, template)
-				fmt.Printf("Created disk: %v\n", disk)
-				diskID := id(t, d, disk)
-				snapshot(t, d, diskID)
-				tags(t, d, diskID)
-				enumerate(t, d, diskID)
-				inspect(t, d, diskID)
-				attach(t, d, diskID)
-				devicePath(t, d, diskID)
-				teardown(t, d, diskID)
-				fmt.Printf("Tore down disk: %v\n", disk)
-			}
-		*/
+
+		for _, template := range diskTemplates[d.Name()] {
+			disk := create(t, d, template)
+			fmt.Printf("Created disk: %v\n", disk)
+			diskID := id(t, d, disk)
+			snapshot(t, d, diskID)
+			tags(t, d, diskID)
+			enumerate(t, d, diskID)
+			inspect(t, d, diskID)
+			attach(t, d, diskID)
+			devicePath(t, d, diskID)
+			teardown(t, d, diskID)
+			fmt.Printf("Tore down disk: %v\n", disk)
+		}
 	}
 }
 
@@ -79,24 +78,14 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
 
 	instanceToDelete := os.Getenv("INSTANCE_TO_DELETE")
-	instanceToDeleteZone := os.Getenv("INSTANCE_TO_DELETE_ZONE")
-
-	if instanceToDelete != "" && instanceToDeleteZone != "" {
-		fmt.Printf("In test: zone is:%v", instanceToDeleteZone)
-		err := driver.DeleteInstance(instanceToDelete, instanceToDeleteZone)
-		require.NoError(t, err, "failed to inspect instance group")
+	if instanceToDelete != "" {
+		err := driver.DeleteInstance(instanceToDelete)
+		require.NoError(t, err, fmt.Sprintf("failed to delete instance [%v]. Error:[%v]", instanceToDelete, err))
 	} else {
-		logrus.Fatalf("Set INSTANCE_TO_DELETE and INSTANCE_TO_DELETE_ZONE environment variable")
+		logrus.Fatalf("Set INSTANCE_TO_DELETE environment variable")
 	}
 
-	var clusterLocation string
-	if groupInfo.Zone != "" {
-		clusterLocation = groupInfo.Zone
-	} else {
-		clusterLocation = groupInfo.Region
-	}
-
-	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterLocation, clusterNodeCount, 5*time.Minute)
+	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterNodeCount, 5*time.Minute)
 	if err != nil {
 		_, ok := err.(*cloudops.ErrNotSupported)
 		if !ok {

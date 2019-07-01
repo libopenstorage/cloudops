@@ -14,7 +14,7 @@ func NewUnsupportedCompute() cloudops.Compute {
 	return &unsupportedCompute{}
 }
 
-func (u *unsupportedCompute) DeleteInstance(instanceID string, zone string) error {
+func (u *unsupportedCompute) DeleteInstance(instanceID string) error {
 	return &cloudops.ErrNotSupported{
 		Operation: "DeleteInstance",
 	}

@@ -44,7 +44,7 @@ type InstanceInfo struct {
 // Compute interface to manage compute instances.
 type Compute interface {
 	// DeleteInstance deletes the instance
-	DeleteInstance(instanceID string, zone string) error
+	DeleteInstance(instanceID string) error
 	// InstanceID of instance where command is executed.
 	InstanceID() string
 	// InspectInstance inspects the node with the given instance ID
