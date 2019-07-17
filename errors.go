@@ -20,6 +20,23 @@ const (
 	ErrExponentialTimeout
 )
 
+// ErrInvalidArgument is the error type to use when invalid args as given to APIs
+type ErrInvalidArgument struct {
+	// Operation is the operation that was being performed
+	Operation string
+	// Reason is an optional reason explaining the invalid argument error
+	Reason string
+}
+
+func (e *ErrInvalidArgument) Error() string {
+	errString := fmt.Sprintf("Operation: %s was given invalid argument", e.Operation)
+	if len(e.Reason) > 0 {
+		errString = fmt.Sprintf("%s. Reason: %s", errString, e.Reason)
+	}
+
+	return errString
+}
+
 // ErrNotSupported is the error type for unsupported operations
 type ErrNotSupported struct {
 	// Operation is the operation not being supported

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -21,22 +22,37 @@ const (
 	retrySeconds = 15
 	// timeoutMinutes timeout in minutes for cloud operation to complete
 	timeoutMinutes = 5
+
+	// All flag related constants
+	computeInstanceTests = "instance"
+	computeClusterTests  = "cluster"
 )
 
-var diskLabels = map[string]string{
-	"source": "openstorage-test",
-	"foo":    "bar",
-	"Test":   "UPPER_CASE",
-}
+var (
+	diskLabels = map[string]string{
+		"source": "openstorage-test",
+		"foo":    "bar",
+		"Test":   "UPPER_CASE",
+	}
+	// All flag releated variables
+	skipClusterTests bool
+	skipStorageTests bool
+)
 
 // RunTest runs all tests
 func RunTest(
 	drivers map[string]cloudops.Ops,
 	diskTemplates map[string]map[string]interface{},
+	instCreateOptsByDriver map[string][]interface{},
 	t *testing.T) {
 	for _, d := range drivers {
 		name(t, d)
-		compute(t, d)
+		compute(t, d, instCreateOptsByDriver)
+
+		if skipStorageTests {
+			logrus.Infof("Skipping storage tests for driver")
+			continue
+		}
 
 		for _, template := range diskTemplates[d.Name()] {
 			disk := create(t, d, template)
@@ -59,7 +75,7 @@ func name(t *testing.T, driver cloudops.Ops) {
 	require.NotEmpty(t, name, "driver returned empty name")
 }
 
-func compute(t *testing.T, driver cloudops.Ops) {
+func compute(t *testing.T, driver cloudops.Ops, instCreateOptsByDriver map[string][]interface{}) {
 	instanceID := driver.InstanceID()
 	require.NotEmpty(t, instanceID, "failed to get instance ID")
 
@@ -69,6 +85,73 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	}
 	require.NoError(t, err, "failed to inspect instance")
 	require.NotNil(t, info, "got nil instance info from inspect")
+	require.Equal(t, info.ID, instanceID, "expected given UUID and UUID from inspect to be the same")
+	require.NotEmpty(t, info.Zone, "inspect must returns instance zone")
+
+	instances, err := driver.ListInstances(nil)
+	require.NoError(t, err, "failed to list instances")
+	require.NotNil(t, instances, "got nil instances from list API")
+
+	if instCreateOptsByDriver != nil {
+		for _, instToCreate := range instCreateOptsByDriver[driver.Name()] {
+			instances, err = driver.ListInstances(nil)
+			if _, ok := err.(*cloudops.ErrNotSupported); ok {
+				continue
+			}
+
+			require.NoError(t, err, "failed to list instances")
+			require.NotNil(t, instances, "got nil instances from list API")
+
+			numInstances := len(instances)
+
+			logrus.Infof("creating instance: %v", instToCreate)
+			info, err = driver.CreateInstance(instToCreate)
+			if _, ok := err.(*cloudops.ErrNotSupported); ok {
+				continue
+			}
+			require.NoError(t, err, "failed to create instance")
+			require.NotNil(t, info, "got nil instance info from create")
+
+			info, err = driver.InspectInstance(info.CloudResourceInfo.Name)
+			require.NoError(t, err, "failed to inspect instance by name")
+			require.NotNil(t, info, "got nil instance info from inspect")
+			require.NotEmpty(t, info.Zone, "inspect must returns instance zone")
+
+			info, err = driver.InspectInstance(info.CloudResourceInfo.ID)
+			require.NoError(t, err, "failed to inspect instance by ID")
+			require.NotNil(t, info, "got nil instance info from inspect")
+			require.NotEmpty(t, info.Zone, "inspect must returns instance zone")
+
+			instances, err = driver.ListInstances(&cloudops.ListInstancesOpts{
+				NamePrefix: info.CloudResourceInfo.Name,
+			})
+			require.NoError(t, err, "failed to list instances")
+			require.NotNil(t, instances, "got nil instances from list API")
+			require.Len(t, instances, 1, fmt.Sprintf("expected only one instance to be listed with name: %s", info.CloudResourceInfo.Name))
+
+			instances, err = driver.ListInstances(nil)
+			require.NoError(t, err, "failed to list instances")
+			require.NotNil(t, instances, "got nil instances from list API")
+
+			require.Len(t, instances, numInstances+1,
+				fmt.Sprintf("post-create expected: %d instances. got: %d", numInstances+1, len(instances)))
+
+			err = driver.DeleteInstance(info.CloudResourceInfo.ID, "")
+			require.NoError(t, err, "failed to delete instance")
+
+			instances, err = driver.ListInstances(nil)
+			require.NoError(t, err, "failed to list instances")
+			require.NotNil(t, instances, "got nil instances from list API")
+
+			require.Len(t, instances, numInstances,
+				fmt.Sprintf("post-delete expected: %d instances. got: %d", numInstances, len(instances)))
+		}
+	}
+
+	if skipClusterTests {
+		logrus.Infof("Skipping cluster related tests")
+		return
+	}
 
 	groupInfo, err := driver.InspectInstanceGroupForInstance(instanceID)
 	if _, ok := err.(*cloudops.ErrNotSupported); ok {
@@ -80,7 +163,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	instanceToDelete := os.Getenv("INSTANCE_TO_DELETE")
 	zoneOfInstanceToDelete := os.Getenv("INSTANCE_TO_DELETE_ZONE")
 	if instanceToDelete != "" {
-		err := driver.DeleteInstance(instanceToDelete, zoneOfInstanceToDelete, 5*time.Minute)
+		err := driver.DeleteInstance(instanceToDelete, zoneOfInstanceToDelete)
 		require.NoError(t, err, fmt.Sprintf("failed to delete instance [%v]. Error:[%v]", instanceToDelete, err))
 	} else {
 		logrus.Fatalf("Set INSTANCE_TO_DELETE environment variable")
@@ -236,7 +319,7 @@ func inspect(t *testing.T, driver cloudops.Ops, diskName string) {
 }
 
 func attach(t *testing.T, driver cloudops.Ops, diskName string) {
-	devPath, err := driver.Attach(diskName)
+	devPath, err := driver.Attach(diskName, nil)
 	if err != nil && canErrBeIgnored(err) {
 		// don't check devPath
 	} else {
@@ -244,20 +327,14 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 		require.NotEmpty(t, devPath, "disk attach returned empty devicePath")
 	}
 
-	mappings, err := driver.DeviceMappings()
-	if err != nil && canErrBeIgnored(err) {
-		// don't check mappings
-	} else {
-		require.NoError(t, err, "failed to get device mappings")
-		require.NotEmpty(t, mappings, "received empty device mappings")
-	}
+	DeviceMappings(t, driver, "")
 
 	err = driver.DetachFrom(diskName, driver.InstanceID())
 	require.NoError(t, err, "disk DetachFrom returned error")
 
 	time.Sleep(3 * time.Second)
 
-	devPath, err = driver.Attach(diskName)
+	devPath, err = driver.Attach(diskName, nil)
 	if err != nil && canErrBeIgnored(err) {
 		// don't check devPath
 	} else {
@@ -265,13 +342,19 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 		require.NotEmpty(t, devPath, "disk attach returned empty devicePath")
 	}
 
-	mappings, err = driver.DeviceMappings()
+	DeviceMappings(t, driver, "")
+}
+
+func DeviceMappings(t *testing.T, driver cloudops.Ops, instanceID string) {
+	mappings, err := driver.DeviceMappings("")
 	if err != nil && canErrBeIgnored(err) {
 		// don't check mappings
 	} else {
 		require.NoError(t, err, "failed to get device mappings")
 		require.NotEmpty(t, mappings, "received empty device mappings")
 	}
+
+	logrus.Debugf("device mappings (%d): %v", len(mappings), mappings)
 }
 
 func devicePath(t *testing.T, driver cloudops.Ops, diskName string) {
@@ -307,4 +390,20 @@ func canErrBeIgnored(err error) bool {
 
 	return false
 
+}
+
+func itemInList(item string, list []string) bool {
+	for _, val := range list {
+		if item == val {
+			return true
+		}
+	}
+
+	return false
+}
+
+func init() {
+	flag.BoolVar(&skipClusterTests, "skipClusterTests", false, "if true, all cluster related tests are skipped")
+	flag.BoolVar(&skipStorageTests, "skipStorageTests", false, "if true, all storage tests are skipped")
+	flag.Parse()
 }

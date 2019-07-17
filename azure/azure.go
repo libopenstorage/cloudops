@@ -192,7 +192,7 @@ func (a *azureOps) GetDeviceID(disk interface{}) (string, error) {
 	)
 }
 
-func (a *azureOps) Attach(diskName string) (string, error) {
+func (a *azureOps) Attach(diskName string, opts map[string]string) (string, error) {
 	disk, err := a.checkDiskAttachmentStatus(diskName)
 	if err == nil {
 		// Disk is already attached locally, return device path
@@ -230,6 +230,13 @@ func (a *azureOps) Attach(diskName string) (string, error) {
 	}
 
 	return a.waitForAttach(diskName)
+}
+
+func (s *azureOps) AttachByInstanceID(
+	instanceID, volumeID string, options map[string]string) (string, error) {
+	return "", &cloudops.ErrNotSupported{
+		Operation: "AttachByInstanceID",
+	}
 }
 
 func (a *azureOps) handleAttachError(err error) error {
@@ -370,7 +377,13 @@ func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
 	return disks, nil
 }
 
-func (a *azureOps) DeviceMappings() (map[string]string, error) {
+func (a *azureOps) DeviceMappings(instanceID string) (map[string]string, error) {
+	if len(instanceID) > 0 {
+		return nil, &cloudops.ErrNotSupported{
+			Operation: "DeviceMappings",
+			Reason:    "API currently does not support providing instanceID",
+		}
+	}
 	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
 	if err != nil {
 		return nil, err

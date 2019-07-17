@@ -40,7 +40,7 @@ func TestAll(t *testing.T) {
 		t.Skipf("skipping AWS tests as environment is not set...\n")
 	}
 
-	test.RunTest(drivers, diskTemplates, t)
+	test.RunTest(drivers, diskTemplates, nil, t)
 }
 
 func TestAwsGetPrefixFromRootDeviceName(t *testing.T) {
