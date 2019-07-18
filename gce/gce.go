@@ -762,8 +762,9 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,
 	}
 
 	var cluster *container.Cluster
+	var operation *container.Operation
 	if zonalCluster {
-		_, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(
+		operation, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(
 			s.inst.project,
 			s.inst.clusterLocation,
 			s.inst.clusterName,
@@ -771,13 +772,53 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,
 			setSizeRequest).Do()
 
 	} else {
-		_, err = s.containerService.Projects.Locations.Clusters.NodePools.SetSize(
+		operation, err = s.containerService.Projects.Locations.Clusters.NodePools.SetSize(
 			nodePoolPath,
 			setSizeRequest).Do()
+
 	}
 
 	if err != nil {
 		return err
+	}
+
+	operationPath := fmt.Sprintf("projects/%s/locations/%s/operations/%s",
+		s.inst.project, s.inst.clusterLocation, operation.Name)
+
+	if timeout > time.Nanosecond {
+		f := func() (interface{}, bool, error) {
+
+			if zonalCluster {
+				operation, err = s.containerService.Projects.Zones.Operations.Get(
+					s.inst.project,
+					s.inst.clusterLocation,
+					operation.Name).Do()
+
+			} else {
+				operation, err = s.containerService.Projects.Locations.Operations.Get(
+					operationPath).Do()
+			}
+
+			if err != nil {
+				// Error occured, just retry
+				return nil, true, err
+			}
+
+			// The operation is done, either cancelled or completed.
+			if operation.Status == "DONE" {
+				return nil, false, nil
+			}
+
+			return nil,
+				true,
+				fmt.Errorf("cluster operation [%v] is in [%s] state. Waiting to become DONE",
+					operation.Name, operation.Status)
+		}
+
+		_, err = task.DoRetryWithTimeout(f, timeout, retrySeconds*time.Second)
+		if err != nil {
+			return err
+		}
 	}
 
 	if timeout > time.Nanosecond {
