@@ -2,7 +2,10 @@ package azure
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2019-02-01/containerservice"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -23,10 +27,19 @@ import (
 )
 
 const (
-	envInstanceID        = "AZURE_INSTANCE_ID"
-	envScaleSetName      = "AZURE_SCALE_SET_NAME"
-	envSubscriptionID    = "AZURE_SUBSCRIPTION_ID"
-	envResourceGroupName = "AZURE_RESOURCE_GROUP_NAME"
+	envInstanceID         = "AZURE_INSTANCE_ID"
+	envScaleSetName       = "AZURE_SCALE_SET_NAME"
+	envSubscriptionID     = "AZURE_SUBSCRIPTION_ID"
+	envResourceGroupName  = "AZURE_RESOURCE_GROUP_NAME"
+	envManagedClusterName = "AZURE_MANAGED_CLUSTER_NAME"
+	envAgentPoolName      = "AZURE_AGENT_POOL_NAME"
+	metadataAPIEndpoint   = "http://169.254.169.254/metadata/instance"
+	metadataAPIVersion    = "2019-03-11"
+	scaleSetNameKey       = "vmScaleSetName"
+	resourceGroupNameKey  = "resourceGroupName"
+	subscriptionIDKey     = "subscriptionId"
+	vmIDKey               = "vmId"
+	computeMetadataKey    = "compute"
 )
 
 const (
@@ -46,11 +59,101 @@ var (
 
 type azureOps struct {
 	cloudops.Compute
-	instance          string
-	resourceGroupName string
-	disksClient       *compute.DisksClient
-	vmsClient         vmsClient
-	snapshotsClient   *compute.SnapshotsClient
+	instance           string
+	resourceGroupName  string
+	managedClusterName string
+	agentPoolName      string
+	disksClient        *compute.DisksClient
+	vmsClient          vmsClient
+	snapshotsClient    *compute.SnapshotsClient
+	agentPoolsClient   *containerservice.AgentPoolsClient
+}
+
+// NewClientFromMetadata initializes cloudops driver for azure based on environment
+// variables or based on instance metadata info available inside Azure VM
+func NewClientFromMetadata() (cloudops.Ops, error) {
+
+	if onAzure, metadata, err := onAzure(); onAzure && err == nil {
+		logrus.Info("Running on Azure IaaS VM")
+		var vmID, scalesetName, subscriptionID, resourceGroupName, managedClusterName, agentPoolName string
+		var scalesetNametemp, vmIDtemp, subscriptionIDtemp interface{}
+		var exists bool
+
+		if temp, ok := metadata[computeMetadataKey]; ok {
+			computeMetadata := temp.(map[string]interface{})
+
+			if resourceGroup, ok := computeMetadata[resourceGroupNameKey]; ok {
+				temp := resourceGroup.(string)
+				if len(strings.Split(temp, "_")) == 4 {
+					resourceGroupName = strings.Split(temp, "_")[1]
+					managedClusterName = strings.Split(temp, "_")[2]
+				}
+			}
+
+			if scalesetNametemp, exists = computeMetadata[scaleSetNameKey]; exists {
+				scalesetName = scalesetNametemp.(string)
+			}
+
+			if vmIDtemp, exists = computeMetadata[vmIDKey]; exists {
+				vmID = vmIDtemp.(string)
+			}
+
+			if subscriptionIDtemp, exists = computeMetadata[subscriptionIDKey]; exists {
+				subscriptionID = subscriptionIDtemp.(string)
+			}
+		}
+
+		return NewClientWithPoolName(vmID, scalesetName, subscriptionID, resourceGroupName, managedClusterName, agentPoolName)
+	}
+	logrus.Info("Not running on Azure IaaS VM")
+	return NewEnvClient()
+}
+
+// onAzure returns true if process is running inside Azure VM,
+// it also additionally returns instance metadata in that case.
+func onAzure() (bool, map[string]interface{}, error) {
+	metadata := make(map[string]interface{})
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", metadataAPIEndpoint, nil)
+	if err != nil {
+		return false, metadata, err
+	}
+	req.Header.Add("Metadata", "True")
+	q := req.URL.Query()
+	q.Add("format", "json")
+	q.Add("api-version", metadataAPIVersion)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, metadata,
+			fmt.Errorf("Error occured while getting instance metadata from Azure Metadata API. Error:[%v]", err)
+	}
+	if resp.StatusCode != 200 {
+		return false, metadata,
+			fmt.Errorf("Error querying Azure metadata: Code %d returned for url %s", resp.StatusCode, req.URL)
+	}
+
+	if resp.Body != nil {
+		defer resp.Body.Close()
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return false, metadata,
+				fmt.Errorf("Error while reading Azure metadata response: [%v]", err)
+		}
+		if len(respBody) == 0 {
+			return false, metadata,
+				fmt.Errorf("Error querying Azure metadata: Empty response")
+		}
+
+		err = json.Unmarshal(respBody, &metadata)
+		if err != nil {
+			return false, metadata,
+				fmt.Errorf("Error parsing Azure metadata: %v", err)
+		}
+	}
+
+	return true, metadata, nil
 }
 
 // NewEnvClient make new client from well known environment variables.
@@ -67,14 +170,29 @@ func NewEnvClient() (cloudops.Ops, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// For backward compatibility, optional new environment variables
 	scaleSetName := os.Getenv(envScaleSetName)
-	return NewClient(instance, scaleSetName, subscriptionID, resourceGroupName)
+	managedClusterName := os.Getenv(envManagedClusterName)
+	agentPoolName := os.Getenv(envAgentPoolName)
+
+	return NewClientWithPoolName(instance, scaleSetName, subscriptionID, resourceGroupName,
+		managedClusterName, agentPoolName)
 }
 
 // NewClient creates new client from specified parameters.
 func NewClient(
 	instance, scaleSetName, subscriptionID, resourceGroupName string,
 ) (cloudops.Ops, error) {
+	return NewClientWithPoolName(instance, scaleSetName, subscriptionID, resourceGroupName, "", "")
+}
+
+// NewClientWithPoolName creates new client from specified parameters.
+func NewClientWithPoolName(
+	instance, scaleSetName, subscriptionID, resourceGroupName string,
+	managedClusterName, poolName string,
+) (cloudops.Ops, error) {
+
 	authorizer, err := auth.NewAuthorizerFromEnvironment()
 	if err != nil {
 		return nil, err
@@ -92,14 +210,22 @@ func NewClient(
 	snapshotsClient.PollingDelay = clientPollingDelay
 	snapshotsClient.AddToUserAgent(userAgentExtension)
 
+	agentPoolsClient := containerservice.NewAgentPoolsClient(subscriptionID)
+	agentPoolsClient.Authorizer = authorizer
+	agentPoolsClient.PollingDelay = clientPollingDelay
+	agentPoolsClient.AddToUserAgent(userAgentExtension)
+
 	return backoff.NewExponentialBackoffOps(
 		&azureOps{
-			Compute:           unsupported.NewUnsupportedCompute(),
-			instance:          instance,
-			resourceGroupName: resourceGroupName,
-			disksClient:       &disksClient,
-			vmsClient:         vmsClient,
-			snapshotsClient:   &snapshotsClient,
+			Compute:            unsupported.NewUnsupportedCompute(),
+			instance:           instance,
+			resourceGroupName:  resourceGroupName,
+			managedClusterName: managedClusterName,
+			agentPoolName:      poolName,
+			disksClient:        &disksClient,
+			vmsClient:          vmsClient,
+			snapshotsClient:    &snapshotsClient,
+			agentPoolsClient:   &agentPoolsClient,
 		},
 		isExponentialError,
 		backoff.DefaultExponentialBackoff,
@@ -112,6 +238,108 @@ func (a *azureOps) Name() string {
 
 func (a *azureOps) InstanceID() string {
 	return a.instance
+}
+
+func (a *azureOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
+
+	instInfo := &cloudops.InstanceInfo{
+		CloudResourceInfo: cloudops.CloudResourceInfo{
+			Name:   a.instance,
+			ID:     a.instance,
+			Zone:   "",
+			Region: "",
+		},
+	}
+	return instInfo, nil
+}
+
+func (a *azureOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
+
+	ctx := context.Background()
+	agentPool, err := a.agentPoolsClient.Get(ctx, a.resourceGroupName, a.managedClusterName, a.agentPoolName)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get node pool details for [%s] of cluster [%v] in [%v] resource group."+
+			"Error: [%v] ", a.agentPoolName, a.managedClusterName, a.resourceGroupName, err)
+	}
+
+	zones := []string{}
+	if agentPool.AvailabilityZones == nil {
+		// If no availability zone mentioned
+		// treat all instances to be in same zone
+		zones = append(zones, "")
+	} else {
+		zones = *agentPool.AvailabilityZones
+	}
+
+	var MaxCount, MinCount int64
+	if agentPool.MaxCount != nil {
+		MaxCount = int64(*agentPool.MaxCount)
+	}
+	if agentPool.MinCount != nil {
+		MinCount = int64(*agentPool.MinCount)
+	}
+
+	retval := &cloudops.InstanceGroupInfo{
+		CloudResourceInfo: cloudops.CloudResourceInfo{
+			ID:   *agentPool.ID,
+			Name: *agentPool.Name,
+		},
+		Zones: zones,
+		Max:   &MaxCount,
+		Min:   &MinCount,
+	}
+	return retval, nil
+}
+
+// GetInstanceGroupSize
+func (a *azureOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
+
+	ctx := context.Background()
+	agentPool, err := a.agentPoolsClient.Get(ctx, a.resourceGroupName, a.managedClusterName, instanceGroupID)
+	if err != nil {
+		return 0, err
+	}
+	if agentPool.Count == nil {
+		return 0, fmt.Errorf("got empty agent pool size for [%v] of cluster [%v] in [%v] resource group",
+			instanceGroupID, a.managedClusterName, a.resourceGroupName)
+	}
+	return int64(*agentPool.Count), nil
+}
+
+// SetInstanceGroupSize sets desired node count per availability zone
+// for given instance group
+func (a *azureOps) SetInstanceGroupSize(instanceGroupID string,
+	count int64,
+	timeout time.Duration) error {
+
+	ctx := context.Background()
+	var cancel context.CancelFunc
+	if timeout > time.Nanosecond {
+		// If timeout is non-zero then
+		// add deadline to the operation else
+		// wait infinitely for operation to complete
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	instanceGroupSize := int32(count)
+	agentPoolProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
+		Count: &instanceGroupSize,
+	}
+
+	agentPool := containerservice.AgentPool{
+		ManagedClusterAgentPoolProfileProperties: &agentPoolProperties,
+	}
+	future, err := a.agentPoolsClient.CreateOrUpdate(ctx, a.resourceGroupName,
+		a.managedClusterName,
+		a.agentPoolName,
+		agentPool)
+	if err != nil {
+		return fmt.Errorf("Failed to set size for node group [%v] of managed cluster [%v]."+
+			"Error:[%v]", a.agentPoolName, a.managedClusterName, err)
+	}
+	err = future.WaitForCompletionRef(ctx, a.agentPoolsClient.Client)
+	return err
 }
 
 func (a *azureOps) Create(

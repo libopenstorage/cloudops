@@ -18,10 +18,11 @@
   version = "v0.4.12"
 
 [[projects]]
-  digest = "1:dbd9b91777416615df7c4bb91b0245e1ea8edfa27cb213c5a94dbe3be84d6dc9"
+  digest = "1:e4b9b0a9ec5363f559004a8353a4340a25a934d4c6b612f2d80e253c65209895"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = [
     "services/compute/mgmt/2018-06-01/compute",
+    "services/containerservice/mgmt/2019-02-01/containerservice",
     "version",
   ]
   pruneopts = "UT"
@@ -668,6 +669,7 @@
   input-imports = [
     "cloud.google.com/go/compute/metadata",
     "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute",
+    "github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2019-02-01/containerservice",
     "github.com/Azure/go-autorest/autorest",
     "github.com/Azure/go-autorest/autorest/azure",
     "github.com/Azure/go-autorest/autorest/azure/auth",
