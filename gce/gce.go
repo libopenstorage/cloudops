@@ -393,14 +393,11 @@ func (s *gceOps) DeleteInstance(instanceID string) error {
 	// Hence not using s.InspectInstance() API.
 	zone, err := s.getInstanceZone(instanceID)
 	if err != nil {
-		return fmt.Errorf("Zone of instance:[%v] is [%v]. Error:[%v]", instanceID, zone, err)
+		return fmt.Errorf("Error while finding zone of instance [%v]. Error:[%v]", instanceID, err)
 	}
-
-	fmt.Printf("Zone of instance:[%v] is [%v]", instanceID, zone)
-	logrus.Infof("Zone of instance:[%v] is [%v]", instanceID, zone)
 	_, err = s.computeService.Instances.Delete(s.inst.project, zone, instanceID).Do()
 	if err != nil {
-		return fmt.Errorf("Zone of instance:[%v] is [%v]. Error:[%v]", instanceID, zone, err)
+		return fmt.Errorf("Error occured while deleting instance:[%v]. Error:[%v]", instanceID, err)
 	}
 	return nil
 }
