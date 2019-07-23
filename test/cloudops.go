@@ -78,8 +78,9 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
 
 	instanceToDelete := os.Getenv("INSTANCE_TO_DELETE")
+	zoneOfInstanceToDelete := os.Getenv("INSTANCE_TO_DELETE_ZONE")
 	if instanceToDelete != "" {
-		err := driver.DeleteInstance(instanceToDelete)
+		err := driver.DeleteInstance(instanceToDelete, zoneOfInstanceToDelete, 5*time.Minute)
 		require.NoError(t, err, fmt.Sprintf("failed to delete instance [%v]. Error:[%v]", instanceToDelete, err))
 	} else {
 		logrus.Fatalf("Set INSTANCE_TO_DELETE environment variable")
