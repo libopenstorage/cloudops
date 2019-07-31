@@ -37,28 +37,50 @@ The cloud storage decision matrix dictates the drive configuration choices. This
 type  CloudStorage struct {
         IOPS              uint32   `json:"iops" yaml:"iops"`
         InstanceType      string   `json:"instance_type" yaml:"instance_type"`
+        InstanceMaxDrives uint32   `json:"instance_max_drives" yaml:"instance_max_drives"`
         Region            string   `json:"region" yaml:"region"`
-        Zone              string   `json:"zone" yaml:"zone"`
         MinSize           uint64   `json:"min_size" yaml:"min_size"`
-        MaxDriveCount     uint32   `json:"max_drive_count" yaml:"max_drive_count"`
+        MaxSize           uint64   `json:"max_size" yaml:"max_size"`
         Priority          string   `json:"priority" yaml:"priority"`
+        ThinProvisioning  bool     `json:"thin_provisioning" yaml:"thin_provisioning"`
+
 }
 ```
+
+This Cloud Storage Decision Matrix is stored in a cluster wide accessible key/value store (e.g ConfigMap in k8s)
 
 # Cloud Storage Initial Allocation
 
-The input for storage allocation is a provider specific `CloudStorage`, the desired `CloudClusterSpec` and the list of candidate CloudInstances where storage will be deployed.
+The input for storage allocation is a provider specific `CloudStorage` in addition to CloudStorageSpec defined below
 
 ```
-type CloudClusterSpec struct {
+type CloudUserSpec struct {
+        IOPS                  uint32   `json:"iops" yaml:"iops"`
         MinCapacity           uint64   `json:"min_capacity" yaml:"min_capacity"`
         MaxCapacity           uint64   `json:"max_capacity" yaml:"max_capacity"`
-        IOPS                  uint32   `json:"iops" yaml:"iops"`
-        MaxNodeCount          uint32   `json:"max_node_count" yaml:"max_node_count"`
 }
+
+type CloudStorageSpec struct {
+      UserSpec               CloudUserSpec
+      InstanceType           string
+      ZoneCount              int
+}
+
+```
+
+Its output will be the distribution of drives across the nodes
+
+```
+type CloudStorageDistribution struct {
+      CapacityGiB          int64
+      DriveType            string
+      InstancesPerZone     int
+}
+
 ```
 
 
+Assumption: Storage nodes instance type is homogeneous.
 
 
 
