@@ -73,17 +73,33 @@ This Cloud Storage Decision Matrix is stored in a cluster wide accessible key/va
 The input for storage allocation is a provider specific `CloudStorage` in addition to `CloudStorageSpec` defined below
 
 ```go
+// CloudUserSpec is the user provided storage requirement for the cluster.It
+// dictates the min and maximum capacity of a storage type that can be provisioned
+// which provides the desired IOPS. If there is a requirement for two different
+// drive types then multiple CloudUserSpecs need to be provided to the Cloud
+// Drive Management library
 type CloudUserSpec struct {
+        // IOPS is the desired IOPS from the underlying storag.
         IOPS                  uint32   `json:"iops" yaml:"iops"`
+        // MinCapacity is the minimum capacity of storage for the cluster.
         MinCapacity           uint64   `json:"min_capacity" yaml:"min_capacity"`
+        // MaxCapacity is the upper threshold on the total capacity of storage
+        // that can be provisioned in this cluster.
         MaxCapacity           uint64   `json:"max_capacity" yaml:"max_capacity"`
 }
 
+// CloudStorageSpec is the input the cloud drive decision matrix. It provides
+// the user's storage requirement as well as other cloud provider specific details.
 type CloudStorageSpec struct {
-      UserSpec               CloudUserSpec
-      InstanceType           string
-      InstancesPerZone       int
-      ZoneCount              int
+      // UserSpec is a list of user's storage requirements.
+      UserSpec               []*CloudUserSpec `json:"user_spec",yaml:"user_spec"`
+      // InstanceType is the type of instance where user needs to provision storage.
+      InstanceType           string           `json:"instance_type",yaml:"instance_type"`
+      // InstancesPerZone is the number of instances in each zone.
+      InstancesPerZone       int              `json:"instances_per_zone",yaml:"instances_per_zone"`
+      // ZoneCount is the number of zones across which the instances are
+      // distributed in the cluster.
+      ZoneCount              int              `json:"zone_count",yaml:"zone_count"`
 }
 
 ```
@@ -91,6 +107,8 @@ type CloudStorageSpec struct {
 Its output will be the distribution of drives across zones and nodes.
 
 ```go
+// CloudStorageDistribution is the result returned the CloudStorage Decision Matrix
+// for the provided CloudStorageSpec input.
 type CloudStorageDistribution struct {
       InstanceStorage struct {
             DriveCapacityGiB          int64
