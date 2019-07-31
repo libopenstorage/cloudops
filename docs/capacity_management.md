@@ -40,13 +40,14 @@ type  CloudStorage struct {
         Region            string   `json:"region" yaml:"region"`
         Zone              string   `json:"zone" yaml:"zone"`
         MinSize           uint64   `json:"min_size" yaml:"min_size"`
-        Size              uint64   `json:"size" yaml:"size"`
+        MaxDriveCount     uint32   `json:"max_drive_count" yaml:"max_drive_count"`
         Priority          string   `json:"priority" yaml:"priority"`
 }
 ```
 
 # Cloud Storage Initial Allocation
 
+The input for storage allocation is a provider specific `CloudStorage`, the desired `CloudClusterSpec` and the list of candidate CloudInstances where storage will be deployed.
 
 ```
 type CloudClusterSpec struct {
@@ -56,6 +57,8 @@ type CloudClusterSpec struct {
         MaxNodeCount          uint32   `json:"max_node_count" yaml:"max_node_count"`
 }
 ```
+
+
 
 
 
