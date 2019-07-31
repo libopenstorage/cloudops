@@ -133,4 +133,3 @@ type StorageDistributionResponse struct {
 Following are the assumptions made while determining the cloud storage distribution
 
 - *Homogenous Storage Nodes*: Storage nodes in the cluster have the same instance type.
-- *Equal Distribution Across Zones*: Storage nodes in the cluster are equally distributed across zones
