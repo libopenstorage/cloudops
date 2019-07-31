@@ -78,7 +78,7 @@ type CloudStorageDistribution struct {
             DriveCount                int   
             DriveType                 string
       }
-      InstancesPerZone          int
+      InstancesPerZone                int
 }
 
 ```
