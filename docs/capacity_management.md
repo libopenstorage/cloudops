@@ -34,16 +34,16 @@ The Cloud drive manangement library insulates the operator from cloud specific n
 The cloud storage decision matrix dictates the drive configuration choices. This configuration is provided as Yaml/JSON to the cloud management library. There will be a cloud matrix per provider.
 
 ```
-type  CloudStorage struct {
+type CloudStorage struct {
         IOPS              uint32   `json:"iops" yaml:"iops"`
         InstanceType      string   `json:"instance_type" yaml:"instance_type"`
         InstanceMaxDrives uint32   `json:"instance_max_drives" yaml:"instance_max_drives"`
+        InstanceMinDrives uint32   `json:"instance_min_drives" yaml:"instance_min_drives"`
         Region            string   `json:"region" yaml:"region"`
         MinSize           uint64   `json:"min_size" yaml:"min_size"`
         MaxSize           uint64   `json:"max_size" yaml:"max_size"`
         Priority          string   `json:"priority" yaml:"priority"`
         ThinProvisioning  bool     `json:"thin_provisioning" yaml:"thin_provisioning"`
-
 }
 ```
 
@@ -63,24 +63,27 @@ type CloudUserSpec struct {
 type CloudStorageSpec struct {
       UserSpec               CloudUserSpec
       InstanceType           string
+      InstancesPerZone       int
       ZoneCount              int
 }
 
 ```
 
-Its output will be the distribution of drives across the nodes
+Its output will be the distribution of drives across zones and nodes.
 
 ```
 type CloudStorageDistribution struct {
-      CapacityGiB          int64
-      DriveType            string
-      InstancesPerZone     int
+      InstanceStorage struct {
+            DriveCapacityGiB          int64
+            DriveCount                int   
+            DriveType                 string
+      }
+      InstancesPerZone          int
 }
 
 ```
 
-
-Assumption: Storage nodes instance type is homogeneous.
+Assumption: Storage nodes instance type is homogeneous. 
 
 
 
