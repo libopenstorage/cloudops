@@ -36,7 +36,8 @@ The cloud storage decision matrix dictates the drive configuration choices. This
 
 A typical entry in the decision matrix for a cloud will involve the following fields:
 
-```
+```go
+// CloudStorage defines an entry in the cloud storage decision matrix.
 type CloudStorage struct {
         // IOPS is the desired iops from the underlying cloud storage.
         IOPS              uint32   `json:"iops" yaml:"iops"`
@@ -71,7 +72,7 @@ This Cloud Storage Decision Matrix is stored in a cluster wide accessible key/va
 
 The input for storage allocation is a provider specific `CloudStorage` in addition to `CloudStorageSpec` defined below
 
-```
+```go
 type CloudUserSpec struct {
         IOPS                  uint32   `json:"iops" yaml:"iops"`
         MinCapacity           uint64   `json:"min_capacity" yaml:"min_capacity"`
@@ -89,7 +90,7 @@ type CloudStorageSpec struct {
 
 Its output will be the distribution of drives across zones and nodes.
 
-```
+```go
 type CloudStorageDistribution struct {
       InstanceStorage struct {
             DriveCapacityGiB          int64
