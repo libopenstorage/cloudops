@@ -5,11 +5,11 @@ Selecting storage drives depends on a number of factors:
 
 -  *Workload* (random/sequential) determines the drive category: spinning media or solid state.
 -  *IOPS*  Minimum drives size is dictated by required IOPS 
--  *Number of Drives per instance* drives sometimes have individual network connetion. Striping across two drives is sometimes a better decision than allocating a large single drive. This property holds true only uptopa certain number of drives per instance. It also depends upon the instance type and drive type.
+-  *Number of Drives per instance* drives may have individual network connetion. Striping across two drives is sometimes a better decision than allocating a large single drive. This property holds true only upto a certain number of drives per instance. It also depends upon the instance type and drive type.
 -  *Instance Type* Not all drive types are supported on all instance types
--  *Zone/Region* Not all zones or regions can support all drivs a minimmum drive size is right drive type, size, the number of drives per instance, the instance type, the zone and the region. An example is EBS volume matrix:
+-  *Zone/Region* Not all zones or regions can support all drivs a minimmum drive size is right drive type, size, the number of drives per instance, the instance type, the zone and the region. 
 
-References: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html 
+An example is EBS volume matrix:https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html 
 
 In distributed heterogeneous application deployments, the requirements are at a cluster level and not at a node level. The requirements also differ based on the category of applications. They also evolve as the cluster grows or as the deployment grows.
 
@@ -22,11 +22,11 @@ The Cloud drive manangement library insulates the operator from cloud specific n
 
 - The input parameters should be cloud agnostic. 
 
-- The library would be extensible to all clouds.
+- The library should be extensible to all clouds.
 
 - The cloud matrix definition should be configurable
 
-- The capacity management should also include cost analysis
+- The capacity management should include cost analysis
 
 
 # Cloud Storage Decision Matrix
