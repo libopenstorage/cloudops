@@ -265,11 +265,26 @@ func (a *azureOps) detachInternal(diskName, instance string) error {
 		a.resourceGroupName,
 		diskName,
 	)
-	if err != nil {
+	if derr, ok := err.(autorest.DetailedError); ok {
+		if code, ok := derr.StatusCode.(int); !ok {
+			return err
+		} else if code != 404 {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 
-	diskToDetach := strings.ToLower(*disk.ID)
+	// Even if a disk is not found, Azure sometimes thinks that the disk is still
+	// attached to it even though it is not present or does not show up in the
+	// dataDisks list on the VM. The workaround for this is to update the VM
+	// irrespective of whether the disk is present or not.
+	// https://github.com/andyzhangx/demo/blob/master/issues/azuredisk-issues.md#18-detach-azure-disk-make-vm-run-into-a-limbo-state
+
+	var diskToDetach string
+	if disk.ID != nil {
+		diskToDetach = strings.ToLower(*disk.ID)
+	}
 
 	dataDisks, err := a.vmsClient.getDataDisks(instance)
 	if err != nil {
@@ -282,11 +297,6 @@ func (a *azureOps) detachInternal(diskName, instance string) error {
 			continue
 		}
 		newDataDisks = append(newDataDisks, d)
-	}
-
-	// If the disk is not attached, return success
-	if len(dataDisks) == len(newDataDisks) {
-		return nil
 	}
 
 	if err := a.vmsClient.updateDataDisks(instance, newDataDisks); err != nil {
