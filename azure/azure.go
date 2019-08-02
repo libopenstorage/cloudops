@@ -107,7 +107,7 @@ func NewClient(
 }
 
 func (a *azureOps) Name() string {
-	return name
+	return string(cloudops.Azure)
 }
 
 func (a *azureOps) InstanceID() string {

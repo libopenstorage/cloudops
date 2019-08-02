@@ -229,7 +229,7 @@ func (s *awsOps) waitAttachmentStatus(
 		fmt.Sprintf("Invalid volume object for volume %s", volumeID), "")
 }
 
-func (s *awsOps) Name() string { return "aws" }
+func (s *awsOps) Name() string { return string(cloudops.AWS) }
 
 func (s *awsOps) InstanceID() string { return s.instance }
 

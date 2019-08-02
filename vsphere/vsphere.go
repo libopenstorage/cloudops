@@ -73,7 +73,7 @@ func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 	}, nil
 }
 
-func (ops *vsphereOps) Name() string { return "vsphere" }
+func (ops *vsphereOps) Name() string { return string(cloudops.Vsphere) }
 
 func (ops *vsphereOps) InstanceID() string { return ops.cfg.VMUUID }
 
