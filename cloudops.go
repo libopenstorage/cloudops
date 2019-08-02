@@ -8,6 +8,22 @@ const (
 	SetIdentifierNone = "None"
 )
 
+// ProviderType is an enum indicating the different cloud provider supported by cloudops
+type ProviderType string
+
+const (
+	// List of supported cloud providers
+
+	// AWS provider
+	AWS ProviderType = "aws"
+	// Azure provider
+	Azure = "azure"
+	// Vsphere provider
+	Vsphere = "vsphere"
+	// GCE provider
+	GCE = "gce"
+)
+
 // CloudResourceInfo provides metadata information on a cloud resource.
 type CloudResourceInfo struct {
 	// Name of the cloud resource.
