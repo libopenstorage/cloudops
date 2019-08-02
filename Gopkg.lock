@@ -570,6 +570,14 @@
   version = "v1.20.1"
 
 [[projects]]
+  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
+
+[[projects]]
   branch = "master"
   digest = "1:e03a99f0e214e2ddd351ded433f45033ab61bf24c22761c3cb9243f58ced0285"
   name = "k8s.io/apimachinery"
@@ -606,6 +614,7 @@
     "cloud.google.com/go/compute/metadata",
     "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute",
     "github.com/Azure/go-autorest/autorest",
+    "github.com/Azure/go-autorest/autorest/azure",
     "github.com/Azure/go-autorest/autorest/azure/auth",
     "github.com/Azure/go-autorest/autorest/to",
     "github.com/aws/aws-sdk-go/aws",
@@ -634,6 +643,7 @@
     "google.golang.org/api/container/v1",
     "google.golang.org/api/googleapi",
     "google.golang.org/api/option",
+    "gopkg.in/yaml.v2",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib",
     "k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib/diskmanagers",
