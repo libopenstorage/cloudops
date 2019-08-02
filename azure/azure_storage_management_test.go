@@ -1,0 +1,306 @@
+package azure
+
+import (
+	"io/ioutil"
+	"reflect"
+	"testing"
+
+	"github.com/libopenstorage/cloudops"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v2"
+)
+
+const (
+	testSpecPath = "testspecs/azure-storage-decision-matrix.yaml"
+)
+
+func getMatrixFromYaml(t *testing.T) *cloudops.StorageDecisionMatrix {
+	yamlBytes, err := ioutil.ReadFile(testSpecPath)
+	require.NoError(t, err, "Unexpected error on reading test spec file %v", testSpecPath)
+
+	matrix := &cloudops.StorageDecisionMatrix{}
+	err = yaml.Unmarshal(yamlBytes, matrix)
+	require.NoError(t, err, "Unmarshalling error reading yaml file %v", testSpecPath)
+	return matrix
+}
+
+func TestYamlReader(t *testing.T) {
+	getMatrixFromYaml(t)
+}
+
+func TestAzureStorageDistribution(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	decisionMatrix := getMatrixFromYaml(t)
+	azureManager, err := NewAzureStorageManager(*decisionMatrix)
+	require.NoError(t, err, "Unexpected error on creating azure storage manager")
+
+	// Test1: always use the upper bound on IOPS if there is no drive type
+	// that provides that exact amount of requested IOPS")
+
+	request := &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        1000,
+				MinCapacity: 1024,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 3,
+		ZoneCount:        2,
+	}
+	response, err := azureManager.GetStorageDistribution(request)
+	require.NoError(t, err, "Unexpected error on GetStorageDistribution")
+
+	expectedResponse := &cloudops.StorageDistributionResponse{
+		InstanceStorage: []*cloudops.StoragePoolSpec{
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 256,
+				DriveType:        "Premium_LRS",
+				InstancesPerZone: 2,
+				DriveCount:       1,
+			},
+		},
+	}
+	require.True(t, reflect.DeepEqual(*response, *expectedResponse),
+		"Expected Response: %+v . Actual Response %+v",
+		expectedResponse.InstanceStorage[0], response.InstanceStorage[0])
+
+	// Test2: choose the right size of the disk by updating the instances per zone
+	//        in case of a conflict with two configurations providing the same IOPS
+	//        and min capacity choose based of priority
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        500,
+				MinCapacity: 1000,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 3,
+		ZoneCount:        3,
+	}
+	response, err = azureManager.GetStorageDistribution(request)
+	require.NoError(t, err, "Unexpected error on GetStorageDistribution")
+
+	expectedResponse = &cloudops.StorageDistributionResponse{
+		InstanceStorage: []*cloudops.StoragePoolSpec{
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 333,
+				DriveType:        "StandardSSD_LRS",
+				InstancesPerZone: 1,
+				DriveCount:       1,
+			},
+		},
+	}
+	require.True(t, reflect.DeepEqual(*response, *expectedResponse),
+		"Expected Response: %+v . Actual Response %+v",
+		expectedResponse.InstanceStorage[0], response.InstanceStorage[0])
+
+	// Test3: user wants 1TiB on all the nodes
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        5000,
+				MinCapacity: 9216,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 3,
+		ZoneCount:        3,
+	}
+	response, err = azureManager.GetStorageDistribution(request)
+	require.NoError(t, err, "Unexpected error on GetStorageDistribution")
+
+	expectedResponse = &cloudops.StorageDistributionResponse{
+		InstanceStorage: []*cloudops.StoragePoolSpec{
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 1024,
+				DriveType:        "Premium_LRS",
+				InstancesPerZone: 3,
+				DriveCount:       1,
+			},
+		},
+	}
+	require.True(t, reflect.DeepEqual(*response, *expectedResponse),
+		"Expected Response: %+v . Actual Response %+v",
+		expectedResponse.InstanceStorage[0], response.InstanceStorage[0])
+
+	// Test4: choose the configuration which is closest to the requested IOPS
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        2000,
+				MinCapacity: 16384,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 2,
+		ZoneCount:        2,
+	}
+	response, err = azureManager.GetStorageDistribution(request)
+	require.NoError(t, err, "Unexpected error on GetStorageDistribution")
+
+	expectedResponse = &cloudops.StorageDistributionResponse{
+		InstanceStorage: []*cloudops.StoragePoolSpec{
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 4096,
+				DriveType:        "Premium_LRS",
+				InstancesPerZone: 2,
+				DriveCount:       1,
+			},
+		},
+	}
+	require.True(t, reflect.DeepEqual(*response, *expectedResponse),
+		"Expected Response: %+v . Actual Response %+v",
+		expectedResponse.InstanceStorage[0], response.InstanceStorage[0])
+
+	// Test5: choose upper bound IOPS when you cannot uniformly distribute storage
+	// across nodes for the provided IOPS
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        2000,
+				MinCapacity: 16384,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 2,
+		ZoneCount:        3,
+	}
+	response, err = azureManager.GetStorageDistribution(request)
+	require.NoError(t, err, "Unexpected error on GetStorageDistribution")
+
+	expectedResponse = &cloudops.StorageDistributionResponse{
+		InstanceStorage: []*cloudops.StoragePoolSpec{
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 2730,
+				DriveType:        "Premium_LRS",
+				InstancesPerZone: 2,
+				DriveCount:       1,
+			},
+		},
+	}
+	require.True(t, reflect.DeepEqual(*response, *expectedResponse),
+		"Expected Response: %+v . Actual Response %+v",
+		expectedResponse.InstanceStorage[0], response.InstanceStorage[0])
+
+	// Test6: reduce the number of instances per zone if the IOPS and min capacity are not met
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        7500,
+				MinCapacity: 4096,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 2,
+		ZoneCount:        2,
+	}
+	response, err = azureManager.GetStorageDistribution(request)
+	require.NoError(t, err, "Unexpected error on GetStorageDistribution")
+
+	expectedResponse = &cloudops.StorageDistributionResponse{
+		InstanceStorage: []*cloudops.StoragePoolSpec{
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 2048,
+				DriveType:        "Premium_LRS",
+				InstancesPerZone: 1,
+				DriveCount:       1,
+			},
+		},
+	}
+	require.True(t, reflect.DeepEqual(*response, *expectedResponse),
+		"Expected Response: %+v . Actual Response %+v",
+		expectedResponse.InstanceStorage[0], response.InstanceStorage[0])
+
+	// Test7: if storage cannot be distributed equally across zones return an error
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        7500,
+				MinCapacity: 2048,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 3,
+		ZoneCount:        3,
+	}
+	response, err = azureManager.GetStorageDistribution(request)
+	require.EqualError(t, cloudops.ErrStorageDistributionCandidateNotFound, err.Error(), "Unexpected error")
+	require.Nil(t, response, "Expected a nil response")
+
+	// Test8: Multiple user storage specs in a single request
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        500,
+				MinCapacity: 1000,
+				MaxCapacity: 100000,
+			},
+			&cloudops.StorageSpec{
+				IOPS:        5000,
+				MinCapacity: 9216,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 3,
+		ZoneCount:        3,
+	}
+
+	response, err = azureManager.GetStorageDistribution(request)
+	require.NoError(t, err, "Unexpected error on GetStorageDistribution")
+
+	expectedResponse = &cloudops.StorageDistributionResponse{
+		InstanceStorage: []*cloudops.StoragePoolSpec{
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 333,
+				DriveType:        "StandardSSD_LRS",
+				InstancesPerZone: 1,
+				DriveCount:       1,
+			},
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: 1024,
+				DriveType:        "Premium_LRS",
+				InstancesPerZone: 3,
+				DriveCount:       1,
+			},
+		},
+	}
+
+	require.True(t, reflect.DeepEqual(*response, *expectedResponse),
+		"Expected Response: %+v . Actual Response %+v",
+		expectedResponse.InstanceStorage[1], response.InstanceStorage[1])
+
+	// Test9: Fail the request even if one of the user specs fails
+	request = &cloudops.StorageDistributionRequest{
+		UserStorageSpec: []*cloudops.StorageSpec{
+			&cloudops.StorageSpec{
+				IOPS:        500,
+				MinCapacity: 1000,
+				MaxCapacity: 100000,
+			},
+			&cloudops.StorageSpec{
+				IOPS:        7500,
+				MinCapacity: 2048,
+				MaxCapacity: 100000,
+			},
+		},
+		InstanceType:     "foo",
+		InstancesPerZone: 3,
+		ZoneCount:        3,
+	}
+
+	response, err = azureManager.GetStorageDistribution(request)
+	require.EqualError(t, cloudops.ErrStorageDistributionCandidateNotFound, err.Error(), "Unexpected error")
+	require.Nil(t, response, "Expected a nil response")
+
+}
