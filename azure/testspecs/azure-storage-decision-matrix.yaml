@@ -1,6 +1,6 @@
 rows:
         - iops: 1100
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -10,7 +10,7 @@ rows:
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 2300
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -20,7 +20,7 @@ rows:
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 5000
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -30,7 +30,7 @@ rows:
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 7500
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -40,7 +40,7 @@ rows:
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 16000
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -50,7 +50,7 @@ rows:
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 500
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -60,7 +60,7 @@ rows:
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
         - iops: 2000
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -70,7 +70,7 @@ rows:
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
         - iops: 4000
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -80,7 +80,7 @@ rows:
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
         - iops: 500
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -90,7 +90,7 @@ rows:
           thin_provisioning: false
           drive_type: "Standard_LRS"
         - iops: 1300
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
@@ -100,7 +100,7 @@ rows:
           thin_provisioning: false
           drive_type: "Standard_LRS"
         - iops: 2000
-          instance_types: "*"
+          instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
