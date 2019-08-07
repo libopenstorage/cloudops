@@ -64,6 +64,7 @@ func GetStorageDistribution(
 				DriveType:        candidate.DriveType,
 				InstancesPerZone: instancePerZone,
 				DriveCount:       candidate.InstanceMinDrives,
+				IOPS:             candidate.IOPS,
 			},
 		)
 

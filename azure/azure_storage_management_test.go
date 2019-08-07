@@ -51,6 +51,7 @@ func TestAzureStorageDistribution(t *testing.T) {
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 2,
 				DriveCount:       1,
+				IOPS:             1100,
 			},
 		},
 	}
@@ -83,6 +84,7 @@ func TestAzureStorageDistribution(t *testing.T) {
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 1,
 				DriveCount:       1,
+				IOPS:             1100,
 			},
 		},
 	}
@@ -113,6 +115,7 @@ func TestAzureStorageDistribution(t *testing.T) {
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 3,
 				DriveCount:       1,
+				IOPS:             5000,
 			},
 		},
 	}
@@ -143,6 +146,7 @@ func TestAzureStorageDistribution(t *testing.T) {
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 2,
 				DriveCount:       1,
+				IOPS:             2300,
 			},
 		},
 	}
@@ -174,6 +178,7 @@ func TestAzureStorageDistribution(t *testing.T) {
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 2,
 				DriveCount:       1,
+				IOPS:             2300,
 			},
 		},
 	}
@@ -204,6 +209,7 @@ func TestAzureStorageDistribution(t *testing.T) {
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 1,
 				DriveCount:       1,
+				IOPS:             7500,
 			},
 		},
 	}
@@ -257,12 +263,14 @@ func TestAzureStorageDistribution(t *testing.T) {
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 1,
 				DriveCount:       1,
+				IOPS:             1100,
 			},
 			&cloudops.StoragePoolSpec{
 				DriveCapacityGiB: 1024,
 				DriveType:        "Premium_LRS",
 				InstancesPerZone: 3,
 				DriveCount:       1,
+				IOPS:             5000,
 			},
 		},
 	}
