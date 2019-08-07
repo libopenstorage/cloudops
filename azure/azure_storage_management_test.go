@@ -1,14 +1,13 @@
 package azure
 
 import (
-	"io/ioutil"
 	"reflect"
 	"testing"
 
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/pkg/parser"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -16,17 +15,9 @@ const (
 )
 
 func getMatrixFromYaml(t *testing.T) *cloudops.StorageDecisionMatrix {
-	yamlBytes, err := ioutil.ReadFile(testSpecPath)
-	require.NoError(t, err, "Unexpected error on reading test spec file %v", testSpecPath)
-
-	matrix := &cloudops.StorageDecisionMatrix{}
-	err = yaml.Unmarshal(yamlBytes, matrix)
-	require.NoError(t, err, "Unmarshalling error reading yaml file %v", testSpecPath)
-	return matrix
-}
-
-func TestYamlReader(t *testing.T) {
-	getMatrixFromYaml(t)
+	decisionMatrix, err := parser.NewStorageDecisionMatrixParser().UnmarshalFromYaml(testSpecPath)
+	require.NoError(t, err, "Unexpected error on yaml parser")
+	return decisionMatrix
 }
 
 func TestAzureStorageDistribution(t *testing.T) {
