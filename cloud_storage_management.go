@@ -93,6 +93,8 @@ type StoragePoolSpec struct {
 	DriveCount uint32 `json:"drive_count" yaml:"drive_count"`
 	// InstancesPerZone is the number of instances per zone
 	InstancesPerZone int `json:"instances_per_zone" yaml:"instances_per_zone"`
+	// IOPS is the IOPS of the drive
+	IOPS uint32 `json:"iops" yaml:"iops"`
 }
 
 // StorageDistributionResponse is the result returned the CloudStorage Decision Matrix
