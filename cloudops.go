@@ -1,3 +1,5 @@
+//go:generate mockgen --package=mock -destination=mock/cloudops.mock.go github.com/libopenstorage/cloudops Ops
+
 package cloudops
 
 import "time"

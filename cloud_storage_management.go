@@ -1,3 +1,5 @@
+//go:generate mockgen --package=mock -destination=mock/cloud_storage_management.mock.go github.com/libopenstorage/cloudops StorageManager
+
 package cloudops
 
 import (
