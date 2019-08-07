@@ -37,7 +37,7 @@ type StorageDecisionMatrixRow struct {
 	// without affecting performance on the provided instance type.
 	MaxSize uint64 `json:"max_size" yaml:"max_size"`
 	// Priority for this entry in the decision matrix.
-	Priority string `json:"priority" yaml:"priority"`
+	Priority int `json:"priority" yaml:"priority"`
 	// ThinProvisioning if set will provision the backing device to be thinly provisioned if supported by cloud provider.
 	ThinProvisioning bool `json:"thin_provisioning" yaml:"thin_provisioning"`
 	// DriveType is the type of drive
