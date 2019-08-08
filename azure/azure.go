@@ -232,7 +232,7 @@ func (a *azureOps) Attach(diskName string, opts map[string]string) (string, erro
 	return a.waitForAttach(diskName)
 }
 
-func (s *azureOps) AttachByInstanceID(
+func (a *azureOps) AttachByInstanceID(
 	instanceID, volumeID string, options map[string]string) (string, error) {
 	return "", &cloudops.ErrNotSupported{
 		Operation: "AttachByInstanceID",

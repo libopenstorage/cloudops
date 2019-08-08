@@ -345,6 +345,7 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 	DeviceMappings(t, driver, "")
 }
 
+// DeviceMappings tests the driver functions to get device mappings
 func DeviceMappings(t *testing.T, driver cloudops.Ops, instanceID string) {
 	mappings, err := driver.DeviceMappings("")
 	if err != nil && canErrBeIgnored(err) {
