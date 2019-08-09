@@ -326,6 +326,57 @@ func (a *azureOps) DeleteFrom(diskName, _ string) error {
 	return a.Delete(diskName)
 }
 
+func (a *azureOps) Expand(
+	diskName string,
+	newSizeInGiB uint64,
+) (uint64, error) {
+	disk, err := a.disksClient.Get(
+		context.Background(),
+		a.resourceGroupName,
+		diskName,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	if disk.DiskProperties == nil || disk.DiskProperties.DiskSizeGB == nil {
+		return 0, fmt.Errorf("disk properties of (%v) is nil", diskName)
+	}
+
+	if *disk.DiskProperties.DiskSizeGB >= int32(newSizeInGiB) {
+		// no work is needed
+		return uint64(*disk.DiskProperties.DiskSizeGB), nil
+	}
+	oldSizeInGiB := uint64(*disk.DiskProperties.DiskSizeGB)
+	// Azure resizes in chunks of GiB even if the disk properties variable is DiskSizeGB
+	newSizeInGiBInt32 := int32(newSizeInGiB)
+	disk.DiskProperties.DiskSizeGB = &newSizeInGiBInt32
+
+	ctx := context.Background()
+	future, err := a.disksClient.CreateOrUpdate(
+		ctx,
+		a.resourceGroupName,
+		diskName,
+		disk,
+	)
+	if err != nil {
+		return oldSizeInGiB, err
+	}
+	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	if err != nil {
+		return oldSizeInGiB, err
+	}
+
+	dd, err := future.Result(*a.disksClient)
+	if err != nil {
+		return oldSizeInGiB, err
+	}
+	if dd.DiskProperties == nil || dd.DiskProperties.DiskSizeGB == nil {
+		return oldSizeInGiB, fmt.Errorf("disk properties of (%v) is nil after performing resize", diskName)
+	}
+	return uint64(*dd.DiskProperties.DiskSizeGB), err
+}
+
 func (a *azureOps) Describe() (interface{}, error) {
 	return a.vmsClient.describe(a.instance)
 }
