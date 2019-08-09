@@ -56,7 +56,7 @@ func TestAll(t *testing.T) {
 		drivers[d.Name()] = d
 		diskTemplates[d.Name()] = disks
 
-		test.RunTest(drivers, diskTemplates, t)
+		test.RunTest(drivers, diskTemplates, nil, t)
 	} else {
 		fmt.Printf("skipping vSphere tests as environment is not set...\n")
 		t.Skip("skipping vSphere tests as environment is not set...")

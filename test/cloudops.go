@@ -21,7 +21,13 @@ const (
 	retrySeconds = 15
 	// timeoutMinutes timeout in minutes for cloud operation to complete
 	timeoutMinutes = 5
+	// targetDiskSizeInGiB is the size passed onto expand API
+	targetDiskSizeInGiB = 20
 )
+
+// SizeCheck is a cloud provider specific callback function to check the size of
+// the provided disk object through the opaque template interface
+type SizeCheck func(template interface{}, targerSize uint64) bool
 
 var diskLabels = map[string]string{
 	"source": "openstorage-test",
@@ -33,7 +39,9 @@ var diskLabels = map[string]string{
 func RunTest(
 	drivers map[string]cloudops.Ops,
 	diskTemplates map[string]map[string]interface{},
+	sizeCheck SizeCheck,
 	t *testing.T) {
+
 	for _, d := range drivers {
 		name(t, d)
 		compute(t, d)
@@ -42,6 +50,7 @@ func RunTest(
 			disk := create(t, d, template)
 			fmt.Printf("Created disk: %v\n", disk)
 			diskID := id(t, d, disk)
+			expand(t, d, diskID, sizeCheck)
 			snapshot(t, d, diskID)
 			tags(t, d, diskID)
 			enumerate(t, d, diskID)
@@ -233,6 +242,20 @@ func inspect(t *testing.T, driver cloudops.Ops, diskName string) {
 
 	require.NoError(t, err, "failed to inspect disk")
 	require.Len(t, disks, 1, fmt.Sprintf("inspect returned invalid length: %d", len(disks)))
+}
+
+func expand(t *testing.T, driver cloudops.Ops, diskName string, sizeCheck SizeCheck) {
+	newSize, err := driver.Expand(diskName, targetDiskSizeInGiB)
+	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
+		return
+	}
+
+	require.NoError(t, err, "unexpected error on expand")
+	require.Equal(t, newSize, uint64(targetDiskSizeInGiB), "unexpected size returned on expand")
+
+	disks, err := driver.Inspect([]*string{&diskName})
+	require.NoError(t, err, "failed to inspect disk")
+	require.True(t, sizeCheck(disks[0], targetDiskSizeInGiB), "size check failed")
 }
 
 func attach(t *testing.T, driver cloudops.Ops, diskName string) {
