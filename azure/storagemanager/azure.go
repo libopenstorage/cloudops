@@ -1,4 +1,4 @@
-package azure
+package storagemanager
 
 import (
 	"github.com/libopenstorage/cloudops"
