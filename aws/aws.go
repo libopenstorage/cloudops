@@ -35,6 +35,7 @@ const (
 )
 
 type awsOps struct {
+	cloudops.Storage
 	cloudops.Compute
 	instanceType string
 	instance     string
@@ -337,12 +338,21 @@ func (s *awsOps) matchTag(tag *ec2.Tag, match string) bool {
 		*tag.Key == match
 }
 
-func (s *awsOps) DeviceMappings() (map[string]string, error) {
-	instance, err := s.describe()
+func (s *awsOps) DeviceMappings(instanceID string) (map[string]string, error) {
+	var (
+		instance *ec2.Instance
+		err      error
+	)
+
+	if len(instanceID) == 0 {
+		instance, err = s.describe()
+	} else {
+		instance, err = DescribeInstanceByID(s.ec2, instanceID)
+	}
+
 	if err != nil {
 		return nil, err
 	}
-
 	m := make(map[string]string)
 	for _, d := range instance.BlockDeviceMappings {
 		if d.DeviceName != nil && d.Ebs != nil && d.Ebs.VolumeId != nil {
@@ -769,7 +779,7 @@ func (s *awsOps) Delete(id string) error {
 	return err
 }
 
-func (s *awsOps) Attach(volumeID string) (string, error) {
+func (s *awsOps) Attach(volumeID string, opts map[string]string) (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -816,6 +826,12 @@ func (s *awsOps) Attach(volumeID string) (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to attach any of the free devices. Attempted: %v", devices)
+}
+func (s *awsOps) AttachByInstanceID(
+	instanceID, volumeID string, options map[string]string) (string, error) {
+	return "", &cloudops.ErrNotSupported{
+		Operation: "AttachByInstanceID",
+	}
 }
 
 func (s *awsOps) Detach(volumeID string) error {

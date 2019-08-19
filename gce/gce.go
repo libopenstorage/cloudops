@@ -295,7 +295,7 @@ func (s *gceOps) ApplyTags(
 	return s.waitForOpCompletion("disk.ApplyTags", s.inst.zone, operation)
 }
 
-func (s *gceOps) Attach(diskName string) (string, error) {
+func (s *gceOps) Attach(diskName string, opts map[string]string) (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -334,6 +334,13 @@ func (s *gceOps) Attach(diskName string) (string, error) {
 	}
 
 	return devicePath, nil
+}
+
+func (s *gceOps) AttachByInstanceID(
+	instanceID, volumeID string, options map[string]string) (string, error) {
+	return "", &cloudops.ErrNotSupported{
+		Operation: "AttachByInstanceID",
+	}
 }
 
 func (s *gceOps) Create(
@@ -382,7 +389,7 @@ func (s *gceOps) DeleteFrom(id, _ string) error {
 	return s.Delete(id)
 }
 
-func (s *gceOps) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
+func (s *gceOps) DeleteInstance(instanceID string, zone string) error {
 
 	operation, err := s.computeService.Instances.Delete(s.inst.project, zone, instanceID).Do()
 	if err != nil {
@@ -408,7 +415,7 @@ func (s *gceOps) DeleteInstance(instanceID string, zone string, timeout time.Dur
 				instanceID, operation.Name, operation.Status)
 	}
 
-	_, err = task.DoRetryWithTimeout(f, timeout, retrySeconds*time.Second)
+	_, err = task.DoRetryWithTimeout(f, 2*time.Minute, retrySeconds*time.Second)
 	if err != nil {
 		return err
 	}
@@ -482,7 +489,14 @@ func (s *gceOps) detachInternal(devicePath, instanceName string) error {
 	return err
 }
 
-func (s *gceOps) DeviceMappings() (map[string]string, error) {
+func (s *gceOps) DeviceMappings(instanceID string) (map[string]string, error) {
+	if len(instanceID) > 0 {
+		return nil, &cloudops.ErrNotSupported{
+			Operation: "DeviceMappings",
+			Reason:    "API currently does not support providing instanceID",
+		}
+	}
+
 	instance, err := s.describeinstance()
 	if err != nil {
 		return nil, err

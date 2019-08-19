@@ -14,11 +14,25 @@ func NewUnsupportedCompute() cloudops.Compute {
 	return &unsupportedCompute{}
 }
 
-func (u *unsupportedCompute) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
+func (u *unsupportedCompute) CreateInstance(template interface{}) (*cloudops.InstanceInfo, error) {
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "CreateInstance",
+	}
+}
+
+func (u *unsupportedCompute) DeleteInstance(instanceID string, zone string) error {
 	return &cloudops.ErrNotSupported{
 		Operation: "DeleteInstance",
 	}
 }
+
+func (u *unsupportedCompute) ListInstances(opts *cloudops.ListInstancesOpts) (
+	[]*cloudops.InstanceInfo, error) {
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "ListInstances",
+	}
+}
+
 func (u *unsupportedCompute) InstanceID() string {
 	return "Unsupported"
 }
@@ -29,7 +43,8 @@ func (u *unsupportedCompute) InspectInstance(instanceID string) (*cloudops.Insta
 	}
 }
 
-func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
+func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) (
+	*cloudops.InstanceGroupInfo, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "InspectInstanceGroupForInstance",
 	}

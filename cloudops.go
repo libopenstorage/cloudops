@@ -61,10 +61,14 @@ type InstanceInfo struct {
 
 // Compute interface to manage compute instances.
 type Compute interface {
-	// DeleteInstance deletes the instance
-	DeleteInstance(instanceID string, zone string, timeout time.Duration) error
 	// InstanceID of instance where command is executed.
 	InstanceID() string
+	// CreateInstance creates a cloud instance with the given template
+	CreateInstance(template interface{}) (*InstanceInfo, error)
+	// DeleteInstance deletes a cloud instance with given ID/name and zone
+	DeleteInstance(instanceID string, zone string) error
+	// ListInstances lists instances in the cloud provider with given options
+	ListInstances(opts *ListInstancesOpts) ([]*InstanceInfo, error)
 	// InspectInstance inspects the node with the given instance ID
 	// TODO: Add support for taking zone as input to inspect instance in any zone
 	InspectInstance(instanceID string) (*InstanceInfo, error)
@@ -90,8 +94,13 @@ type Storage interface {
 	// GetDeviceID returns ID/Name of the given device/disk or snapshot
 	GetDeviceID(template interface{}) (string, error)
 	// Attach volumeID.
+	// options are passthough options given to the cloud provider
 	// Return attach path.
-	Attach(volumeID string) (string, error)
+	Attach(volumeID string, options map[string]string) (string, error)
+	// AttachByInstanceID attaches diskPath to instance with given ID.
+	// options are passthough options given to the cloud provider
+	// Return attach path.
+	AttachByInstanceID(instanceID, volumeID string, options map[string]string) (string, error)
 	// Detach volumeID.
 	Detach(volumeID string) error
 	// DetachFrom detaches the disk/volume with given ID from the given instance ID
@@ -109,7 +118,10 @@ type Storage interface {
 	// Inspect volumes specified by volumeID
 	Inspect(volumeIds []*string) ([]interface{}, error)
 	// DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME
-	DeviceMappings() (map[string]string, error)
+	// instanceID is the ID of the instance where you want to check the device mappings
+	// If not provided, it returns the device mappings of the instance where it's
+	// invoked
+	DeviceMappings(instanceID string) (map[string]string, error)
 	// Enumerate volumes that match given filters. Organize them into
 	// sets identified by setIdentifier.
 	// labels can be nil, setIdentifier can be empty string.
@@ -139,4 +151,15 @@ type Ops interface {
 	Storage
 	// Compute operations in the cloud
 	Compute
+}
+
+// ListInstancesOpts are options for the list instances call
+type ListInstancesOpts struct {
+	// LabelSelector to filter the instances that are listed. The labels are
+	// interpreted by the cloud provider
+	LabelSelector map[string]string
+	// NamePrefix if provided will be used to return all instances whose name
+	// starts with the given prefix. This should be used in cloud providers that
+	// don't support labels in instances
+	NamePrefix string
 }

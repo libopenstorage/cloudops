@@ -59,5 +59,5 @@ func TestAll(t *testing.T) {
 	d, disks := initAzure(t)
 	drivers[d.Name()] = d
 	diskTemplates[d.Name()] = disks
-	test.RunTest(drivers, diskTemplates, t)
+	test.RunTest(drivers, diskTemplates, nil, t)
 }

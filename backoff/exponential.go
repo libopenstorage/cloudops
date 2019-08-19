@@ -72,6 +72,56 @@ func (e *exponentialBackoff) InspectInstance(instanceID string) (*cloudops.Insta
 
 }
 
+func (e *exponentialBackoff) CreateInstance(template interface{}) (*cloudops.InstanceInfo, error) {
+	var (
+		instanceInfo *cloudops.InstanceInfo
+		origErr      error
+	)
+	conditionFn := func() (bool, error) {
+		instanceInfo, origErr = e.cloudOps.CreateInstance(template)
+		msg := fmt.Sprintf("Failed to create instance: %v.", template)
+		return e.handleError(origErr, msg)
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return nil, cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return instanceInfo, origErr
+}
+
+func (e *exponentialBackoff) ListInstances(opts *cloudops.ListInstancesOpts) (
+	[]*cloudops.InstanceInfo, error) {
+
+	var (
+		instanceInfos []*cloudops.InstanceInfo
+		origErr       error
+	)
+	conditionFn := func() (bool, error) {
+		instanceInfos, origErr = e.cloudOps.ListInstances(opts)
+		msg := fmt.Sprintf("Failed to list instances with options: %v.", opts)
+		return e.handleError(origErr, msg)
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return nil, cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return instanceInfos, origErr
+}
+
+func (e *exponentialBackoff) DeleteInstance(instanceID string, zone string) error {
+	var origErr error
+	conditionFn := func() (bool, error) {
+		origErr = e.cloudOps.DeleteInstance(instanceID, zone)
+		msg := fmt.Sprintf("Failed to inspect instance: %v.", instanceID)
+		return e.handleError(origErr, msg)
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return origErr
+}
+
 func (e *exponentialBackoff) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
 	var (
 		instanceGroupInfo *cloudops.InstanceGroupInfo
@@ -140,23 +190,6 @@ func (e *exponentialBackoff) GetClusterSizeForInstance(instanceID string) (int64
 
 }
 
-func (e *exponentialBackoff) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
-	var (
-		origErr error
-	)
-	conditionFn := func() (bool, error) {
-		origErr = e.cloudOps.DeleteInstance(instanceID, zone, timeout)
-		msg := fmt.Sprintf("Failed to delete instance: %v.", instanceID)
-		return e.handleError(origErr, msg)
-	}
-	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
-	if expErr == wait.ErrWaitTimeout {
-		return cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
-	}
-	return origErr
-
-}
-
 // Create volume based on input template volume and also apply given labels.
 func (e *exponentialBackoff) Create(template interface{}, labels map[string]string) (interface{}, error) {
 	var (
@@ -183,14 +216,33 @@ func (e *exponentialBackoff) GetDeviceID(template interface{}) (string, error) {
 
 // Attach volumeID.
 // Return attach path.
-func (e *exponentialBackoff) Attach(volumeID string) (string, error) {
+func (e *exponentialBackoff) Attach(volumeID string, options map[string]string) (string, error) {
 	var (
 		devPath string
 		origErr error
 	)
 	conditionFn := func() (bool, error) {
-		devPath, origErr = e.cloudOps.Attach(volumeID)
+		devPath, origErr = e.cloudOps.Attach(volumeID, options)
 		msg := fmt.Sprintf("Failed to attach drive (%v).", volumeID)
+		return e.handleError(origErr, msg)
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return "", cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return devPath, origErr
+}
+
+func (e *exponentialBackoff) AttachByInstanceID(
+	instanceID, volumeID string,
+	options map[string]string) (string, error) {
+	var (
+		devPath string
+		origErr error
+	)
+	conditionFn := func() (bool, error) {
+		devPath, origErr = e.cloudOps.AttachByInstanceID(instanceID, volumeID, options)
+		msg := fmt.Sprintf("Failed to attach drive (%v) on %s", volumeID, instanceID)
 		return e.handleError(origErr, msg)
 	}
 	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
@@ -202,9 +254,7 @@ func (e *exponentialBackoff) Attach(volumeID string) (string, error) {
 
 // Detach volumeID.
 func (e *exponentialBackoff) Detach(volumeID string) error {
-	var (
-		origErr error
-	)
+	var origErr error
 	conditionFn := func() (bool, error) {
 		origErr = e.cloudOps.Detach(volumeID)
 		msg := fmt.Sprintf("Failed to detach drive (%v).", volumeID)
@@ -312,13 +362,13 @@ func (e *exponentialBackoff) Inspect(volumeIds []*string) ([]interface{}, error)
 }
 
 // DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME
-func (e *exponentialBackoff) DeviceMappings() (map[string]string, error) {
+func (e *exponentialBackoff) DeviceMappings(instanceID string) (map[string]string, error) {
 	var (
 		mappings map[string]string
 		origErr  error
 	)
 	conditionFn := func() (bool, error) {
-		mappings, origErr = e.cloudOps.DeviceMappings()
+		mappings, origErr = e.cloudOps.DeviceMappings(instanceID)
 		msg := fmt.Sprintf("Failed to get device mappings.")
 		return e.handleError(origErr, msg)
 	}
