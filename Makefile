@@ -55,6 +55,7 @@ staticcheck: $(GOPATH)/bin/staticcheck
 errcheck:
 	go get -v github.com/kisielk/errcheck
 	errcheck -verbose -blank $(PKGS)
+	errcheck -verbose -blank -tags unittest $(PKGS)
 
 pretest: lint vet errcheck staticcheck
 
