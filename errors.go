@@ -73,3 +73,17 @@ func (e *ErrNoInstanceGroup) Error() string {
 
 	return errString
 }
+
+// ErrInvalidStorageUpdateRequest is returned when an unsupported or invalid request
+// is sent to get the updated storage config on an instance
+type ErrInvalidStorageUpdateRequest struct {
+	// Request is the request that caused the invalid error
+	Request *StorageUpdateRequest
+	// Reason is the reason why the request was invalid
+	Reason string
+}
+
+func (e *ErrInvalidStorageUpdateRequest) Error() string {
+	return fmt.Sprintf("Invalid request to update storage on instance due to: %s Request: %v",
+		e.Reason, e.Request)
+}

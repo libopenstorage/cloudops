@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/libopenstorage/openstorage/api"
 )
 
 var (
@@ -20,16 +22,16 @@ var (
 // StorageDecisionMatrixRow defines an entry in the cloud storage decision matrix.
 type StorageDecisionMatrixRow struct {
 	// IOPS is the desired iops from the underlying cloud storage.
-	IOPS uint32 `json:"iops" yaml:"iops"`
+	IOPS uint64 `json:"iops" yaml:"iops"`
 	// InstanceType is the type of instance on which the cloud storage can
 	// be attached.
 	InstanceType string `json:"instance_type" yaml:"instance_type"`
 	// InstanceMaxDrives is the maximum number of drives that can be attached
 	// to an instance without a performance hit.
-	InstanceMaxDrives uint32 `json:"instance_max_drives" yaml:"instance_max_drives"`
+	InstanceMaxDrives uint64 `json:"instance_max_drives" yaml:"instance_max_drives"`
 	// InstanceMinDrives is the minimum number of drives that need to be
 	// attached to an instance to achieve maximum performance.
-	InstanceMinDrives uint32 `json:"instance_min_drives" yaml:"instance_min_drives"`
+	InstanceMinDrives uint64 `json:"instance_min_drives" yaml:"instance_min_drives"`
 	// Region of the instance.
 	Region string `json:"region" yaml:"region"`
 	// MinSize is the minimum size of the drive that needs to be provisioned
@@ -58,13 +60,15 @@ type StorageDecisionMatrix struct {
 // for two different drive types then multiple StorageSpecs need to be provided to
 // the StorageManager
 type StorageSpec struct {
-	// IOPS is the desired IOPS from the underlying storag.
-	IOPS uint32 `json:"iops" yaml:"iops"`
 	// MinCapacity is the minimum capacity of storage for the cluster.
 	MinCapacity uint64 `json:"min_capacity" yaml:"min_capacity"`
 	// MaxCapacity is the upper threshold on the total capacity of storage
 	// that can be provisioned in this cluster.
 	MaxCapacity uint64 `json:"max_capacity" yaml:"max_capacity"`
+	// DriveType is the type of drive that's required (optional)
+	DriveType string `json:"drive_type" yaml:"drive_type"`
+	// IOPS is the desired IOPS from the underlying storage (optional)
+	IOPS uint64 `json:"iops" yaml:"iops"`
 }
 
 // StorageDistributionRequest is the input the cloud drive decision matrix. It provides
@@ -75,10 +79,10 @@ type StorageDistributionRequest struct {
 	// InstanceType is the type of instance where user needs to provision storage.
 	InstanceType string `json:"instance_type" yaml:"instance_type"`
 	// InstancesPerZone is the number of instances in each zone.
-	InstancesPerZone int `json:"instances_per_zone" yaml:"instances_per_zone"`
+	InstancesPerZone uint64 `json:"instances_per_zone" yaml:"instances_per_zone"`
 	// ZoneCount is the number of zones across which the instances are
 	// distributed in the cluster.
-	ZoneCount int `json:"zone_count" yaml:"zone_count"`
+	ZoneCount uint64 `json:"zone_count" yaml:"zone_count"`
 }
 
 // StoragePoolSpec defines the type, capacity and number of storage drive that needs
@@ -88,13 +92,13 @@ type StoragePoolSpec struct {
 	DriveCapacityGiB uint64 `json:"drive_capacity_gb" yaml:"drive_capacity_gb"`
 	// DriveType is the type of drive specified in terms of cloud provided names.
 	DriveType string `json:"drive_type" yaml:"drive_type"`
-	// DriveCount is the number of drives that need to be provisioned of the
-	// specified capacity and type.
-	DriveCount uint32 `json:"drive_count" yaml:"drive_count"`
+	// DriveCount is the number of drives that need to be provisioned on the
+	// instance
+	DriveCount uint64 `json:"drive_count" yaml:"drive_count"`
 	// InstancesPerZone is the number of instances per zone
-	InstancesPerZone int `json:"instances_per_zone" yaml:"instances_per_zone"`
+	InstancesPerZone uint64 `json:"instances_per_zone" yaml:"instances_per_zone"`
 	// IOPS is the IOPS of the drive
-	IOPS uint32 `json:"iops" yaml:"iops"`
+	IOPS uint64 `json:"iops" yaml:"iops"`
 }
 
 // StorageDistributionResponse is the result returned the CloudStorage Decision Matrix
@@ -105,11 +109,40 @@ type StorageDistributionResponse struct {
 	InstanceStorage []*StoragePoolSpec `json:"instance_storage" yaml:"instance_storage"`
 }
 
+// StorageUpdateRequest is the required changes for updating the storage on a given
+// cloud instance
+type StorageUpdateRequest struct {
+	// NewCapacity is the new required capacity on the cloud instance
+	NewCapacity uint64 `json:"new_capacity" yaml:"new_capacity"`
+	// IOPS is the new IOPS required on the cloud instance
+	NewIOPS uint64 `json:"iops" yaml:"iops"`
+	// ResizeOperationType is the operation user wants for the storage resize on the node
+	ResizeOperationType api.StoragePoolResizeOperationType
+	// CurrentInstanceStorage is the existing storage pool specs provisioned on an instance.
+	// The RecommendInstanceStorageUpdate implementation should use this to figure
+	// out the required changes on the storage
+	CurrentInstanceStorage []*StoragePoolSpec `json:"instance_storage" yaml:"instance_storage"`
+}
+
+// StorageUpdateResponse is the result returned by the CloudStorage Decision Matrix
+// for the storage update request
+type StorageUpdateResponse struct {
+	// InstanceStorage defines a list of storage pool specs that need to be
+	// provisioned or updated on an instance.
+	InstanceStorage []*StoragePoolSpec `json:"instance_storage" yaml:"instance_storage"`
+	// ResizeOperationType is the operation caller should perform on the disks in
+	// the above InstanceStorage for the storage update on the instance
+	ResizeOperationType api.StoragePoolResizeOperationType
+}
+
 // StorageManager interface provides a set of APIs to manage cloud storage drives
 // across multiple nodes in the cluster.
 type StorageManager interface {
 	// GetStorageDistribution returns the storage distribution for the provided request
 	GetStorageDistribution(request *StorageDistributionRequest) (*StorageDistributionResponse, error)
+	// RecommendInstanceStorageUpdate returns the recomended storage configuration on
+	// the instance based on the given request
+	RecommendInstanceStorageUpdate(request *StorageUpdateRequest) (*StorageUpdateResponse, error)
 }
 
 var (

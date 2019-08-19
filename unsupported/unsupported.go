@@ -54,3 +54,26 @@ func (u *unsupportedCompute) GetClusterSizeForInstance(instanceID string) (int64
 		Operation: "GetClusterSizeForInstance",
 	}
 }
+
+type unsupportedStorageManager struct {
+}
+
+// NewUnsupportedStorageManager return wrapper for StorageManager where all methods are not supported
+func NewUnsupportedStorageManager() cloudops.StorageManager {
+	return &unsupportedStorageManager{}
+}
+
+func (u *unsupportedStorageManager) GetStorageDistribution(
+	request *cloudops.StorageDistributionRequest,
+) (*cloudops.StorageDistributionResponse, error) {
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "GetStorageDistribution",
+	}
+}
+
+func (u *unsupportedStorageManager) RecommendInstanceStorageUpdate(
+	request *cloudops.StorageUpdateRequest) (*cloudops.StorageUpdateResponse, error) {
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "RecommendInstanceStorageUpdate",
+	}
+}
