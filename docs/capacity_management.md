@@ -1,4 +1,8 @@
-# Overview
+# Application Driven Cloud Volume Management
+
+In distributed heterogeneous application deployments, the cluster admin is faced with the task of provisioning infrastructure to cater to the requirements from different applications. The infratructure also evolves as the new applications are deployed and existing applications consume more storage requirements.
+
+The *CloudOps Drive Manangement* library insulates the operator from cloud specific nuances and translates high level requirements for storage capacity and performance to cloud specific storage resource management. 
 
 Selecting storage drives depends on a number of factors:
 
@@ -12,9 +16,6 @@ In summary, to determine a set of storage drives to provision depends on the rig
 
 An example is the EBS volume matrix:https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html
 
-In distributed heterogeneous application deployments, the requirements are at a cluster level and not at a node level. The requirements also differ based on the category of applications. They also evolve as the cluster grows or as the deployment grows.
-
-The *CloudOps Drive Manangement* library insulates the operator from cloud specific nuances and translates high level requirements for storage capacity and performance to cloud specific storage resource management.
 
 
 # Goal
