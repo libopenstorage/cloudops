@@ -18,6 +18,9 @@ const (
 	ErrInvalidDevicePath
 	// ErrExponentialTimeout is code when all the retries with exponential backoff have exhausted
 	ErrExponentialTimeout
+	// ErrDiskGreaterOrEqualToExpandSize is code when a volume/disk expansion call fails
+	// as the given disk is already at a size greater than or equal to requested size
+	ErrDiskGreaterOrEqualToExpandSize
 )
 
 // ErrNotSupported is the error type for unsupported operations

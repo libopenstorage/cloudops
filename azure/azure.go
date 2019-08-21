@@ -344,8 +344,9 @@ func (a *azureOps) Expand(
 	}
 
 	if *disk.DiskProperties.DiskSizeGB >= int32(newSizeInGiB) {
-		// no work is needed
-		return uint64(*disk.DiskProperties.DiskSizeGB), nil
+		return 0, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
+				"requested size: %d", *disk.DiskProperties.DiskSizeGB, newSizeInGiB), "")
 	}
 	oldSizeInGiB := uint64(*disk.DiskProperties.DiskSizeGB)
 	// Azure resizes in chunks of GiB even if the disk properties variable is DiskSizeGB

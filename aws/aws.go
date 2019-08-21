@@ -853,9 +853,12 @@ func (s *awsOps) Expand(
 		return 0, err
 	}
 	currentSizeInGiB := uint64(*vol.Size)
-	if uint64(*vol.Size) >= newSizeInGiB {
-		return currentSizeInGiB, nil
+	if currentSizeInGiB >= newSizeInGiB {
+		return 0, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
+				"requested size: %d", currentSizeInGiB, newSizeInGiB), "")
 	}
+
 	newSizeInGiBInt64 := int64(newSizeInGiB)
 	request := &ec2.ModifyVolumeInput{
 		VolumeId: vol.VolumeId,
