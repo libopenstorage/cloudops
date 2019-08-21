@@ -55,9 +55,19 @@ func initAzure(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 func TestAll(t *testing.T) {
 	drivers := make(map[string]cloudops.Ops)
 	diskTemplates := make(map[string]map[string]interface{})
-
 	d, disks := initAzure(t)
 	drivers[d.Name()] = d
 	diskTemplates[d.Name()] = disks
-	test.RunTest(drivers, diskTemplates, t)
+	test.RunTest(drivers, diskTemplates, sizeCheck, t)
+}
+
+func sizeCheck(template interface{}, targetSize uint64) bool {
+	disk, ok := template.(*compute.Disk)
+	if !ok {
+		return false
+	}
+	if disk.DiskProperties == nil || disk.DiskProperties.DiskSizeGB == nil {
+		return false
+	}
+	return targetSize == uint64(*disk.DiskProperties.DiskSizeGB)
 }

@@ -25,6 +25,7 @@ import (
 	awscredentials "github.com/libopenstorage/secrets/aws/credentials"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -841,6 +842,69 @@ func (s *awsOps) detachInternal(volumeID, instanceName string) error {
 		time.Minute,
 	)
 	return err
+}
+
+func (s *awsOps) Expand(
+	volumeID string,
+	newSizeInGiB uint64,
+) (uint64, error) {
+	vol, err := s.refreshVol(&volumeID)
+	if err != nil {
+		return 0, err
+	}
+	currentSizeInGiB := uint64(*vol.Size)
+	if currentSizeInGiB >= newSizeInGiB {
+		return 0, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
+				"requested size: %d", currentSizeInGiB, newSizeInGiB), "")
+	}
+
+	newSizeInGiBInt64 := int64(newSizeInGiB)
+	request := &ec2.ModifyVolumeInput{
+		VolumeId: vol.VolumeId,
+		Size:     &newSizeInGiBInt64,
+	}
+	output, err := s.ec2.ModifyVolume(request)
+	if err != nil {
+		return currentSizeInGiB, fmt.Errorf("failed to modify AWS volume for %v: %v", volumeID, err)
+	}
+
+	if string(*output.VolumeModification.ModificationState) == ec2.VolumeModificationStateCompleted {
+		return uint64(*output.VolumeModification.TargetSize), nil
+	}
+
+	// Taken from k8s.io/legacy-cloud-providers/aws
+	backoff := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   2,
+		Steps:    10,
+	}
+
+	checkForResize := func() (bool, error) {
+		request := &ec2.DescribeVolumesModificationsInput{
+			VolumeIds: []*string{&volumeID},
+		}
+
+		describeOutput, err := s.ec2.DescribeVolumesModifications(request)
+		if err != nil {
+			return false, fmt.Errorf("error while checking status for AWS EBS volume resize: %v", err)
+		}
+		volumeModifications := describeOutput.VolumesModifications
+		if len(volumeModifications) == 0 {
+			return false, fmt.Errorf("no volume modifications found for AWS EBS volume %v", volumeID)
+		}
+		volumeModification := volumeModifications[len(volumeModifications)-1]
+
+		// According to https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring_mods.html
+		// Size changes usually take a few seconds to complete and take effect after a volume is in the Optimizing state.
+		if *volumeModification.ModificationState == ec2.VolumeModificationStateOptimizing {
+			return true, nil
+		}
+		return false, nil
+	}
+	waitWithErr := wait.ExponentialBackoff(backoff, checkForResize)
+	return newSizeInGiB, waitWithErr
+
 }
 
 func (s *awsOps) Snapshot(

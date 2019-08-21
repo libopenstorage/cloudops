@@ -363,6 +363,16 @@ func (ops *vsphereOps) Enumerate(volumeIds []*string,
 	}
 }
 
+func (ops *vsphereOps) Expand(
+	volumeID string,
+	newSizeInGiB uint64,
+) (uint64, error) {
+	// TODO
+	return 0, &cloudops.ErrNotSupported{
+		Operation: "Expand",
+	}
+}
+
 // Snapshot the volume with given volumeID
 func (ops *vsphereOps) Snapshot(volumeID string, readonly bool) (interface{}, error) {
 	return nil, &cloudops.ErrNotSupported{

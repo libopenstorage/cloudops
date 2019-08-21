@@ -603,6 +603,16 @@ func (s *gceOps) GetDeviceID(disk interface{}) (string, error) {
 	}
 }
 
+func (s *gceOps) Expand(
+	volumeID string,
+	newSizeInGiB uint64,
+) (uint64, error) {
+	// TODO
+	return 0, &cloudops.ErrNotSupported{
+		Operation: "Expand",
+	}
+}
+
 func (s *gceOps) Inspect(diskNames []*string) ([]interface{}, error) {
 	allDisks, err := s.getDisksFromAllZones(nil)
 	if err != nil {

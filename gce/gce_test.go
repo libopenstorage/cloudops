@@ -45,7 +45,7 @@ func TestAll(t *testing.T) {
 		d, disks := initGCE(t)
 		drivers[d.Name()] = d
 		diskTemplates[d.Name()] = disks
-		test.RunTest(drivers, diskTemplates, t)
+		test.RunTest(drivers, diskTemplates, nil, t)
 	} else {
 		fmt.Printf("skipping GCE tests as environment is not set...\n")
 		t.Skip("skipping GCE tests as environment is not set...")
