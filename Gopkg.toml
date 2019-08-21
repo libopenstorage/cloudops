@@ -34,6 +34,10 @@
   version = "26.0.0"
 
 [[constraint]]
+  name = "github.com/libopenstorage/openstorage"
+  branch = "resize-pool-7.0-simplified"
+
+[[constraint]]
   name = "github.com/Azure/go-autorest"
   version = "11.5.0"
 
