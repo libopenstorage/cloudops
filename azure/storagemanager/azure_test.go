@@ -327,7 +327,7 @@ func storageDistribution(t *testing.T) {
 			require.NoError(t, err, "Unexpected error on GetStorageDistribution")
 			require.NotNil(t, response, "got nil response from GetStorageDistribution")
 			require.Equal(t, len(test.response.InstanceStorage), len(response.InstanceStorage), "unequal response lengths")
-			for i, _ := range test.response.InstanceStorage {
+			for i := range test.response.InstanceStorage {
 				require.True(t, reflect.DeepEqual(*response.InstanceStorage[i], *test.response.InstanceStorage[i]),
 					"Expected Response: %+v . Actual Response %+v",
 					test.response.InstanceStorage[i], response.InstanceStorage[i])
