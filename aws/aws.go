@@ -854,7 +854,7 @@ func (s *awsOps) Expand(
 	}
 	currentSizeInGiB := uint64(*vol.Size)
 	if currentSizeInGiB >= newSizeInGiB {
-		return 0, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+		return currentSizeInGiB, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
 			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
 				"requested size: %d", currentSizeInGiB, newSizeInGiB), "")
 	}

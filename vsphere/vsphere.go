@@ -419,7 +419,7 @@ func (ops *vsphereOps) Expand(
 	editDisk := disks[0]
 	newSizeInKiB := int64(newSizeInGiB) * 1024 * 1024
 	if editDisk.CapacityInKB >= newSizeInKiB {
-		return 0, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+		return uint64(editDisk.CapacityInKB / (1024 * 1024)), cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
 			fmt.Sprintf("disk is already has a size: %d KiB greater than or equal "+
 				"requested size: %d KiB", editDisk.CapacityInKB, newSizeInKiB), "")
 	}
