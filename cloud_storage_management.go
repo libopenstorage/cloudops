@@ -120,7 +120,7 @@ type StorageUpdateRequest struct {
 	// IOPS is the new IOPS required on the cloud instance
 	NewIOPS uint64 `json:"iops" yaml:"iops"`
 	// ResizeOperationType is the operation user wants for the storage resize on the node
-	ResizeOperationType api.StoragePoolResizeOperationType
+	ResizeOperationType api.SdkStoragePool_ResizeOperationType
 	// CurrentInstanceStorage is the existing storage pool specs provisioned on an instance.
 	// The RecommendInstanceStorageUpdate implementation should use this to figure
 	// out the required changes on the storage
@@ -135,7 +135,7 @@ type StorageUpdateResponse struct {
 	InstanceStorage []*StoragePoolSpec `json:"instance_storage" yaml:"instance_storage"`
 	// ResizeOperationType is the operation caller should perform on the disks in
 	// the above InstanceStorage for the storage update on the instance
-	ResizeOperationType api.StoragePoolResizeOperationType
+	ResizeOperationType api.SdkStoragePool_ResizeOperationType
 }
 
 // StorageManager interface provides a set of APIs to manage cloud storage drives

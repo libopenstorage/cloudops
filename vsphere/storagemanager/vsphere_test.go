@@ -148,7 +148,7 @@ func storageUpdate(t *testing.T) {
 			//        Update from 300GiB to 600 GiB by resizing disks
 			request: &cloudops.StorageUpdateRequest{
 				NewCapacity:         600,
-				ResizeOperationType: api.StoragePoolResizeOperationType_RESIZE_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentInstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 100,
@@ -158,7 +158,7 @@ func storageUpdate(t *testing.T) {
 				},
 			},
 			response: &cloudops.StorageUpdateResponse{
-				ResizeOperationType: api.StoragePoolResizeOperationType_RESIZE_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
@@ -175,7 +175,7 @@ func storageUpdate(t *testing.T) {
 			//        Update from 300GiB to 400 GiB by resizing disks
 			request: &cloudops.StorageUpdateRequest{
 				NewCapacity:         400,
-				ResizeOperationType: api.StoragePoolResizeOperationType_RESIZE_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentInstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 150,
@@ -185,7 +185,7 @@ func storageUpdate(t *testing.T) {
 				},
 			},
 			response: &cloudops.StorageUpdateResponse{
-				ResizeOperationType: api.StoragePoolResizeOperationType_RESIZE_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
@@ -202,7 +202,7 @@ func storageUpdate(t *testing.T) {
 			//        Update from 300GiB to 600 GiB by adding disks
 			request: &cloudops.StorageUpdateRequest{
 				NewCapacity:         600,
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentInstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 100,
@@ -222,7 +222,7 @@ func storageUpdate(t *testing.T) {
 				},
 			},
 			response: &cloudops.StorageUpdateResponse{
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 100,
@@ -239,7 +239,7 @@ func storageUpdate(t *testing.T) {
 			//        Update from 300GiB to 600 GiB by adding disks
 			request: &cloudops.StorageUpdateRequest{
 				NewCapacity:         600,
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentInstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 100,
@@ -249,7 +249,7 @@ func storageUpdate(t *testing.T) {
 				},
 			},
 			response: &cloudops.StorageUpdateResponse{
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 100,
@@ -266,7 +266,7 @@ func storageUpdate(t *testing.T) {
 			//        Update from 600 GiB to 700 GiB by adding disks
 			request: &cloudops.StorageUpdateRequest{
 				NewCapacity:         700,
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentInstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
@@ -276,7 +276,7 @@ func storageUpdate(t *testing.T) {
 				},
 			},
 			response: &cloudops.StorageUpdateResponse{
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
@@ -293,10 +293,10 @@ func storageUpdate(t *testing.T) {
 			//        Update from 0 GiB to 700 GiB by adding disks
 			request: &cloudops.StorageUpdateRequest{
 				NewCapacity:         700,
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 			},
 			response: &cloudops.StorageUpdateResponse{
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 700,
@@ -314,10 +314,10 @@ func storageUpdate(t *testing.T) {
 			//        than the maximum drive in the matrix
 			request: &cloudops.StorageUpdateRequest{
 				NewCapacity:         8193,
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 			},
 			response: &cloudops.StorageUpdateResponse{
-				ResizeOperationType: api.StoragePoolResizeOperationType_ADD_DISK,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 4097,

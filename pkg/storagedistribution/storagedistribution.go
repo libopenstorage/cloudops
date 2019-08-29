@@ -151,7 +151,7 @@ func GetStorageUpdateConfig(
 ROW_LOOP:
 	for _, row := range filteredRows {
 		switch request.ResizeOperationType {
-		case api.StoragePoolResizeOperationType_ADD_DISK:
+		case api.SdkStoragePool_RESIZE_TYPE_ADD_DISK:
 			// Add drives equivalent to newDeltaCapacity
 			logrus.Debugf("need to add drive(s) for atleast: %d GiB", newDeltaCapacity)
 			instStorage, err := instanceStorageForRow(row, newDeltaCapacity, existingDriveSize)
@@ -165,7 +165,7 @@ ROW_LOOP:
 
 			resp.InstanceStorage = append(resp.InstanceStorage, instStorage)
 			return resp, nil
-		case api.StoragePoolResizeOperationType_RESIZE_DISK:
+		case api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK:
 			// Resize existing drives equivalent to newDeltaCapacity
 			if len(request.CurrentInstanceStorage) == 0 {
 				return nil, &cloudops.ErrInvalidStorageUpdateRequest{
