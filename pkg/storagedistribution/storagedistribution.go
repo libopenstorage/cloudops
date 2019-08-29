@@ -110,6 +110,10 @@ func GetStorageUpdateConfig(
 		}
 	}
 
+	if newDeltaCapacity == 0 {
+		return nil, cloudops.ErrCurrentCapacityEqualToRequested
+	}
+
 	if len(request.CurrentInstanceStorage) > 0 {
 		existingDriveType = request.CurrentInstanceStorage[0].DriveType
 		existingDriveSize = request.CurrentInstanceStorage[0].DriveCapacityGiB

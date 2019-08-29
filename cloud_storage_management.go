@@ -17,6 +17,9 @@ var (
 		" candidate")
 	// ErrNumOfZonesCannotBeZero is returned when the number of zones provided is zero
 	ErrNumOfZonesCannotBeZero = errors.New("number of zones cannot be zero or less than zero")
+	// ErrCurrentCapacityEqualToRequested is returned when total current capacity
+	// of instance is already equal to requested capacity
+	ErrCurrentCapacityEqualToRequested = errors.New("current capacity is already equal to new capacity")
 )
 
 // StorageDecisionMatrixRow defines an entry in the cloud storage decision matrix.
