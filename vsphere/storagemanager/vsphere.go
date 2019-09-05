@@ -26,8 +26,8 @@ func (a *vsphereStorageManager) GetStorageDistribution(
 	return storagedistribution.GetStorageDistribution(request, a.decisionMatrix)
 }
 
-func (a *vsphereStorageManager) RecommendInstanceStorageUpdate(
-	request *cloudops.StorageUpdateRequest) (*cloudops.StorageUpdateResponse, error) {
+func (a *vsphereStorageManager) RecommendStoragePoolUpdate(
+	request *cloudops.StoragePoolUpdateRequest) (*cloudops.StoragePoolUpdateResponse, error) {
 	return storagedistribution.GetStorageUpdateConfig(request, a.decisionMatrix)
 }
 func init() {

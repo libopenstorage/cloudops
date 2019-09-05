@@ -22,6 +22,12 @@ var (
 	storageManager cloudops.StorageManager
 )
 
+type updateTestInput struct {
+	expectedErr error
+	request     *cloudops.StoragePoolUpdateRequest
+	response    *cloudops.StoragePoolUpdateResponse
+}
+
 func TestAzureStorageManager(t *testing.T) {
 	t.Run("setup", setup)
 	t.Run("storageDistribution", storageDistribution)
@@ -341,29 +347,20 @@ func storageDistribution(t *testing.T) {
 }
 
 func storageUpdate(t *testing.T) {
-	testMatrix := []struct {
-		expectedErr error
-		request     *cloudops.StorageUpdateRequest
-		response    *cloudops.StorageUpdateResponse
-	}{
+	testMatrix := []updateTestInput{
 		{
 			// ***** TEST: 1
 			//        Instance has 3 x 256 GiB
 			//        Update from 768GiB to 1536 GiB by resizing disks
-			request: &cloudops.StorageUpdateRequest{
-				NewCapacity:         1536,
-				NewIOPS:             1000,
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     1536,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
-				CurrentInstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 256,
-						DriveType:        "Premium_LRS",
-						IOPS:             1000,
-						DriveCount:       3,
-					},
-				},
+				CurrentDriveSize:    256,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentIOPS:         1000,
+				CurrentDriveCount:   3,
 			},
-			response: &cloudops.StorageUpdateResponse{
+			response: &cloudops.StoragePoolUpdateResponse{
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
@@ -379,10 +376,10 @@ func storageUpdate(t *testing.T) {
 	}
 
 	for _, test := range testMatrix {
-		response, err := storageManager.RecommendInstanceStorageUpdate(test.request)
+		response, err := storageManager.RecommendStoragePoolUpdate(test.request)
 		if test.expectedErr == nil {
-			require.Nil(t, err, "RecommendInstanceStorageUpdate returned an error")
-			require.NotNil(t, response, "RecommendInstanceStorageUpdate returned empty response")
+			require.Nil(t, err, "RecommendStoragePoolUpdate returned an error")
+			require.NotNil(t, response, "RecommendStoragePoolUpdate returned empty response")
 			require.Equal(t, len(test.response.InstanceStorage), len(response.InstanceStorage), "length of expected and actual response not equal")
 			// ensure response contains test.response
 			for _, instStorage := range response.InstanceStorage {
@@ -408,5 +405,16 @@ func storageUpdate(t *testing.T) {
 			require.NotNil(t, err, "RecommendInstanceStorageUpdate should have returned an error")
 			require.Equal(t, test.expectedErr, err, "received unexpected type of error")
 		}
+	}
+}
+
+func logUpdateTestInput(test updateTestInput) {
+	logrus.Infof("### RUNNING TEST")
+	logrus.Infof("### REQUEST:  new capacity: %d GiB op_type: %v",
+		test.request.DesiredCapacity, test.request.ResizeOperationType)
+	logrus.Infof("### RESPONSE: op_type: %v", test.response.ResizeOperationType)
+	for _, responseInstStorage := range test.response.InstanceStorage {
+		logrus.Infof("              instStorage: %d X %d GiB %s drives", responseInstStorage.DriveCount,
+			responseInstStorage.DriveCapacityGiB, responseInstStorage.DriveType)
 	}
 }

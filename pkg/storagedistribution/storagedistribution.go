@@ -79,34 +79,23 @@ func GetStorageDistribution(
 // GetStorageUpdateConfig returns the storage configuration for updating an instances
 // storage
 func GetStorageUpdateConfig(
-	request *cloudops.StorageUpdateRequest,
+	request *cloudops.StoragePoolUpdateRequest,
 	decisionMatrix *cloudops.StorageDecisionMatrix,
-) (*cloudops.StorageUpdateResponse, error) {
+) (*cloudops.StoragePoolUpdateResponse, error) {
 	logUpdateRequest(request)
 
-	resp := &cloudops.StorageUpdateResponse{
+	resp := &cloudops.StoragePoolUpdateResponse{
 		InstanceStorage:     make([]*cloudops.StoragePoolSpec, 0),
 		ResizeOperationType: request.ResizeOperationType,
 	}
 
-	var (
-		currentCapacity   uint64
-		currentNumDrives  uint64
-		existingDriveSize uint64
-		existingDriveType string
-	)
-
-	for _, spec := range request.CurrentInstanceStorage {
-		currentCapacity += uint64(spec.DriveCount) * spec.DriveCapacityGiB
-		currentNumDrives += uint64(spec.DriveCount)
-	}
-
-	newDeltaCapacity := request.NewCapacity - currentCapacity
+	currentCapacity := request.CurrentDriveCount * request.CurrentDriveSize
+	newDeltaCapacity := request.DesiredCapacity - currentCapacity
 	if newDeltaCapacity < 0 {
-		return nil, &cloudops.ErrInvalidStorageUpdateRequest{
+		return nil, &cloudops.ErrInvalidStoragePoolUpdateRequest{
 			Request: request,
 			Reason: fmt.Sprintf("reducing instance storage capacity is not supported"+
-				"current: %d GiB requested: %d GiB", currentCapacity, request.NewCapacity),
+				"current: %d GiB requested: %d GiB", currentCapacity, request.DesiredCapacity),
 		}
 	}
 
@@ -114,47 +103,25 @@ func GetStorageUpdateConfig(
 		return nil, cloudops.ErrCurrentCapacityEqualToRequested
 	}
 
-	if len(request.CurrentInstanceStorage) > 0 {
-		existingDriveType = request.CurrentInstanceStorage[0].DriveType
-		existingDriveSize = request.CurrentInstanceStorage[0].DriveCapacityGiB
-		for _, currentSpec := range request.CurrentInstanceStorage {
-			if currentSpec.DriveCapacityGiB != existingDriveSize {
-				return nil, &cloudops.ErrInvalidStorageUpdateRequest{
-					Request: request,
-					Reason: fmt.Sprintf("for ADD operation type for resize, all current" +
-						" drives on the instances need to be of the same size."),
-				}
-			}
-
-			if currentSpec.DriveType != existingDriveType {
-				return nil, &cloudops.ErrInvalidStorageUpdateRequest{
-					Request: request,
-					Reason: fmt.Sprintf("for ADD operation type for resize, all current" +
-						" drives on the instances need to be of the same type."),
-				}
-			}
+	if request.CurrentDriveCount > 0 && len(request.CurrentDriveType) == 0 {
+		return nil, &cloudops.ErrInvalidStoragePoolUpdateRequest{
+			Request: request,
+			Reason: fmt.Sprintf("for storage update operation, current drive" +
+				"type is required to be provided if drives already exist"),
 		}
-
-		if len(existingDriveType) == 0 {
-			return nil, &cloudops.ErrInvalidStorageUpdateRequest{
-				Request: request,
-				Reason: fmt.Sprintf("for storage update operation, current drive" +
-					"type is required to be provided"),
-			}
-		}
-
-		logrus.Debugf("existing drive type: %s and size: %d", existingDriveType, existingDriveSize)
 	}
 
-	filteredRows := filterDecisionMatrix(decisionMatrix, request.NewIOPS, existingDriveType)
+	logrus.Debugf("instance currently has %d X %d GiB %s drives",
+		request.CurrentDriveCount, request.CurrentDriveSize, request.CurrentDriveType)
+	filteredRows := filterDecisionMatrix(decisionMatrix, request.CurrentIOPS, request.CurrentDriveType)
 
 ROW_LOOP:
 	for _, row := range filteredRows {
 		switch request.ResizeOperationType {
 		case api.SdkStoragePool_RESIZE_TYPE_ADD_DISK:
 			// Add drives equivalent to newDeltaCapacity
-			logrus.Debugf("need to add drive(s) for atleast: %d GiB", newDeltaCapacity)
-			instStorage, err := instanceStorageForRow(row, newDeltaCapacity, existingDriveSize)
+			logrus.Debugf("check if we can add drive(s) for atleast: %d GiB", newDeltaCapacity)
+			instStorage, err := instanceStorageForRow(row, newDeltaCapacity, request.CurrentDriveSize)
 			if err != nil {
 				if err == cloudops.ErrStorageDistributionCandidateNotFound {
 					continue ROW_LOOP
@@ -167,34 +134,32 @@ ROW_LOOP:
 			return resp, nil
 		case api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK:
 			// Resize existing drives equivalent to newDeltaCapacity
-			if len(request.CurrentInstanceStorage) == 0 {
-				return nil, &cloudops.ErrInvalidStorageUpdateRequest{
+			if request.CurrentDriveCount == 0 {
+				return nil, &cloudops.ErrInvalidStoragePoolUpdateRequest{
 					Request: request,
 					Reason: fmt.Sprintf("requested resize operation type cannot be " +
 						"accomplished as no existing drives were provided"),
 				}
 			}
 
-			newMinDeltaCapacityPerDrive := newDeltaCapacity / currentNumDrives
+			newMinDeltaCapacityPerDrive := newDeltaCapacity / request.CurrentDriveCount
 
 			logrus.Debugf("min delta capacity per drive needed: %d GiB num drives: %d",
-				newMinDeltaCapacityPerDrive, currentNumDrives)
+				newMinDeltaCapacityPerDrive, request.CurrentDriveCount)
 
-			for _, currentSpec := range request.CurrentInstanceStorage {
-				// check in matrix if this drive can be resized to newMinCapacityPerDrive
-				newMinCapacityPerDrive := currentSpec.DriveCapacityGiB + newMinDeltaCapacityPerDrive
-				logrus.Debugf("need to resize drive to atleast: %d GiB", newMinCapacityPerDrive)
-				instStorage, err := instanceStorageForRow(row, newMinCapacityPerDrive, 0)
-				if err != nil {
-					if err == cloudops.ErrStorageDistributionCandidateNotFound {
-						continue ROW_LOOP
-					}
-
-					return nil, err
+			// check in matrix if this drive can be resized to newMinCapacityPerDrive
+			newMinCapacityPerDrive := request.CurrentDriveSize + newMinDeltaCapacityPerDrive
+			logrus.Debugf("need to resize drive to atleast: %d GiB", newMinCapacityPerDrive)
+			instStorage, err := instanceStorageForRow(row, newMinCapacityPerDrive, 0)
+			if err != nil {
+				if err == cloudops.ErrStorageDistributionCandidateNotFound {
+					continue ROW_LOOP
 				}
-				instStorage.DriveCount = currentSpec.DriveCount
-				resp.InstanceStorage = append(resp.InstanceStorage, instStorage)
+
+				return nil, err
 			}
+			instStorage.DriveCount = request.CurrentDriveCount
+			resp.InstanceStorage = append(resp.InstanceStorage, instStorage)
 
 			return resp, nil
 		default:
@@ -217,10 +182,11 @@ func getStorageDistributionCandidate(
 ) (*cloudops.StoragePoolSpec, uint64, error) {
 	logDistributionRequest(request, requestedInstancesPerZone, zoneCount)
 
-	filteredRows := filterDecisionMatrix(decisionMatrix, request.IOPS, request.DriveType)
 	if zoneCount <= 0 {
 		return nil, 0, cloudops.ErrNumOfZonesCannotBeZero
 	}
+
+	filteredRows := filterDecisionMatrix(decisionMatrix, request.IOPS, request.DriveType)
 	// Calculate min capacity per zone
 	minCapacityPerZone := request.MinCapacity / uint64(zoneCount)
 
@@ -247,7 +213,6 @@ func getStorageDistributionCandidate(
 
 			// additional check so that we are not overprovisioning
 			for instancesPerZone > 1 && instStorage.DriveCapacityGiB*instancesPerZone > minCapacityPerZone {
-				logrus.Debugf("[debug] need to trim down")
 				if instStorage.DriveCapacityGiB*(instancesPerZone-1) >= minCapacityPerZone {
 					instancesPerZone--
 				} else {
@@ -293,23 +258,16 @@ func instanceStorageForRow(
 			requiredDriveSize, row.MinSize, row.MaxSize)
 	} else {
 		if requiredCapacity >= row.MinSize {
-			// start from candidateRow.MinSize to distribute the newCapacity across the drives
+			// start from row's min drives to distribute the requiredCapacity across the drives
 			for driveCount := row.InstanceMinDrives; driveCount <= row.InstanceMaxDrives; driveCount++ {
-				driveSize := row.MaxSize / driveCount
-				if driveCount != 1 {
-					driveSize++
-				}
+				driveSize := requiredCapacity / driveCount
 
-				capacityWithDrives := driveCount * driveSize
-				if capacityWithDrives < requiredCapacity {
+				if driveSize > row.MaxSize || driveSize < row.MinSize {
+					// drive is outside row's [min, max] bounds
 					continue
 				}
 
-				if requiredCapacity < driveSize {
-					instStorage.DriveCapacityGiB = requiredCapacity
-				} else {
-					instStorage.DriveCapacityGiB = driveSize
-				}
+				instStorage.DriveCapacityGiB = driveSize
 				instStorage.DriveCount = driveCount
 				instStorage.IOPS = row.IOPS
 				break
@@ -327,6 +285,7 @@ func instanceStorageForRow(
 			instStorage.IOPS = row.IOPS
 		}
 
+		prettyPrintStoragePoolSpec(instStorage, "instanceStorageForRow returning")
 		return instStorage, nil
 	} /*else {
 		logrus.Debugf("required capacity: %d GiB is lower than row's min size: %d GiB",
@@ -334,6 +293,11 @@ func instanceStorageForRow(
 	}*/
 
 	return nil, cloudops.ErrStorageDistributionCandidateNotFound
+}
+
+func prettyPrintStoragePoolSpec(spec *cloudops.StoragePoolSpec, prefix string) {
+	logrus.Infof("%s instStorage: %d X %d GiB %s drives", prefix, spec.DriveCount,
+		spec.DriveCapacityGiB, spec.DriveType)
 }
 
 func printCandidates(
@@ -368,36 +332,45 @@ func logDistributionRequest(
 }
 
 func logUpdateRequest(
-	request *cloudops.StorageUpdateRequest,
+	request *cloudops.StoragePoolUpdateRequest,
 ) {
 	logrus.WithFields(logrus.Fields{
-		"IOPS":          request.NewIOPS,
-		"MinCapacity":   request.NewCapacity,
+		"MinCapacity":   request.DesiredCapacity,
 		"OperationType": request.ResizeOperationType,
 	}).Debugf("-- Storage Distribution Pool Request --")
 }
 
 func filterDecisionMatrix(
 	decisionMatrix *cloudops.StorageDecisionMatrix,
-	requiredIOPS uint64, requiredDriveType string) []cloudops.StorageDecisionMatrixRow {
+	requiredIOPS uint64, requiredDriveType string,
+) []cloudops.StorageDecisionMatrixRow {
 	dm := utils.CopyDecisionMatrix(decisionMatrix)
 
 	var filteredRows []cloudops.StorageDecisionMatrixRow
-	if requiredIOPS > 0 {
-		dm.Rows = utils.SortByClosestIOPS(requiredIOPS, dm.Rows)
-		// TODO if 2 rows have the same IOPS, sort by priority
-		filteredRows = dm.Rows
+	if len(requiredDriveType) > 0 {
+		for _, row := range dm.Rows {
+			if row.DriveType == requiredDriveType {
+				filteredRows = append(filteredRows, row)
+			}
+		}
 	} else {
-		dm.Rows = utils.SortByIOPS(dm.Rows)
+		filteredRows = dm.Rows
+	}
+
+	if requiredIOPS > 0 {
+		filteredRows = utils.SortByClosestIOPS(requiredIOPS, filteredRows)
+		// TODO if 2 rows have the same IOPS, sort by priority
+	} else {
+		filteredRows = utils.SortByIOPS(filteredRows)
 		// Filter out rows which have lower IOPS than required
 		var index int
-		for index = 0; index < len(dm.Rows); index++ {
-			if dm.Rows[index].IOPS >= requiredIOPS {
+		for index = 0; index < len(filteredRows); index++ {
+			if filteredRows[index].IOPS >= requiredIOPS {
 				break
 			}
 		}
 
-		filteredRows = dm.Rows[index:]
+		filteredRows = filteredRows[index:]
 		// Sort the filtered rows by priority
 		filteredRows = utils.SortByPriority(filteredRows)
 	}

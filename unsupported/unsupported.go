@@ -71,9 +71,9 @@ func (u *unsupportedStorageManager) GetStorageDistribution(
 	}
 }
 
-func (u *unsupportedStorageManager) RecommendInstanceStorageUpdate(
-	request *cloudops.StorageUpdateRequest) (*cloudops.StorageUpdateResponse, error) {
+func (u *unsupportedStorageManager) RecommendStoragePoolUpdate(
+	request *cloudops.StoragePoolUpdateRequest) (*cloudops.StoragePoolUpdateResponse, error) {
 	return nil, &cloudops.ErrNotSupported{
-		Operation: "RecommendInstanceStorageUpdate",
+		Operation: "RecommendStoragePoolUpdate",
 	}
 }

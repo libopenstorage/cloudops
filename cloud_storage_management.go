@@ -112,24 +112,26 @@ type StorageDistributionResponse struct {
 	InstanceStorage []*StoragePoolSpec `json:"instance_storage" yaml:"instance_storage"`
 }
 
-// StorageUpdateRequest is the required changes for updating the storage on a given
+// StoragePoolUpdateRequest is the required changes for updating the storage on a given
 // cloud instance
-type StorageUpdateRequest struct {
-	// NewCapacity is the new required capacity on the cloud instance
-	NewCapacity uint64 `json:"new_capacity" yaml:"new_capacity"`
-	// IOPS is the new IOPS required on the cloud instance
-	NewIOPS uint64 `json:"iops" yaml:"iops"`
+type StoragePoolUpdateRequest struct {
+	// DesiredCapacity is the new required capacity on the storage pool
+	DesiredCapacity uint64 `json:"new_capacity" yaml:"new_capacity"`
 	// ResizeOperationType is the operation user wants for the storage resize on the node
 	ResizeOperationType api.SdkStoragePool_ResizeOperationType
-	// CurrentInstanceStorage is the existing storage pool specs provisioned on an instance.
-	// The RecommendInstanceStorageUpdate implementation should use this to figure
-	// out the required changes on the storage
-	CurrentInstanceStorage []*StoragePoolSpec `json:"instance_storage" yaml:"instance_storage"`
+	// CurrentDriveCount is the current number of drives in the storage pool
+	CurrentDriveCount uint64 `json:"current_drive_count" yaml:"current_drive_count"`
+	// CurrentIOPS is the current IOPS for drives in the storage pool
+	CurrentIOPS uint64 `json:"current_drive_count" yaml:"current_drive_count"`
+	// CurrentDriveSize is the current size of drives in the storage pool
+	CurrentDriveSize uint64 `json:"current_drive_count" yaml:"current_drive_count"`
+	// CurrentDriveType is the current type of drives in the storage pool
+	CurrentDriveType string `json:"current_drive_count" yaml:"current_drive_type"`
 }
 
-// StorageUpdateResponse is the result returned by the CloudStorage Decision Matrix
+// StoragePoolUpdateResponse is the result returned by the CloudStorage Decision Matrix
 // for the storage update request
-type StorageUpdateResponse struct {
+type StoragePoolUpdateResponse struct {
 	// InstanceStorage defines a list of storage pool specs that need to be
 	// provisioned or updated on an instance.
 	InstanceStorage []*StoragePoolSpec `json:"instance_storage" yaml:"instance_storage"`
@@ -143,9 +145,9 @@ type StorageUpdateResponse struct {
 type StorageManager interface {
 	// GetStorageDistribution returns the storage distribution for the provided request
 	GetStorageDistribution(request *StorageDistributionRequest) (*StorageDistributionResponse, error)
-	// RecommendInstanceStorageUpdate returns the recomended storage configuration on
+	// RecommendStoragePoolUpdate returns the recomended storage configuration on
 	// the instance based on the given request
-	RecommendInstanceStorageUpdate(request *StorageUpdateRequest) (*StorageUpdateResponse, error)
+	RecommendStoragePoolUpdate(request *StoragePoolUpdateRequest) (*StoragePoolUpdateResponse, error)
 }
 
 var (

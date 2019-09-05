@@ -26,8 +26,8 @@ func (a *azureStorageManager) GetStorageDistribution(
 	return storagedistribution.GetStorageDistribution(request, a.decisionMatrix)
 }
 
-func (a *azureStorageManager) RecommendInstanceStorageUpdate(
-	request *cloudops.StorageUpdateRequest) (*cloudops.StorageUpdateResponse, error) {
+func (a *azureStorageManager) RecommendStoragePoolUpdate(
+	request *cloudops.StoragePoolUpdateRequest) (*cloudops.StoragePoolUpdateResponse, error) {
 	return storagedistribution.GetStorageUpdateConfig(request, a.decisionMatrix)
 }
 
