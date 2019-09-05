@@ -423,6 +423,22 @@ func (a *azureOps) Inspect(diskNames []*string) ([]interface{}, error) {
 }
 
 func (a *azureOps) DeviceMappings() (map[string]string, error) {
+	/*
+	 * The names of disk devices in Azure are determined by
+	 * UDEV rules that must be installed on each host node running
+	 * in Azure.
+	 *
+	 * The UDEV rules can be found in the following files on the host:
+	 *
+	 *    /etc/udev/rules.d/66-azure-storage.rules
+	 *    /etc/udev/rules.d/99-azure-product-uuid.rules
+	 *
+	 * These rules can also be found at:
+	 *  https://github.com/Azure/WALinuxAgent/tree/develop/config/
+	 *
+	 * These UDEV rules are installed by default in images supplied by Azure.
+	 * However, in custom images, these files may not be there, so they must be installed.
+	 */
 	dataDisks, err := a.vmsClient.getDataDisks(a.instance)
 	if err != nil {
 		return nil, err
