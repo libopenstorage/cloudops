@@ -100,7 +100,7 @@ func GetStorageUpdateConfig(
 	}
 
 	if newDeltaCapacity == 0 {
-		return nil, cloudops.ErrCurrentCapacityEqualToRequested
+		return nil, cloudops.ErrCurrentCapacitySameAsDesired
 	}
 
 	if request.CurrentDriveCount > 0 && len(request.CurrentDriveType) == 0 {
@@ -150,16 +150,16 @@ ROW_LOOP:
 			// check in matrix if this drive can be resized to newMinCapacityPerDrive
 			newMinCapacityPerDrive := request.CurrentDriveSize + newMinDeltaCapacityPerDrive
 			logrus.Debugf("need to resize drive to atleast: %d GiB", newMinCapacityPerDrive)
-			instStorage, err := instanceStorageForRow(row, newMinCapacityPerDrive, 0)
-			if err != nil {
-				if err == cloudops.ErrStorageDistributionCandidateNotFound {
-					continue ROW_LOOP
-				}
-
-				return nil, err
+			if newMinCapacityPerDrive > row.MaxSize {
+				continue ROW_LOOP
 			}
-			instStorage.DriveCount = request.CurrentDriveCount
-			resp.InstanceStorage = append(resp.InstanceStorage, instStorage)
+
+			resp.InstanceStorage = append(resp.InstanceStorage, &cloudops.StoragePoolSpec{
+				DriveType:        row.DriveType,
+				IOPS:             row.IOPS,
+				DriveCount:       request.CurrentDriveCount,
+				DriveCapacityGiB: newMinCapacityPerDrive,
+			})
 
 			return resp, nil
 		default:
