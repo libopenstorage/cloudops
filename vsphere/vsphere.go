@@ -101,6 +101,10 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if ops.vm == nil {
+		return nil, fmt.Errorf("vm is not set")
+	}
+
 	vmObj, err := ops.renewVM(ctx, ops.vm)
 	if err != nil {
 		return nil, err
@@ -364,13 +368,83 @@ func (ops *vsphereOps) Enumerate(volumeIds []*string,
 }
 
 func (ops *vsphereOps) Expand(
-	volumeID string,
+	vmdkPath string,
 	newSizeInGiB uint64,
 ) (uint64, error) {
-	// TODO
-	return 0, &cloudops.ErrNotSupported{
-		Operation: "Expand",
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	vm, err := ops.renewVM(ctx, ops.vm)
+	if err != nil {
+		return 0, err
 	}
+
+	vmName, err := vm.ObjectName(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	vmDevices, err := vm.Device(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get devices for vm: %s", vmName)
+	}
+
+	var disks []*types.VirtualDisk
+	for _, device := range vmDevices {
+		switch md := device.(type) {
+		case *types.VirtualDisk:
+			b, ok := md.Backing.(types.BaseVirtualDeviceFileBackingInfo)
+			if ok {
+				if b.GetVirtualDeviceFileBackingInfo().FileName == vmdkPath {
+					disks = append(disks, md)
+				}
+			}
+
+		}
+	}
+
+	if len(disks) == 0 {
+		return 0, cloudops.NewStorageError(
+			cloudops.ErrVolNotFound,
+			fmt.Sprintf("vmdk: %s was not found on vm: %s", vmdkPath, vmName),
+			vmName)
+	} else if len(disks) > 1 {
+		return 0, cloudops.NewStorageError(
+			cloudops.ErrVolNotFound,
+			fmt.Sprintf("multiple vmdks (%d) were found for path: %s on vm: %s",
+				len(disks), vmdkPath, vmName),
+			vmName)
+	}
+
+	editDisk := disks[0]
+	newSizeInKiB := int64(newSizeInGiB) * 1024 * 1024
+	if editDisk.CapacityInKB >= newSizeInKiB {
+		return uint64(editDisk.CapacityInKB / (1024 * 1024)), cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+			fmt.Sprintf("disk is already has a size: %d KiB greater than or equal "+
+				"requested size: %d KiB", editDisk.CapacityInKB, newSizeInKiB), "")
+	}
+
+	editDisk.CapacityInKB = newSizeInKiB
+	spec := types.VirtualMachineConfigSpec{}
+	config := &types.VirtualDeviceConfigSpec{
+		Device:    editDisk,
+		Operation: types.VirtualDeviceConfigSpecOperationEdit,
+	}
+
+	config.FileOperation = ""
+	spec.DeviceChange = append(spec.DeviceChange, config)
+
+	task, err := vm.Reconfigure(ctx, spec)
+	if err != nil {
+		return 0, err
+	}
+
+	err = task.Wait(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("error resizing vmdk: %s due to:  %s", vmdkPath, err)
+	}
+
+	return newSizeInGiB, nil
 }
 
 // Snapshot the volume with given volumeID

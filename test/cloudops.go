@@ -50,13 +50,13 @@ func RunTest(
 			disk := create(t, d, template)
 			fmt.Printf("Created disk: %v\n", disk)
 			diskID := id(t, d, disk)
-			expand(t, d, diskID, sizeCheck)
 			snapshot(t, d, diskID)
 			tags(t, d, diskID)
 			enumerate(t, d, diskID)
 			inspect(t, d, diskID)
 			attach(t, d, diskID)
 			devicePath(t, d, diskID)
+			expand(t, d, diskID, sizeCheck)
 			teardown(t, d, diskID)
 			fmt.Printf("Tore down disk: %v\n", disk)
 		}
@@ -254,6 +254,10 @@ func expand(t *testing.T, driver cloudops.Ops, diskName string, sizeCheck SizeCh
 	require.Equal(t, newSize, uint64(targetDiskSizeInGiB), "unexpected size returned on expand")
 
 	disks, err := driver.Inspect([]*string{&diskName})
+	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
+		return // cannot check if cloud provider doesn't support inspect
+	}
+
 	require.NoError(t, err, "failed to inspect disk")
 	require.True(t, sizeCheck(disks[0], targetDiskSizeInGiB), "size check failed")
 }
@@ -331,3 +335,5 @@ func canErrBeIgnored(err error) bool {
 	return false
 
 }
+
+

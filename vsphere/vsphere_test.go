@@ -62,3 +62,16 @@ func TestAll(t *testing.T) {
 		t.Skip("skipping vSphere tests as environment is not set...")
 	}
 }
+
+func sizeCheck(template interface{}, targetSize uint64) bool {
+	return true
+	/* TODO
+	* disk, ok := template.(*compute.Disk)
+	if !ok {
+		return false
+	}
+	if disk.DiskProperties == nil || disk.DiskProperties.DiskSizeGB == nil {
+		return false
+	}
+	return targetSize == uint64(*disk.DiskProperties.DiskSizeGB)*/
+}
