@@ -22,20 +22,6 @@ import (
   - Number of instances in the cluster.
   - An storage decision matrix.
 
-  Following is the algorithm:
-  - Sort the decision matrix by IOPS
-  - Filter out the rows which do not meet the requested IOPS
-  - Sort the filtered rows by Priority
-  - Calculate minCapacityPerZone
-  - (loop) For each of the filtered row:
-    - Find capacityPerNode = minCapacityPerZone / instancesPerZone
-    - (loop) Until capacityPerNode is less than row.MinSize*row.MinDrives
-        - Reduce instancesPerZone by 1
-        - if instancesPerZone reaches 0 try the next filtered row
-        - else recalculate capacityPerNode using the new instancesPerZone
-    - capacityPerNode is at optimum level. Found the right candidate
-  - Out of both the loops, could not find a candidate.
-
   TODO:
    - Take into account instance types and their supported drives
    - Take into account max no. of drives that need to be attached on the instance.
@@ -51,6 +37,8 @@ func GetStorageDistribution(
 ) (*cloudops.StorageDistributionResponse, error) {
 	response := &cloudops.StorageDistributionResponse{}
 	for _, userRequest := range request.UserStorageSpec {
+		// for for request, find how many instances per zone needs to have storage
+		// and the storage spec for each of them
 		instStorage, instancePerZone, err :=
 			getStorageDistributionCandidate(
 				decisionMatrix,
@@ -77,7 +65,23 @@ func GetStorageDistribution(
 }
 
 // GetStorageUpdateConfig returns the storage configuration for updating an instances
-// storage
+// storage. It does the following
+//
+// 1. Calculate current capacity in the storage pool
+// 2. Calculate delta required capacity in the storage pool
+// 3. Filters and sort rows based on a) IOPS b) Drive type c) priority
+// 4. Tries each row, one by one, to reach the delta required capacity in the storage pool
+//
+//   ADD-DISK
+//   =======
+//   4a. Check if this row satisfies the delta required capacity
+//
+//   RESIZE-DISK
+//   ===========
+//   4a. Calculate the new minimum required size of the existing drives
+//   4b. Check if this row's maximum size is greater than new minimum required size of the drive
+//      - If NO, try next row
+//      - If YES, return this row's specs as the new instance storage spec and the drive as the new minimum required size of the drive
 func GetStorageUpdateConfig(
 	request *cloudops.StoragePoolUpdateRequest,
 	decisionMatrix *cloudops.StorageDecisionMatrix,
@@ -174,6 +178,16 @@ ROW_LOOP:
 	return nil, cloudops.ErrStorageDistributionCandidateNotFound
 }
 
+// getStorageDistributionCandidate() does the following
+//
+// 1. Filters and sort rows based on a) IOPS b) Drive type c) priority
+// 2. Calculates minimum capacity per zone
+// 3. Tries each row one by one to reach the minimum capacity per zone
+//    3a. Start with maximum requested instances per zone
+//    3b. Calcuate capacity per node based on these many instances per zone
+//    3c. Check if this row satisfies this capacity per node
+//		- If NO, try next row
+//		- If YES, return these instances per zone and the per-instance storage pool spec
 func getStorageDistributionCandidate(
 	decisionMatrix *cloudops.StorageDecisionMatrix,
 	request *cloudops.StorageSpec,
@@ -199,7 +213,7 @@ func getStorageDistributionCandidate(
 			capacityPerNode = minCapacityPerZone / uint64(instancesPerZone)
 			printCandidates("Candidate", []cloudops.StorageDecisionMatrixRow{row}, instancesPerZone, capacityPerNode)
 
-			instStorage, err := instanceStorageForRow(row, capacityPerNode, 0)
+			instSpec, err := instanceStorageForRow(row, capacityPerNode, 0)
 			if err != nil {
 				if err == cloudops.ErrStorageDistributionCandidateNotFound {
 					printCandidates("Candidate failed to satisfy requirements.",
@@ -212,15 +226,15 @@ func getStorageDistributionCandidate(
 			}
 
 			// additional check so that we are not overprovisioning
-			for instancesPerZone > 1 && instStorage.DriveCapacityGiB*instancesPerZone > minCapacityPerZone {
-				if instStorage.DriveCapacityGiB*(instancesPerZone-1) >= minCapacityPerZone {
+			for instancesPerZone > 1 && instSpec.DriveCount*instSpec.DriveCapacityGiB*instancesPerZone > minCapacityPerZone {
+				if instSpec.DriveCount*instSpec.DriveCapacityGiB*(instancesPerZone-1) >= minCapacityPerZone {
 					instancesPerZone--
 				} else {
 					break // no more trim down possible
 				}
 			}
 
-			return instStorage, instancesPerZone, nil
+			return instSpec, instancesPerZone, nil
 		}
 
 		printCandidates("Candidate failed as instances per zone exhausted",
