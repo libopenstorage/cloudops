@@ -344,7 +344,7 @@ func (a *azureOps) Expand(
 	}
 
 	if *disk.DiskProperties.DiskSizeGB >= int32(newSizeInGiB) {
-		return 0, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+		return uint64(*disk.DiskProperties.DiskSizeGB), cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
 			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
 				"requested size: %d", *disk.DiskProperties.DiskSizeGB, newSizeInGiB), "")
 	}
