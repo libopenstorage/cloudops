@@ -32,7 +32,7 @@ func SortByPriority(rows []cloudops.StorageDecisionMatrixRow) []cloudops.Storage
 
 // SortByClosestIOPS sorts the provided rows such that the first element would be
 // closest to the requested IOPS
-func SortByClosestIOPS(requestedIOPS uint32, rows []cloudops.StorageDecisionMatrixRow) []cloudops.StorageDecisionMatrixRow {
+func SortByClosestIOPS(requestedIOPS uint64, rows []cloudops.StorageDecisionMatrixRow) []cloudops.StorageDecisionMatrixRow {
 	sort.Slice(rows, func(l, r int) bool {
 		diffL := rows[l].IOPS - requestedIOPS
 		diffR := rows[r].IOPS - requestedIOPS
