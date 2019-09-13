@@ -6,7 +6,7 @@ rows:
           region: "*"
           min_size: 256
           max_size: 8192
-          priority: 0
+          priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 2300
@@ -16,7 +16,7 @@ rows:
           region: "*"
           min_size: 512
           max_size: 8192
-          priority: 0
+          priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 5000
@@ -26,7 +26,7 @@ rows:
           region: "*"
           min_size: 1024
           max_size: 8192
-          priority: 0
+          priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 7500
@@ -36,7 +36,7 @@ rows:
           region: "*"
           min_size: 2048
           max_size: 8192
-          priority: 0
+          priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 16000
@@ -46,7 +46,7 @@ rows:
           region: "*"
           min_size: 8192
           max_size: 8192
-          priority: 1
+          priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
         - iops: 500
@@ -86,7 +86,7 @@ rows:
           region: "*"
           min_size: 256
           max_size: 4096
-          priority: 2
+          priority: 0
           thin_provisioning: false
           drive_type: "Standard_LRS"
         - iops: 1300
@@ -96,7 +96,7 @@ rows:
           region: "*"
           min_size: 8192
           max_size: 8192
-          priority: 2
+          priority: 3
           thin_provisioning: false
           drive_type: "Standard_LRS"
         - iops: 2000
@@ -106,6 +106,6 @@ rows:
           region: "*"
           min_size: 16384
           max_size: 16384
-          priority: 2
+          priority: 3
           thin_provisioning: false
           drive_type: "Standard_LRS"
