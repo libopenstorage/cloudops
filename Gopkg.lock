@@ -244,7 +244,7 @@
 
 [[projects]]
   branch = "resize-pool-7.0-simplified"
-  digest = "1:64a94d062d00e062ed1f4ab0074da6b0a56c09d62a8b0390649c4907ac7b82a7"
+  digest = "1:aa4c9cc32ff73326d53ca92bcd7042a100cc1da41f6ecbad731c66fd278fbff7"
   name = "github.com/libopenstorage/openstorage"
   packages = [
     "api",
