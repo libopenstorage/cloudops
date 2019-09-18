@@ -153,7 +153,7 @@ func AddDisk(
 		DriveType:        row.DriveType,
 		IOPS:             row.IOPS,
 		DriveCapacityGiB: currentDriveSize,
-		DriveCount:       uint64(requiredDriveCount) + request.CurrentDriveCount,
+		DriveCount:       uint64(requiredDriveCount),
 	}
 	prettyPrintStoragePoolSpec(instStorage, "AddDisk")
 	resp := &cloudops.StoragePoolUpdateResponse{

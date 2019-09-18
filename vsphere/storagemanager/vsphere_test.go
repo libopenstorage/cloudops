@@ -260,7 +260,7 @@ func storageUpdate(t *testing.T) {
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
 						DriveType:        "thin",
-						DriveCount:       4,
+						DriveCount:       2,
 					},
 				},
 			},
@@ -284,7 +284,7 @@ func storageUpdate(t *testing.T) {
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
 						DriveType:        "thin",
-						DriveCount:       3,
+						DriveCount:       1,
 					},
 				},
 			},
@@ -308,7 +308,7 @@ func storageUpdate(t *testing.T) {
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
 						DriveType:        "thin",
-						DriveCount:       4,
+						DriveCount:       1,
 					},
 				},
 			},
