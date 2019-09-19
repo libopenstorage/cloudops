@@ -374,9 +374,197 @@ func storageUpdate(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			// ***** TEST: 2
+			//        Instance has 2 x 350 GiB
+			//        Update from 700GiB to 800 GiB by resizing disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     800,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    350,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   2,
+				TotalDrivesOnNode:   2,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 400,
+						DriveType:        "Premium_LRS",
+						DriveCount:       2,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 3
+			//        Instance has 3 x 300 GiB
+			//        Update from 900GiB to 1200 GiB by resizing disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     1200,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    300,
+				CurrentDriveType:    "StandardSSD_LRS",
+				CurrentDriveCount:   3,
+				TotalDrivesOnNode:   3,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 400,
+						DriveType:        "StandardSSD_LRS",
+						DriveCount:       3,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 4
+			//		  Instances has 2 x 1024 GiB
+			//        Update from 2048 GiB to  4096 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     4096,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    1024,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   2,
+				TotalDrivesOnNode:   2,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 1024,
+						DriveType:        "Premium_LRS",
+						DriveCount:       2,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 5
+			//		  Instances has 2 x 1024 GiB
+			//        Update from 2048 GiB to  3072 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     3072,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    1024,
+				CurrentDriveType:    "Standard_LRS",
+				CurrentDriveCount:   2,
+				TotalDrivesOnNode:   2,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 1024,
+						DriveType:        "Standard_LRS",
+						DriveCount:       1,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 6
+			//		  Instances has 3 x 600 GiB
+			//        Update from 1800 GiB to 2000 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     2000,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    600,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   3,
+				TotalDrivesOnNode:   3,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 600,
+						DriveType:        "Premium_LRS",
+						DriveCount:       1,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 7
+			//		  Instances has no existing drives
+			//        Update from 0 GiB to 700 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     700,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				TotalDrivesOnNode:   0,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 700,
+						DriveType:        "Premium_LRS",
+						DriveCount:       1,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		/*{
+			// ***** TEST: 8
+			//		  Instances has no existing drives
+			//        Update from 0 GiB to 8193 GiB by adding disks. 8193 is higher
+			//        than the maximum drive in the matrix
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     8196,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				TotalDrivesOnNode:   0,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 4098,
+						DriveType:        "thin",
+						DriveCount:       2,
+					},
+				},
+			},
+			expectedErr: nil,
+		},*/
+		{
+			// ***** TEST: 9
+			//        Instance has 1 x 150 GiB
+			//        Update from 150GiB to 170 GiB by resizing disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     280,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    256,
+				CurrentDriveType:    "Standard_LRS",
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   1,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 280,
+						DriveType:        "Standard_LRS",
+						DriveCount:       1,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
 	}
 
-	for _, test := range testMatrix {
+	for i, test := range testMatrix {
+		fmt.Println("Executing test case: ", i+1)
 		response, err := storageManager.RecommendStoragePoolUpdate(test.request)
 		if test.expectedErr == nil {
 			require.Nil(t, err, "RecommendStoragePoolUpdate returned an error")
