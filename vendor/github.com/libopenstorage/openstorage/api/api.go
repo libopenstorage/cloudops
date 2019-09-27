@@ -833,7 +833,10 @@ func (s *Node) ToStorageNode() *StorageNode {
 
 	node.Disks = make(map[string]*StorageResource)
 	for k, v := range s.Disks {
-		node.Disks[k] = &v
+		// need to take the address of a local variable and not of v
+		// since its address does not change
+		vv := v
+		node.Disks[k] = &vv
 	}
 
 	node.NodeLabels = make(map[string]string)
@@ -1141,6 +1144,13 @@ func (m *VolumeStateAction) IsMount() bool {
 
 func (m *VolumeStateAction) IsUnMount() bool {
 	return m.GetMount() == VolumeActionParam_VOLUME_ACTION_PARAM_OFF
+}
+
+// IsAttached checks if a volume is attached
+func (v *Volume) IsAttached() bool {
+	return len(v.AttachedOn) > 0 &&
+		v.State == VolumeState_VOLUME_STATE_ATTACHED &&
+		v.AttachedState != AttachState_ATTACH_STATE_INTERNAL
 }
 
 // TokenSecretContext contains all nessesary information to get a

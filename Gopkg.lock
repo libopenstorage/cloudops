@@ -243,8 +243,8 @@
   version = "v1.0.2"
 
 [[projects]]
-  branch = "resize-pool-7.0-simplified"
-  digest = "1:aa4c9cc32ff73326d53ca92bcd7042a100cc1da41f6ecbad731c66fd278fbff7"
+  branch = "release-7.0"
+  digest = "1:ee1c6fb80613e7b01eca1fb44965832fdef1d0c81cee499e843e92e53d4ed916"
   name = "github.com/libopenstorage/openstorage"
   packages = [
     "api",
@@ -252,7 +252,7 @@
     "pkg/parser",
   ]
   pruneopts = "UT"
-  revision = "c9d472903665e13b6483f0daaafa4826296f3cca"
+  revision = "daaed777713e0b71bc9aef4d7dff07e6c2c4feaa"
 
 [[projects]]
   branch = "master"
