@@ -98,9 +98,9 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 256,
+						DriveCapacityGiB: 113,
 						DriveType:        "Standard_LRS",
-						InstancesPerZone: 2,
+						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             500,
 					},
@@ -269,9 +269,9 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 256,
+						DriveCapacityGiB: 111,
 						DriveType:        "Standard_LRS",
-						InstancesPerZone: 2,
+						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             500,
 					},
@@ -308,9 +308,9 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 256,
+						DriveCapacityGiB: 111,
 						DriveType:        "Standard_LRS",
-						InstancesPerZone: 2,
+						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             500,
 					},
@@ -325,10 +325,37 @@ func storageDistribution(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			// Test10: Install with lower sized disks
+			request: &cloudops.StorageDistributionRequest{
+				UserStorageSpec: []*cloudops.StorageSpec{
+					&cloudops.StorageSpec{
+						IOPS:        300,
+						MinCapacity: 150,
+						MaxCapacity: 300,
+					},
+				},
+				InstanceType:     "foo",
+				InstancesPerZone: 1,
+				ZoneCount:        3,
+			},
+			response: &cloudops.StorageDistributionResponse{
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 64,
+						DriveType:        "Standard_LRS",
+						InstancesPerZone: 1,
+						DriveCount:       1,
+						IOPS:             500,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
 	}
 
-	for i, test := range testMatrix {
-		fmt.Println("Executing test case: ", i)
+	for j, test := range testMatrix {
+		fmt.Println("Executing test case: ", j+1)
 		response, err := storageManager.GetStorageDistribution(test.request)
 		if test.expectedErr == nil {
 			require.NoError(t, err, "Unexpected error on GetStorageDistribution")
@@ -336,7 +363,7 @@ func storageDistribution(t *testing.T) {
 			require.Equal(t, len(test.response.InstanceStorage), len(response.InstanceStorage), "unequal response lengths")
 			for i := range test.response.InstanceStorage {
 				require.True(t, reflect.DeepEqual(*response.InstanceStorage[i], *test.response.InstanceStorage[i]),
-					"Expected Response: %+v . Actual Response %+v",
+					"Test Case %v Expected Response: %+v . Actual Response %+v", j+1,
 					test.response.InstanceStorage[i], response.InstanceStorage[i])
 			}
 		} else {
@@ -555,6 +582,30 @@ func storageUpdate(t *testing.T) {
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 280,
 						DriveType:        "Standard_LRS",
+						DriveCount:       1,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 10 -> lower sized disks
+			//        Instance has 1 x 200 GiB
+			//        Update from 200GiB to 400 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     400,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    200,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   1,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 200,
+						DriveType:        "Premium_LRS",
 						DriveCount:       1,
 					},
 				},
