@@ -1,4 +1,34 @@
 rows:
+        - iops: 120
+          instance_type: "*"
+          instance_max_drives: 8
+          instance_min_drives: 1
+          region: "*"
+          min_size: 32
+          max_size: 64
+          priority: 2
+          thin_provisioning: false
+          drive_type: "Premium_LRS"
+        - iops: 240
+          instance_type: "*"
+          instance_max_drives: 8
+          instance_min_drives: 1
+          region: "*"
+          min_size: 64
+          max_size: 128
+          priority: 2
+          thin_provisioning: false
+          drive_type: "Premium_LRS"
+        - iops: 500
+          instance_type: "*"
+          instance_max_drives: 8
+          instance_min_drives: 1
+          region: "*"
+          min_size: 128
+          max_size: 256
+          priority: 2
+          thin_provisioning: false
+          drive_type: "Premium_LRS"
         - iops: 1100
           instance_type: "*"
           instance_max_drives: 8
@@ -49,6 +79,36 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
+        - iops: 120
+          instance_type: "*"
+          instance_max_drives: 8
+          instance_min_drives: 1
+          region: "*"
+          min_size: 32
+          max_size: 64
+          priority: 1
+          thin_provisioning: false
+          drive_type: "StandardSSD_LRS"
+        - iops: 240
+          instance_type: "*"
+          instance_max_drives: 8
+          instance_min_drives: 1
+          region: "*"
+          min_size: 64
+          max_size: 128
+          priority: 1
+          thin_provisioning: false
+          drive_type: "StandardSSD_LRS"
+        - iops: 500
+          instance_type: "*"
+          instance_max_drives: 8
+          instance_min_drives: 1
+          region: "*"
+          min_size: 128
+          max_size: 4096
+          priority: 1
+          thin_provisioning: false
+          drive_type: "StandardSSD_LRS"
         - iops: 500
           instance_type: "*"
           instance_max_drives: 8
@@ -84,7 +144,7 @@ rows:
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
-          min_size: 256
+          min_size: 64
           max_size: 4096
           priority: 0
           thin_provisioning: false

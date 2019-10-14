@@ -293,18 +293,17 @@ func getStorageDistributionCandidateForPool(
 	var (
 		capacityPerNode, instancesPerZone, driveCount, driveSize uint64
 		row                                                      cloudops.StorageDecisionMatrixRow
-		rowIndex                                                 int
+		rowIndex                                                 uint64
 	)
 
 row_loop:
-	for rowIndex := uint64(0); rowIndex < uint64(len(dm.Rows)); rowIndex++ {
+	for rowIndex = uint64(0); rowIndex < uint64(len(dm.Rows)); rowIndex++ {
 		row = dm.Rows[rowIndex]
 		// Favour maximum instances per zone
 	instances_per_zone_loop:
 		for instancesPerZone = requestedInstancesPerZone; instancesPerZone > 0; instancesPerZone-- {
 			capacityPerNode = minCapacityPerZone / uint64(instancesPerZone)
 			printCandidates("Candidate", []cloudops.StorageDecisionMatrixRow{row}, instancesPerZone, capacityPerNode)
-
 			// Favour maximum drive count
 			// drive_count_loop:
 			foundCandidate := false
@@ -347,7 +346,7 @@ row_loop:
 		break row_loop
 	}
 
-	if rowIndex == len(dm.Rows) {
+	if int(rowIndex) == len(dm.Rows) {
 		// row_loop failed
 		return nil, 0, cloudops.ErrStorageDistributionCandidateNotFound
 	}
