@@ -87,3 +87,16 @@ func (e *ErrInvalidStoragePoolUpdateRequest) Error() string {
 	return fmt.Sprintf("Invalid request to update storage on instance due to: %s Request: %v",
 		e.Reason, e.Request)
 }
+
+// ErrCurrentCapacityHigherThanDesired is returned when the current capacity of the instance is already higher than
+// the desired capacity
+type ErrCurrentCapacityHigherThanDesired struct {
+	// Current is the current capacity
+	Current uint64
+	// Desired is the desired new capacity
+	Desired uint64
+}
+
+func (e *ErrCurrentCapacityHigherThanDesired) Error() string {
+	return fmt.Sprintf("current capacity (%d) is higher than desired capacity: %d", e.Current, e.Desired)
+}
