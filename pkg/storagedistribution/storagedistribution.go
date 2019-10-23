@@ -377,16 +377,14 @@ func validateUpdateRequest(
 	request *cloudops.StoragePoolUpdateRequest,
 ) error {
 	currentCapacity := request.CurrentDriveCount * request.CurrentDriveSize
-	newDeltaCapacity := request.DesiredCapacity - currentCapacity
-
-	if newDeltaCapacity < 0 {
-		return &cloudops.ErrInvalidStoragePoolUpdateRequest{
-			Request: request,
-			Reason: fmt.Sprintf("reducing instance storage capacity is not supported"+
-				"current: %d GiB requested: %d GiB", currentCapacity, request.DesiredCapacity),
+	if currentCapacity > request.DesiredCapacity {
+		return &cloudops.ErrCurrentCapacityHigherThanDesired{
+			Current: currentCapacity,
+			Desired: request.DesiredCapacity,
 		}
 	}
 
+	newDeltaCapacity := request.DesiredCapacity - currentCapacity
 	if newDeltaCapacity == 0 {
 		return cloudops.ErrCurrentCapacitySameAsDesired
 	}

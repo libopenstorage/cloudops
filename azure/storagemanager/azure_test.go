@@ -595,6 +595,48 @@ func storageUpdate(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			// ***** TEST: 11 -> ask for one more GiB
+			//        Instance has 2 x 200 GiB
+			//        Update from 400 GiB to 401 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     401,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    200,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   2,
+				TotalDrivesOnNode:   2,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 200,
+						DriveType:        "Premium_LRS",
+						DriveCount:       1,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 12 instance is already at higher capacity than requested
+			//        Instance has 3 x 200 GiB
+			//        Update from 600 GiB to 401 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     401,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    200,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   3,
+				TotalDrivesOnNode:   3,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage:     nil,
+			},
+			expectedErr: &cloudops.ErrCurrentCapacityHigherThanDesired{Current: 600, Desired: 401},
+		},
 	}
 
 	for i, test := range testMatrix {
@@ -626,7 +668,7 @@ func storageUpdate(t *testing.T) {
 			}
 		} else {
 			require.NotNil(t, err, "RecommendInstanceStorageUpdate should have returned an error")
-			require.Equal(t, test.expectedErr, err, "received unexpected type of error")
+			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
 		}
 	}
 }
