@@ -98,10 +98,10 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 113,
+						DriveCapacityGiB: 37,
 						DriveType:        "Standard_LRS",
 						InstancesPerZone: 3,
-						DriveCount:       1,
+						DriveCount:       3,
 						IOPS:             500,
 					},
 				},
@@ -255,6 +255,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        500,
 						MinCapacity: 1000,
 						MaxCapacity: 100000,
+						DriveType:   "StandardSSD_LRS",
 					},
 					&cloudops.StorageSpec{
 						IOPS:        5000,
@@ -269,8 +270,8 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 111,
-						DriveType:        "Standard_LRS",
+						DriveCapacityGiB: 128,
+						DriveType:        "StandardSSD_LRS",
 						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             500,
@@ -292,8 +293,8 @@ func storageDistribution(t *testing.T) {
 				UserStorageSpec: []*cloudops.StorageSpec{
 					&cloudops.StorageSpec{
 						IOPS:        500,
-						MinCapacity: 1000,
-						MaxCapacity: 100000,
+						MinCapacity: 10,
+						MaxCapacity: 30,
 					},
 					&cloudops.StorageSpec{
 						IOPS:        7500,
@@ -305,25 +306,7 @@ func storageDistribution(t *testing.T) {
 				InstancesPerZone: 3,
 				ZoneCount:        3,
 			},
-			response: &cloudops.StorageDistributionResponse{
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 111,
-						DriveType:        "Standard_LRS",
-						InstancesPerZone: 3,
-						DriveCount:       1,
-						IOPS:             500,
-					},
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 2048,
-						DriveType:        "Premium_LRS",
-						InstancesPerZone: 1,
-						DriveCount:       1,
-						IOPS:             7500,
-					},
-				},
-			},
-			expectedErr: nil,
+			expectedErr: cloudops.ErrStorageDistributionCandidateNotFound,
 		},
 		{
 			// Test10: Install with lower sized disks
@@ -342,7 +325,7 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 64,
+						DriveCapacityGiB: 50,
 						DriveType:        "Standard_LRS",
 						InstancesPerZone: 1,
 						DriveCount:       1,
