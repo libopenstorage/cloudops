@@ -144,7 +144,7 @@ rows:
           instance_max_drives: 8
           instance_min_drives: 1
           region: "*"
-          min_size: 64
+          min_size: 32
           max_size: 4096
           priority: 0
           thin_provisioning: false
