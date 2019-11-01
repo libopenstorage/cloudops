@@ -1,5 +1,6 @@
 rows:
-        - iops: 120
+        - min_iops: 120
+          max_iops: 120
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -9,7 +10,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 240
+        - min_iops: 240
+          max_iops: 240
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -19,7 +21,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 500
+        - min_iops: 500
+          max_iops: 500
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -29,7 +32,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 1100
+        - min_iops: 1100
+          max_iops: 1100
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -39,7 +43,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 2300
+        - min_iops: 2300
+          max_iops: 2300
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -49,7 +54,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 5000
+        - min_iops: 5000
+          max_iops: 5000
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -59,7 +65,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 7500
+        - min_iops: 7500
+          max_iops: 7500
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -69,7 +76,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 16000
+        - min_iops: 16000
+          max_iops: 16000
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -79,7 +87,8 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 120
+        - min_iops: 120
+          max_iops: 120
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -89,7 +98,8 @@ rows:
           priority: 1
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
-        - iops: 240
+        - min_iops: 240
+          max_iops: 240
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -99,7 +109,8 @@ rows:
           priority: 1
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
-        - iops: 500
+        - min_iops: 500
+          max_iops: 500
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -109,7 +120,8 @@ rows:
           priority: 1
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
-        - iops: 500
+        - min_iops: 500
+          max_iops: 500
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -119,7 +131,8 @@ rows:
           priority: 1
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
-        - iops: 2000
+        - min_iops: 2000
+          max_iops: 2000
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -129,7 +142,8 @@ rows:
           priority: 1
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
-        - iops: 4000
+        - min_iops: 4000
+          max_iops: 4000
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -139,7 +153,8 @@ rows:
           priority: 1
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
-        - iops: 500
+        - min_iops: 500
+          max_iops: 500
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -149,7 +164,8 @@ rows:
           priority: 0
           thin_provisioning: false
           drive_type: "Standard_LRS"
-        - iops: 1300
+        - min_iops: 1300
+          max_iops: 1300
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -159,7 +175,8 @@ rows:
           priority: 3
           thin_provisioning: false
           drive_type: "Standard_LRS"
-        - iops: 2000
+        - min_iops: 2000
+          max_iops: 2000
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
