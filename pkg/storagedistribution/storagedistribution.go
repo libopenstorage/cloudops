@@ -29,41 +29,6 @@ import (
      on the same instance.
 */
 
-// GetStorageDistribution returns the storage distribution
-// for the provided request and decision matrix
-func GetStorageDistribution(
-	request *cloudops.StorageDistributionRequest,
-	decisionMatrix *cloudops.StorageDecisionMatrix,
-) (*cloudops.StorageDistributionResponse, error) {
-	response := &cloudops.StorageDistributionResponse{}
-	for _, userRequest := range request.UserStorageSpec {
-		// for for request, find how many instances per zone needs to have storage
-		// and the storage spec for each of them
-		instStorage, instancePerZone, err :=
-			getStorageDistributionCandidateForPool(
-				decisionMatrix,
-				userRequest,
-				request.InstancesPerZone,
-				request.ZoneCount,
-			)
-		if err != nil {
-			return nil, err
-		}
-		response.InstanceStorage = append(
-			response.InstanceStorage,
-			&cloudops.StoragePoolSpec{
-				DriveCapacityGiB: instStorage.DriveCapacityGiB,
-				DriveType:        instStorage.DriveType,
-				InstancesPerZone: instancePerZone,
-				DriveCount:       instStorage.DriveCount,
-				IOPS:             instStorage.IOPS,
-			},
-		)
-
-	}
-	return response, nil
-}
-
 // GetStorageUpdateConfig returns the storage configuration for updating
 // an instance's storage based on the requested new capacity.
 // To meet the new capacity requirements this function with either:
@@ -76,7 +41,7 @@ func GetStorageDistribution(
 func GetStorageUpdateConfig(
 	request *cloudops.StoragePoolUpdateRequest,
 	decisionMatrix *cloudops.StorageDecisionMatrix,
-) (*cloudops.StoragePoolUpdateResponse, error) {
+) (*cloudops.StoragePoolUpdateResponse, *cloudops.StorageDecisionMatrixRow, error) {
 	logUpdateRequest(request)
 
 	switch request.ResizeOperationType {
@@ -88,11 +53,11 @@ func GetStorageUpdateConfig(
 		return ResizeDisk(request, decisionMatrix)
 	default:
 		// Auto-mode. Try resize first then add
-		resp, err := ResizeDisk(request, decisionMatrix)
+		resp, row, err := ResizeDisk(request, decisionMatrix)
 		if err != nil {
 			return AddDisk(request, decisionMatrix)
 		}
-		return resp, err
+		return resp, row, err
 	}
 }
 
@@ -114,9 +79,9 @@ func GetStorageUpdateConfig(
 func AddDisk(
 	request *cloudops.StoragePoolUpdateRequest,
 	decisionMatrix *cloudops.StorageDecisionMatrix,
-) (*cloudops.StoragePoolUpdateResponse, error) {
+) (*cloudops.StoragePoolUpdateResponse, *cloudops.StorageDecisionMatrixRow, error) {
 	if err := validateUpdateRequest(request); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	currentCapacity := request.CurrentDriveCount * request.CurrentDriveSize
@@ -146,7 +111,7 @@ func AddDisk(
 		}
 	}
 
-	dm = dm.FilterByDriveSize(currentDriveSize)
+	dm = dm.FilterByDriveSizeRange(currentDriveSize)
 	if len(dm.Rows) == 0 {
 		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
 			Reason: fmt.Sprintf("found no candidates for adding a new disk of existing size: %d", currentDriveSize),
@@ -165,7 +130,6 @@ func AddDisk(
 
 	instStorage := &cloudops.StoragePoolSpec{
 		DriveType:        row.DriveType,
-		IOPS:             row.IOPS,
 		DriveCapacityGiB: currentDriveSize,
 		DriveCount:       uint64(requiredDriveCount),
 	}
@@ -174,7 +138,7 @@ func AddDisk(
 		InstanceStorage:     []*cloudops.StoragePoolSpec{instStorage},
 		ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 	}
-	return resp, nil
+	return resp, &row, nil
 }
 
 // ResizeDisk tries to satisfy the StoragePoolUpdateRequest by expanding existing disks
@@ -196,13 +160,13 @@ func AddDisk(
 func ResizeDisk(
 	request *cloudops.StoragePoolUpdateRequest,
 	decisionMatrix *cloudops.StorageDecisionMatrix,
-) (*cloudops.StoragePoolUpdateResponse, error) {
+) (*cloudops.StoragePoolUpdateResponse, *cloudops.StorageDecisionMatrixRow, error) {
 	if err := validateUpdateRequest(request); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if request.CurrentDriveCount == 0 {
-		return nil, &cloudops.ErrInvalidStoragePoolUpdateRequest{
+		return nil, nil, &cloudops.ErrInvalidStoragePoolUpdateRequest{
 			Request: request,
 			Reason: fmt.Sprintf("requested resize operation type cannot be " +
 				"accomplished as no existing drives were provided"),
@@ -241,31 +205,28 @@ func ResizeDisk(
 		}
 	}
 
-	row := dm.Rows[0]
-	printCandidates("ResizeDisk Candidate", []cloudops.StorageDecisionMatrixRow{row}, 0, 0)
-	if request.CurrentDriveSize+deltaCapacityPerDrive > row.MaxSize {
-		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
-			Reason: fmt.Sprintf("The requested size: %d is greater than candidate's max size: %d",
-				request.CurrentDriveSize+deltaCapacityPerDrive, row.MaxSize),
+	for _, row := range dm.Rows {
+		printCandidates("ResizeDisk Candidate", []cloudops.StorageDecisionMatrixRow{row}, 0, 0)
+		if request.CurrentDriveSize+deltaCapacityPerDrive > row.MaxSize {
+			continue
 		}
-	}
 
-	instStorage := &cloudops.StoragePoolSpec{
-		DriveType:        row.DriveType,
-		IOPS:             row.IOPS,
-		DriveCapacityGiB: request.CurrentDriveSize + deltaCapacityPerDrive,
-		DriveCount:       request.CurrentDriveCount,
+		instStorage := &cloudops.StoragePoolSpec{
+			DriveType:        row.DriveType,
+			DriveCapacityGiB: request.CurrentDriveSize + deltaCapacityPerDrive,
+			DriveCount:       request.CurrentDriveCount,
+		}
+		prettyPrintStoragePoolSpec(instStorage, "ResizeDisk")
+		resp := &cloudops.StoragePoolUpdateResponse{
+			InstanceStorage:     []*cloudops.StoragePoolSpec{instStorage},
+			ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+		}
+		return resp, &row, nil
 	}
-	prettyPrintStoragePoolSpec(instStorage, "ResizeDisk")
-	resp := &cloudops.StoragePoolUpdateResponse{
-		InstanceStorage:     []*cloudops.StoragePoolSpec{instStorage},
-		ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
-	}
-	return resp, nil
-
+	return nil, nil, cloudops.ErrStorageDistributionCandidateNotFound
 }
 
-// getStorageDistributionCandidateForPool() tries to determine a drive configuration
+// GetStorageDistributionForPool tries to determine a drive configuration
 // to satisfy the input storage pool requirements. Following is a high level algorithm/steps used
 // to achieve this:
 //
@@ -296,16 +257,16 @@ func ResizeDisk(
 // - If (row_loop) fails:						    //
 //       - failed to get a candidate					    //
 //////////////////////////////////////////////////////////////////////////////
-func getStorageDistributionCandidateForPool(
+func GetStorageDistributionForPool(
 	decisionMatrix *cloudops.StorageDecisionMatrix,
 	request *cloudops.StorageSpec,
 	requestedInstancesPerZone uint64,
 	zoneCount uint64,
-) (*cloudops.StoragePoolSpec, uint64, error) {
+) (*cloudops.StoragePoolSpec, uint64, *cloudops.StorageDecisionMatrixRow, error) {
 	logDistributionRequest(request, requestedInstancesPerZone, zoneCount)
 
 	if zoneCount <= 0 {
-		return nil, 0, cloudops.ErrNumOfZonesCannotBeZero
+		return nil, 0, nil, cloudops.ErrNumOfZonesCannotBeZero
 	}
 
 	// Filter the decision matrix rows based on the input request
@@ -379,6 +340,7 @@ row_loop:
 		return nil, 0, &cloudops.ErrStorageDistributionCandidateNotFound{}
 	}
 
+	fmt.Println("$$$$ minCapacityPerZone: ", minCapacityPerZone, driveCount, driveSize)
 	// optimize instances per zone
 	var optimizedInstancesPerZone uint64
 	for optimizedInstancesPerZone = uint64(1); optimizedInstancesPerZone < instancesPerZone; optimizedInstancesPerZone++ {
@@ -391,12 +353,11 @@ row_loop:
 	}
 	instStorage := &cloudops.StoragePoolSpec{
 		DriveType:        row.DriveType,
-		IOPS:             row.IOPS,
 		DriveCapacityGiB: driveSize,
 		DriveCount:       driveCount,
 	}
 	prettyPrintStoragePoolSpec(instStorage, "getStorageDistributionCandidate returning")
-	return instStorage, optimizedInstancesPerZone, nil
+	return instStorage, optimizedInstancesPerZone, &row, nil
 
 }
 
@@ -440,7 +401,8 @@ func printCandidates(
 ) {
 	for _, candidate := range candidates {
 		logrus.WithFields(logrus.Fields{
-			"IOPS":              candidate.IOPS,
+			"MinIOPS":           candidate.MinIOPS,
+			"MaxIOPS":           candidate.MaxIOPS,
 			"MinSize":           candidate.MinSize,
 			"MaxSize":           candidate.MaxSize,
 			"DriveType":         candidate.DriveType,

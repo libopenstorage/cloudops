@@ -23,12 +23,37 @@ func newVsphereStorageManager(
 func (a *vsphereStorageManager) GetStorageDistribution(
 	request *cloudops.StorageDistributionRequest,
 ) (*cloudops.StorageDistributionResponse, error) {
-	return storagedistribution.GetStorageDistribution(request, a.decisionMatrix)
+	response := &cloudops.StorageDistributionResponse{}
+	for _, userRequest := range request.UserStorageSpec {
+		// for for request, find how many instances per zone needs to have storage
+		// and the storage spec for each of them
+		instStorage, instancePerZone, _, err :=
+			storagedistribution.GetStorageDistributionForPool(
+				a.decisionMatrix,
+				userRequest,
+				request.InstancesPerZone,
+				request.ZoneCount,
+			)
+		if err != nil {
+			return nil, err
+		}
+		response.InstanceStorage = append(
+			response.InstanceStorage,
+			&cloudops.StoragePoolSpec{
+				DriveCapacityGiB: instStorage.DriveCapacityGiB,
+				DriveType:        instStorage.DriveType,
+				InstancesPerZone: instancePerZone,
+				DriveCount:       instStorage.DriveCount,
+			},
+		)
+	}
+	return response, nil
 }
 
 func (a *vsphereStorageManager) RecommendStoragePoolUpdate(
 	request *cloudops.StoragePoolUpdateRequest) (*cloudops.StoragePoolUpdateResponse, error) {
-	return storagedistribution.GetStorageUpdateConfig(request, a.decisionMatrix)
+	resp, _, err := storagedistribution.GetStorageUpdateConfig(request, a.decisionMatrix)
+	return resp, err
 }
 func init() {
 	cloudops.RegisterStorageManager(cloudops.Vsphere, newVsphereStorageManager)

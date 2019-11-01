@@ -8,21 +8,31 @@ import (
 	"github.com/libopenstorage/cloudops/unsupported"
 )
 
-type azureStorageManager struct {
+type awsStorageManager struct {
 	cloudops.StorageManager
 	decisionMatrix *cloudops.StorageDecisionMatrix
 }
 
-// NewAzureStorageManager returns an azure implementation for Storage Management
-func NewAzureStorageManager(
+const (
+	// DriveTypeGp2 is a constant for gp2 drive types
+	DriveTypeGp2 = "gp2"
+	// DriveTypeIo1 is a constant for io1 drive types
+	DriveTypeIo1 = "io1"
+	// Gp2IopsMultiplier is the amount with which a given gp2 GiB size is multiplied
+	// in order to get that drive's baseline IOPS performance
+	Gp2IopsMultiplier = 3
+)
+
+// NewAWSStorageManager returns an aws implementation for Storage Management
+func NewAWSStorageManager(
 	decisionMatrix cloudops.StorageDecisionMatrix,
 ) (cloudops.StorageManager, error) {
-	return &azureStorageManager{
+	return &awsStorageManager{
 		StorageManager: unsupported.NewUnsupportedStorageManager(),
 		decisionMatrix: &decisionMatrix}, nil
 }
 
-func (a *azureStorageManager) GetStorageDistribution(
+func (a *awsStorageManager) GetStorageDistribution(
 	request *cloudops.StorageDistributionRequest,
 ) (*cloudops.StorageDistributionResponse, error) {
 	response := &cloudops.StorageDistributionResponse{}
@@ -46,7 +56,7 @@ func (a *azureStorageManager) GetStorageDistribution(
 				DriveType:        instStorage.DriveType,
 				InstancesPerZone: instancePerZone,
 				DriveCount:       instStorage.DriveCount,
-				IOPS:             determineIOPSForPool(row),
+				IOPS:             determineIOPSForPool(instStorage, row, userRequest.IOPS),
 			},
 		)
 
@@ -54,7 +64,7 @@ func (a *azureStorageManager) GetStorageDistribution(
 	return response, nil
 }
 
-func (a *azureStorageManager) RecommendStoragePoolUpdate(
+func (a *awsStorageManager) RecommendStoragePoolUpdate(
 	request *cloudops.StoragePoolUpdateRequest) (*cloudops.StoragePoolUpdateResponse, error) {
 	resp, row, err := storagedistribution.GetStorageUpdateConfig(request, a.decisionMatrix)
 	if err != nil {
@@ -63,14 +73,20 @@ func (a *azureStorageManager) RecommendStoragePoolUpdate(
 	if resp == nil || len(resp.InstanceStorage) != 1 {
 		return nil, fmt.Errorf("could not find a valid instance storage object")
 	}
-	resp.InstanceStorage[0].IOPS = determineIOPSForPool(row)
+	resp.InstanceStorage[0].IOPS = determineIOPSForPool(resp.InstanceStorage[0], row, request.CurrentIOPS /*we do not support updating IOPS yet*/)
 	return resp, nil
 }
 
-func determineIOPSForPool(row *cloudops.StorageDecisionMatrixRow) uint64 {
+func determineIOPSForPool(instStorage *cloudops.StoragePoolSpec, row *cloudops.StorageDecisionMatrixRow, currentIOPS uint64) uint64 {
+	if instStorage.DriveType == DriveTypeGp2 {
+		return instStorage.DriveCapacityGiB * Gp2IopsMultiplier
+	} else if instStorage.DriveType == DriveTypeIo1 {
+		// For io1 volumes we need to specify the requested iops as the provisioned iops
+		return currentIOPS
+	}
 	return row.MinIOPS
 }
 
 func init() {
-	cloudops.RegisterStorageManager(cloudops.Azure, NewAzureStorageManager)
+	cloudops.RegisterStorageManager(cloudops.AWS, NewAWSStorageManager)
 }

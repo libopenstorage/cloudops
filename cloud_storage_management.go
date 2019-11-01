@@ -35,8 +35,10 @@ func (e *ErrStorageDistributionCandidateNotFound) Error() string {
 
 // StorageDecisionMatrixRow defines an entry in the cloud storage decision matrix.
 type StorageDecisionMatrixRow struct {
-	// IOPS is the desired iops from the underlying cloud storage.
-	IOPS uint64 `json:"iops" yaml:"iops"`
+	// MinIOPS is the minimum desired iops from the underlying cloud storage.
+	MinIOPS uint64 `json:"min_iops" yaml:"min_iops"`
+	// MaxIOPS is the maximum desired iops from the underlying cloud storage.
+	MaxIOPS uint64 `json:"max_iops" yaml:"max_iops"`
 	// InstanceType is the type of instance on which the cloud storage can
 	// be attached.
 	InstanceType string `json:"instance_type" yaml:"instance_type"`
@@ -218,12 +220,12 @@ func (dm *StorageDecisionMatrix) FilterByDriveType(requestedDriveType string) *S
 	return dm
 }
 
-// FilterByIOPS filters out the rows which do not meet the requested IOPS.
-func (dm *StorageDecisionMatrix) FilterByIOPS(requestedIOPS uint64) *StorageDecisionMatrix {
+// FilterByMinIOPS filters out the rows whose minIOPS are greater requested IOPS.
+func (dm *StorageDecisionMatrix) FilterByMinIOPS(requestedIOPS uint64) *StorageDecisionMatrix {
 	var filteredRows []StorageDecisionMatrixRow
 	if requestedIOPS > 0 {
 		for _, row := range dm.Rows {
-			if row.IOPS >= requestedIOPS {
+			if row.MinIOPS >= requestedIOPS {
 				filteredRows = append(filteredRows, row)
 			}
 		}
@@ -232,13 +234,48 @@ func (dm *StorageDecisionMatrix) FilterByIOPS(requestedIOPS uint64) *StorageDeci
 	return dm
 }
 
-// FilterByDriveSize filters out the rows for which the current drive size does not fit
+// FilterByIOPS filters out the rows for which the requestedIOPS do not lie within the range
+// of min and max IOPS or whose minIOPS are less than the requestedIOPS
+func (dm *StorageDecisionMatrix) FilterByIOPS(requestedIOPS uint64) *StorageDecisionMatrix {
+	var filteredRows []StorageDecisionMatrixRow
+	if requestedIOPS > 0 {
+		for _, row := range dm.Rows {
+			if row.MinIOPS >= requestedIOPS {
+				filteredRows = append(filteredRows, row)
+			} else if requestedIOPS >= row.MinIOPS && requestedIOPS <= row.MaxIOPS {
+				filteredRows = append(filteredRows, row)
+			}
+
+		}
+		dm.Rows = filteredRows
+	}
+	return dm
+}
+
+// FilterByDriveSizeRange filters out the rows for which the current drive size does not fit
 // within the row's min and max size.
-func (dm *StorageDecisionMatrix) FilterByDriveSize(currentDriveSize uint64) *StorageDecisionMatrix {
+func (dm *StorageDecisionMatrix) FilterByDriveSizeRange(currentDriveSize uint64) *StorageDecisionMatrix {
 	var filteredRows []StorageDecisionMatrixRow
 	if currentDriveSize > 0 {
 		for _, row := range dm.Rows {
 			if row.MinSize <= currentDriveSize && currentDriveSize <= row.MaxSize {
+				filteredRows = append(filteredRows, row)
+			}
+		}
+		dm.Rows = filteredRows
+	}
+	return dm
+}
+
+// FilterByDriveSize filters out the rows for which the current drive size is greater than
+// row's min size
+func (dm *StorageDecisionMatrix) FilterByDriveSize(currentDriveSize uint64) *StorageDecisionMatrix {
+	var filteredRows []StorageDecisionMatrixRow
+	if currentDriveSize > 0 {
+		for _, row := range dm.Rows {
+			if row.MinSize >= currentDriveSize {
+				filteredRows = append(filteredRows, row)
+			} else if currentDriveSize >= row.MinSize && currentDriveSize <= row.MaxSize {
 				filteredRows = append(filteredRows, row)
 			}
 		}
@@ -262,10 +299,10 @@ func (dm *StorageDecisionMatrix) FilterByDriveCount(currentDriveCount uint64) *S
 	return dm
 }
 
-// SortByIOPS sorts the rows of the decision matrix by IOPS.
+// SortByIOPS sorts the rows of the decision matrix in ascending order by MaxIOPS supported by that row.
 func (dm *StorageDecisionMatrix) SortByIOPS() *StorageDecisionMatrix {
 	sort.Slice(dm.Rows, func(l, r int) bool {
-		return dm.Rows[l].IOPS < dm.Rows[r].IOPS
+		return dm.Rows[l].MaxIOPS < dm.Rows[r].MaxIOPS
 	})
 	return dm
 }

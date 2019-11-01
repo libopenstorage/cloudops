@@ -1,5 +1,5 @@
 rows:
-        - iops: 1100
+        - min_iops: 1100
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -9,7 +9,7 @@ rows:
           priority: 0
           thin_provisioning: false
           drive_type: "Premium_LRS"
-        - iops: 500
+        - min_iops: 500
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1
@@ -19,7 +19,7 @@ rows:
           priority: 1
           thin_provisioning: false
           drive_type: "StandardSSD_LRS"
-        - iops: 1300
+        - min_iops: 1300
           instance_type: "*"
           instance_max_drives: 8
           instance_min_drives: 1

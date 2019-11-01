@@ -19,13 +19,13 @@ func TestStorageDecisionMatrixParser(t *testing.T) {
 	inputMatrix := cloudops.StorageDecisionMatrix{
 		Rows: []cloudops.StorageDecisionMatrixRow{
 			cloudops.StorageDecisionMatrixRow{
-				IOPS:         uint64(1000),
+				MinIOPS:      uint64(1000),
 				MinSize:      uint64(100),
 				MaxSize:      uint64(200),
 				InstanceType: "foo",
 			},
 			cloudops.StorageDecisionMatrixRow{
-				IOPS:         uint64(2000),
+				MinIOPS:      uint64(2000),
 				MinSize:      uint64(200),
 				MaxSize:      uint64(400),
 				InstanceType: "bar",
@@ -46,7 +46,7 @@ func TestStorageDecisionMatrixParserWithExistingYaml(t *testing.T) {
 	expectedMatrix := cloudops.StorageDecisionMatrix{
 		Rows: []cloudops.StorageDecisionMatrixRow{
 			cloudops.StorageDecisionMatrixRow{
-				IOPS:              uint64(1100),
+				MinIOPS:           uint64(1100),
 				MinSize:           uint64(256),
 				MaxSize:           uint64(8192),
 				InstanceType:      "*",
@@ -58,7 +58,7 @@ func TestStorageDecisionMatrixParserWithExistingYaml(t *testing.T) {
 				DriveType:         "Premium_LRS",
 			},
 			cloudops.StorageDecisionMatrixRow{
-				IOPS:              uint64(500),
+				MinIOPS:           uint64(500),
 				MinSize:           uint64(256),
 				MaxSize:           uint64(4096),
 				InstanceType:      "*",
@@ -70,7 +70,7 @@ func TestStorageDecisionMatrixParserWithExistingYaml(t *testing.T) {
 				DriveType:         "StandardSSD_LRS",
 			},
 			cloudops.StorageDecisionMatrixRow{
-				IOPS:              uint64(1300),
+				MinIOPS:           uint64(1300),
 				MinSize:           uint64(8192),
 				MaxSize:           uint64(8192),
 				InstanceType:      "*",
