@@ -19,10 +19,10 @@ func main() {
 	)
 	matrix := cloudops.StorageDecisionMatrix{Rows: matrixRows}
 	if err := parser.NewStorageDecisionMatrixParser().MarshalToYaml(&matrix, awsYamlPath); err != nil {
-		fmt.Println("Failed to generate aws storage decision matrix yaml: %v", err)
+		fmt.Println("Failed to generate aws storage decision matrix yaml: ", err)
 		return
 	}
-	fmt.Println("Generated aws storage decision matrix yaml at %v", awsYamlPath)
+	fmt.Println("Generated aws storage decision matrix yaml at ", awsYamlPath)
 }
 
 // getGp2StorageDecisionMatrixRows will programmatically generate rows for gp2 drive type
