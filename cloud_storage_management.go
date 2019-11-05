@@ -12,16 +12,26 @@ import (
 )
 
 var (
-	// ErrStorageDistributionCandidateNotFound is returned when the storage manager fails to
-	// determine the right storage distribution candidate
-	ErrStorageDistributionCandidateNotFound = errors.New("could not find a suitable storage distribution" +
-		" candidate")
 	// ErrNumOfZonesCannotBeZero is returned when the number of zones provided is zero
 	ErrNumOfZonesCannotBeZero = errors.New("number of zones cannot be zero or less than zero")
 	// ErrCurrentCapacitySameAsDesired is returned when total current capacity
 	// of instance is already equal to requested capacity
 	ErrCurrentCapacitySameAsDesired = errors.New("current capacity is already equal to new capacity")
 )
+
+// ErrStorageDistributionCandidateNotFound is returned when the storage manager fails to
+// determine the right storage distribution candidate
+type ErrStorageDistributionCandidateNotFound struct {
+	Reason string
+}
+
+func (e *ErrStorageDistributionCandidateNotFound) Error() string {
+	if len(e.Reason) > 0 {
+		return fmt.Sprintf("could not find a suitable storage distribution candidate due to: %s", e.Reason)
+	}
+
+	return fmt.Sprintf("could not find a suitable storage distribution candidate")
+}
 
 // StorageDecisionMatrixRow defines an entry in the cloud storage decision matrix.
 type StorageDecisionMatrixRow struct {
