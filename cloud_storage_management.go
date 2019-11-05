@@ -220,7 +220,7 @@ func (dm *StorageDecisionMatrix) FilterByDriveType(requestedDriveType string) *S
 	return dm
 }
 
-// FilterByMinIOPS filters out the rows whose minIOPS are greater requested IOPS.
+// FilterByMinIOPS filters out the rows whose minIOPS are less than the requested IOPS.
 func (dm *StorageDecisionMatrix) FilterByMinIOPS(requestedIOPS uint64) *StorageDecisionMatrix {
 	var filteredRows []StorageDecisionMatrixRow
 	if requestedIOPS > 0 {
@@ -267,8 +267,8 @@ func (dm *StorageDecisionMatrix) FilterByDriveSizeRange(currentDriveSize uint64)
 	return dm
 }
 
-// FilterByDriveSize filters out the rows for which the current drive size is greater than
-// row's min size
+// FilterByDriveSize returns a list of rows for which the current drive size fits within the row's min
+// and max size or if the row's min size is greater than the current drive size
 func (dm *StorageDecisionMatrix) FilterByDriveSize(currentDriveSize uint64) *StorageDecisionMatrix {
 	var filteredRows []StorageDecisionMatrixRow
 	if currentDriveSize > 0 {
