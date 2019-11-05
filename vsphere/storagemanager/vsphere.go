@@ -27,7 +27,7 @@ func (a *vsphereStorageManager) GetStorageDistribution(
 	for _, userRequest := range request.UserStorageSpec {
 		// for for request, find how many instances per zone needs to have storage
 		// and the storage spec for each of them
-		instStorage, instancePerZone, _, err :=
+		instStorage, instancesPerZone, _, err :=
 			storagedistribution.GetStorageDistributionForPool(
 				a.decisionMatrix,
 				userRequest,
@@ -42,7 +42,7 @@ func (a *vsphereStorageManager) GetStorageDistribution(
 			&cloudops.StoragePoolSpec{
 				DriveCapacityGiB: instStorage.DriveCapacityGiB,
 				DriveType:        instStorage.DriveType,
-				InstancesPerZone: instancePerZone,
+				InstancesPerZone: instancesPerZone,
 				DriveCount:       instStorage.DriveCount,
 			},
 		)

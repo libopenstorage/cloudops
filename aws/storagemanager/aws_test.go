@@ -307,7 +307,7 @@ func storageDistribution(t *testing.T) {
 				InstancesPerZone: 3,
 				ZoneCount:        3,
 			},
-			expectedErr: cloudops.ErrStorageDistributionCandidateNotFound,
+			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{},
 		},
 		{
 			// Test10: Install with lower sized disks

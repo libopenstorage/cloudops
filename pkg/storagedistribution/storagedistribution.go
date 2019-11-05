@@ -106,21 +106,21 @@ func AddDisk(
 	// Filter the decision matrix and check if there any rows which satisfy our requirements.
 	dm = dm.FilterByDriveType(request.CurrentDriveType)
 	if len(dm.Rows) == 0 {
-		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
+		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
 			Reason: fmt.Sprintf("found no candidates which have current drive type: %s", request.CurrentDriveType),
 		}
 	}
 
 	dm = dm.FilterByDriveSizeRange(currentDriveSize)
 	if len(dm.Rows) == 0 {
-		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
+		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
 			Reason: fmt.Sprintf("found no candidates for adding a new disk of existing size: %d", currentDriveSize),
 		}
 	}
 
 	dm = dm.FilterByDriveCount(updatedTotalDrivesOnNodes)
 	if len(dm.Rows) == 0 {
-		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
+		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
 			Reason: fmt.Sprintf("node has reached it's maximum supported drive count: %d", updatedTotalDrivesOnNodes),
 		}
 	}
@@ -186,21 +186,21 @@ func ResizeDisk(
 	// Filter the decision matrix
 	dm = dm.FilterByDriveType(request.CurrentDriveType)
 	if len(dm.Rows) == 0 {
-		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
+		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
 			Reason: fmt.Sprintf("found no candidates which have current drive type: %s", request.CurrentDriveType),
 		}
 	}
 
 	dm = dm.FilterByIOPS(request.CurrentIOPS)
 	if len(dm.Rows) == 0 {
-		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
+		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
 			Reason: fmt.Sprintf("found no drive candidates that match current IOPS of drives on node: %d", request.CurrentIOPS),
 		}
 	}
 
 	dm = dm.FilterByDriveSize(request.CurrentDriveSize).SortByIOPS()
 	if len(dm.Rows) == 0 {
-		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
+		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
 			Reason: fmt.Sprintf("found no drive candidates that match current drive size: %d", request.CurrentDriveSize),
 		}
 	}
@@ -223,7 +223,7 @@ func ResizeDisk(
 		}
 		return resp, &row, nil
 	}
-	return nil, nil, cloudops.ErrStorageDistributionCandidateNotFound
+	return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{}
 }
 
 // GetStorageDistributionForPool tries to determine a drive configuration
@@ -337,10 +337,9 @@ row_loop:
 
 	if int(rowIndex) == len(dm.Rows) {
 		// row_loop failed
-		return nil, 0, &cloudops.ErrStorageDistributionCandidateNotFound{}
+		return nil, 0, nil, &cloudops.ErrStorageDistributionCandidateNotFound{}
 	}
 
-	fmt.Println("$$$$ minCapacityPerZone: ", minCapacityPerZone, driveCount, driveSize)
 	// optimize instances per zone
 	var optimizedInstancesPerZone uint64
 	for optimizedInstancesPerZone = uint64(1); optimizedInstancesPerZone < instancesPerZone; optimizedInstancesPerZone++ {
