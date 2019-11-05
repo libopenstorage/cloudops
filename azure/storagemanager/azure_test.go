@@ -306,7 +306,7 @@ func storageDistribution(t *testing.T) {
 				InstancesPerZone: 3,
 				ZoneCount:        3,
 			},
-			expectedErr: cloudops.ErrStorageDistributionCandidateNotFound,
+			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{},
 		},
 		{
 			// Test10: Install with lower sized disks
@@ -524,6 +524,23 @@ func storageUpdate(t *testing.T) {
 				},
 			},
 			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 8
+			//		  Instances has 4 x 100 GiB and one extra drive
+			//        Update from 400 GiB to 800 GiB by adding disks. Should fail as we support max 8 drives
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     800,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    100,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   4,
+				TotalDrivesOnNode:   5,
+			},
+			response: nil,
+			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{
+				Reason: "node has reached it's maximum supported drive count: 9",
+			},
 		},
 		/*{
 			// ***** TEST: 8
