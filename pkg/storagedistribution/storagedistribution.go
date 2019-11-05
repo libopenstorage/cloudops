@@ -142,14 +142,14 @@ func AddDisk(
 	dm = dm.FilterByDriveType(request.CurrentDriveType)
 	if len(dm.Rows) == 0 {
 		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
-			Reason: fmt.Sprintf("found no drive candidates that are of current drive type on the node: %s", request.CurrentDriveType),
+			Reason: fmt.Sprintf("found no candidates which have current drive type: %s", request.CurrentDriveType),
 		}
 	}
 
 	dm = dm.FilterByDriveSize(currentDriveSize)
 	if len(dm.Rows) == 0 {
 		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
-			Reason: fmt.Sprintf("found no drive candidates that are multiple of current drive sizes on the node: %d", currentDriveSize),
+			Reason: fmt.Sprintf("found no candidates for adding a new disk of existing size: %d", currentDriveSize),
 		}
 	}
 
@@ -223,7 +223,7 @@ func ResizeDisk(
 	dm = dm.FilterByDriveType(request.CurrentDriveType)
 	if len(dm.Rows) == 0 {
 		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
-			Reason: fmt.Sprintf("found no drive candidates that are of current drive type on the node: %s", request.CurrentDriveType),
+			Reason: fmt.Sprintf("found no candidates which have current drive type: %s", request.CurrentDriveType),
 		}
 	}
 
@@ -237,7 +237,7 @@ func ResizeDisk(
 	dm = dm.FilterByDriveSize(request.CurrentDriveSize).SortByIOPS()
 	if len(dm.Rows) == 0 {
 		return nil, &cloudops.ErrStorageDistributionCandidateNotFound{
-			Reason: fmt.Sprintf("found no drive candidates that match current drive sizes on the node: %d", request.CurrentDriveSize),
+			Reason: fmt.Sprintf("found no drive candidates that match current drive size: %d", request.CurrentDriveSize),
 		}
 	}
 
