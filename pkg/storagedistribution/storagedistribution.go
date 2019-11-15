@@ -64,7 +64,7 @@ func GetStorageUpdateConfig(
 // AddDisk tries to satisfy the StoragePoolUpdateRequest by adding more disks
 // to the existing storage pool. Following is a high level algorithm/steps used
 // to achieve this:
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // - Calculate deltaCapacity = input.RequestedCapacity - input.CurrentCapacity					 //
 // - Calculate currentDriveSize from the request.								 //
 // - Calculate the requiredDriveCount for achieving the deltaCapacity.						 //
@@ -75,7 +75,7 @@ func GetStorageUpdateConfig(
 // - Pick the 1st row from the decision matrix as your candidate.						 //
 // - If no row found:												 //
 //     - failed to AddDisk											 //
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func AddDisk(
 	request *cloudops.StoragePoolUpdateRequest,
 	decisionMatrix *cloudops.StorageDecisionMatrix,
@@ -144,7 +144,7 @@ func AddDisk(
 // ResizeDisk tries to satisfy the StoragePoolUpdateRequest by expanding existing disks
 // from the storage pool. Following is a high level algorithm/steps used
 // to achieve this:
-//////////////////////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////////////////////////
 // - Calculate deltaCapacity = input.RequestedCapacity - input.CurrentCapacity		        //
 // - Calculate deltaCapacityPerDrive = deltaCapacityPerNode / input.CurrentNumberOfDrivesInPool //
 // - Filter out the rows which do not have the same input.DriveType			        //
@@ -156,7 +156,7 @@ func AddDisk(
 //       - failed to expand								        //
 //   Else										        //
 //       - success									        //
-//////////////////////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////////////////////////
 func ResizeDisk(
 	request *cloudops.StoragePoolUpdateRequest,
 	decisionMatrix *cloudops.StorageDecisionMatrix,
@@ -175,7 +175,11 @@ func ResizeDisk(
 
 	currentCapacity := request.CurrentDriveCount * request.CurrentDriveSize
 	deltaCapacity := request.DesiredCapacity - currentCapacity
-	deltaCapacityPerDrive := deltaCapacity / request.CurrentDriveCount
+	// need to round up to avoid cases like:
+	// deltaCapacity==5
+	// CurrentDriveCount == 2
+	// deltaCapacityPerDrive == 2 < DesiredCapacity
+	deltaCapacityPerDrive := uint64(math.Round(float64(deltaCapacity) / float64(request.CurrentDriveCount)))
 
 	dm := utils.CopyDecisionMatrix(decisionMatrix)
 
@@ -230,7 +234,7 @@ func ResizeDisk(
 // to satisfy the input storage pool requirements. Following is a high level algorithm/steps used
 // to achieve this:
 //
-//////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////
 // - Calculate minCapacityPerZone = input.MinCapacity / zoneCount	    //
 // - Calculate maxCapacityPerZone = input.MaxCapacity / zoneCount	    //
 // - Filter the decision matrix based of our requirements:		    //
@@ -256,7 +260,7 @@ func ResizeDisk(
 //         - goto (row_loop)						    //
 // - If (row_loop) fails:						    //
 //       - failed to get a candidate					    //
-//////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////
 func GetStorageDistributionForPool(
 	decisionMatrix *cloudops.StorageDecisionMatrix,
 	request *cloudops.StorageSpec,
