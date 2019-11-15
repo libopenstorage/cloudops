@@ -654,6 +654,78 @@ func storageUpdate(t *testing.T) {
 			},
 			expectedErr: &cloudops.ErrCurrentCapacityHigherThanDesired{Current: 600, Desired: 401},
 		},
+		{
+			// ***** TEST: 13 instance is already at higher capacity than requested
+			//        Instance has 2 x 105 GiB
+			//        Update from 210 GiB to 215 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     215,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    105,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   2,
+				TotalDrivesOnNode:   2,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 108,
+						DriveType:        "Premium_LRS",
+						DriveCount:       2,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 14 delta is a float number 2.1 per disk (should be rounded up to 3)
+			//        Instance has 9 x 28 GiB
+			//        Update from 252 GiB to 271 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     271,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    28,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   9,
+				TotalDrivesOnNode:   9,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 31,
+						DriveType:        "Premium_LRS",
+						DriveCount:       9,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: delta is a float number 53.6 per disk (should be rounded up to 54)
+			//        Instance has 5 x 137 GiB
+			//        Update from 685 GiB to 953 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     953,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    137,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   5,
+				TotalDrivesOnNode:   5,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 191,
+						DriveType:        "Premium_LRS",
+						DriveCount:       5,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for i, test := range testMatrix {
@@ -680,8 +752,7 @@ func storageUpdate(t *testing.T) {
 					}
 
 				}
-
-				require.True(t, matched, fmt.Sprintf("response didn't match. expected: %v actual: %v", test.response, response))
+				require.True(t, matched, fmt.Sprintf("response didn't match. expected: %v actual: %v", test.response.InstanceStorage[0], response.InstanceStorage[0]))
 			}
 		} else {
 			require.NotNil(t, err, "RecommendInstanceStorageUpdate should have returned an error")
