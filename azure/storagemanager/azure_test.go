@@ -678,6 +678,54 @@ func storageUpdate(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			// ***** TEST: 14 delta is a float number 2.1 per disk (should be rounded up to 3)
+			//        Instance has 9 x 28 GiB
+			//        Update from 252 GiB to 271 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     271,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    28,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   9,
+				TotalDrivesOnNode:   9,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 31,
+						DriveType:        "Premium_LRS",
+						DriveCount:       9,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: delta is a float number 53.6 per disk (should be rounded up to 54)
+			//        Instance has 5 x 137 GiB
+			//        Update from 685 GiB to 953 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     953,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveSize:    137,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   5,
+				TotalDrivesOnNode:   5,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 191,
+						DriveType:        "Premium_LRS",
+						DriveCount:       5,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for i, test := range testMatrix {
