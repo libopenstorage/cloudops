@@ -173,13 +173,8 @@ func ResizeDisk(
 		}
 	}
 
-	currentCapacity := request.CurrentDriveCount * request.CurrentDriveSize
-	deltaCapacity := request.DesiredCapacity - currentCapacity
-	// need to round up to avoid cases like:
-	// deltaCapacity==5
-	// CurrentDriveCount == 2
-	// deltaCapacityPerDrive == 2 < DesiredCapacity
-	deltaCapacityPerDrive := uint64(math.Round(float64(deltaCapacity) / float64(request.CurrentDriveCount)))
+	deltaCapacityPerDrive := calculateDriveCapacity(request)
+	logrus.Debugf("Delta capacity per drive: %v", deltaCapacityPerDrive)
 
 	dm := utils.CopyDecisionMatrix(decisionMatrix)
 
@@ -228,6 +223,16 @@ func ResizeDisk(
 		return resp, &row, nil
 	}
 	return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{}
+}
+
+func calculateDriveCapacity(request *cloudops.StoragePoolUpdateRequest) uint64 {
+	currentCapacity := request.CurrentDriveCount * request.CurrentDriveSize
+	deltaCapacity := request.DesiredCapacity - currentCapacity
+	// need to round up to avoid cases like:
+	// deltaCapacity==5
+	// CurrentDriveCount == 2
+	// deltaCapacityPerDrive == 2 < DesiredCapacity
+	return uint64(math.Ceil(float64(deltaCapacity) / float64(request.CurrentDriveCount)))
 }
 
 // GetStorageDistributionForPool tries to determine a drive configuration
