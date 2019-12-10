@@ -118,10 +118,17 @@ func AddDisk(
 		}
 	}
 
+	maxDriveCount := dm.Rows[0].InstanceMaxDrives
+	for _, row := range dm.Rows {
+		if row.InstanceMaxDrives > maxDriveCount {
+			maxDriveCount = row.InstanceMaxDrives
+		}
+	}
+
 	dm = dm.FilterByDriveCount(updatedTotalDrivesOnNodes)
 	if len(dm.Rows) == 0 {
 		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
-			Reason: fmt.Sprintf("node has reached it's maximum supported drive count: %d", updatedTotalDrivesOnNodes),
+			Reason: fmt.Sprintf("node has reached it's maximum supported drive count: %d", maxDriveCount),
 		}
 	}
 
