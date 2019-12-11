@@ -539,7 +539,7 @@ func storageUpdate(t *testing.T) {
 			},
 			response: nil,
 			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{
-				Reason: "node has reached it's maximum supported drive count: 9",
+				Reason: "node has reached it's maximum supported drive count: 8",
 			},
 		},
 		/*{
