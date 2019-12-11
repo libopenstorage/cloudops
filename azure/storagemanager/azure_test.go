@@ -703,7 +703,7 @@ func storageUpdate(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			// ***** TEST: delta is a float number 53.6 per disk (should be rounded up to 54)
+			// ***** TEST 15: delta is a float number 53.6 per disk (should be rounded up to 54)
 			//        Instance has 5 x 137 GiB
 			//        Update from 685 GiB to 953 GiB by adding disks
 			request: &cloudops.StoragePoolUpdateRequest{
@@ -725,6 +725,25 @@ func storageUpdate(t *testing.T) {
 				},
 			},
 			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 16
+			//		  Instances has 2 x 5 GiB
+			//        Update from 10 GiB to  15 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     15,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    5,
+				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveCount:   2,
+				TotalDrivesOnNode:   2,
+			},
+			response: nil,
+			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{
+				Reason: "found no candidates for adding a new disk of existing size: 5 GiB. Only drives in following " +
+					"size ranges are supported: [[1024 GiB -> 8192 GiB (Premium_LRS)] [128 GiB -> 256 GiB (Premium_LRS)]" +
+					" [2048 GiB -> 8192 GiB (Premium_LRS)] [256 GiB -> 8192 GiB (Premium_LRS)] [32 GiB -> 64 GiB (Premium_LRS)] [512 GiB -> 8192 GiB (Premium_LRS)] [64 GiB -> 128 GiB (Premium_LRS)] [8192 GiB -> 8192 GiB (Premium_LRS)]]",
+			},
 		},
 	}
 

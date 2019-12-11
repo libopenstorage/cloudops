@@ -3,6 +3,7 @@ package storagedistribution
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/pkg/utils"
@@ -111,10 +112,22 @@ func AddDisk(
 		}
 	}
 
+	driveRanges := make(map[string]string)
+	driveRangeStr := make([]string, 0)
+	for _, row := range dm.Rows {
+		driveRanges[fmt.Sprintf("[%d GiB -> %d GiB (%s)]", row.MinSize, row.MaxSize, row.DriveType)] = ""
+	}
+
+	for k := range driveRanges {
+		driveRangeStr = append(driveRangeStr, k)
+	}
+
 	dm = dm.FilterByDriveSizeRange(currentDriveSize)
 	if len(dm.Rows) == 0 {
+		sort.Strings(driveRangeStr)
 		return nil, nil, &cloudops.ErrStorageDistributionCandidateNotFound{
-			Reason: fmt.Sprintf("found no candidates for adding a new disk of existing size: %d", currentDriveSize),
+			Reason: fmt.Sprintf("found no candidates for adding a new disk of existing size: %d GiB. "+
+				"Only drives in following size ranges are supported: %v", currentDriveSize, driveRangeStr),
 		}
 	}
 
