@@ -83,17 +83,9 @@ func compute(t *testing.T, driver cloudops.Ops) {
 	if _, ok := err.(*cloudops.ErrNotSupported); ok {
 		return
 	}
+
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
-
-	instanceToDelete := os.Getenv("INSTANCE_TO_DELETE")
-	zoneOfInstanceToDelete := os.Getenv("INSTANCE_TO_DELETE_ZONE")
-	if instanceToDelete != "" {
-		err := driver.DeleteInstance(instanceToDelete, zoneOfInstanceToDelete, 5*time.Minute)
-		require.NoError(t, err, fmt.Sprintf("failed to delete instance [%v]. Error:[%v]", instanceToDelete, err))
-	} else {
-		logrus.Fatalf("Set INSTANCE_TO_DELETE environment variable")
-	}
 
 	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterNodeCount, 5*time.Minute)
 	if err != nil {
@@ -156,6 +148,19 @@ func compute(t *testing.T, driver cloudops.Ops) {
 		require.NoErrorf(t, err, fmt.Sprintf("error occured while getting cluster size after being set with 0 timeout. Error:[%v]", err))
 	}
 
+	if instanceToDelete, ok := os.LookupEnv("INSTANCE_TO_DELETE"); ok {
+		if zoneOfInstanceToDelete, ok := os.LookupEnv("INSTANCE_TO_DELETE_ZONE"); ok {
+			err := driver.DeleteInstance(instanceToDelete, zoneOfInstanceToDelete, 5*time.Minute)
+			if _, ok := err.(*cloudops.ErrNotSupported); ok {
+				return
+			}
+			require.NoError(t, err, fmt.Sprintf("failed to delete instance [%v]. Error:[%v]", instanceToDelete, err))
+		} else {
+			logrus.Warnf("Set INSTANCE_TO_DELETE_ZONE environment variable to test DeleteInstance() API")
+		}
+	} else {
+		logrus.Warnf("Set INSTANCE_TO_DELETE environment variable to test DeleteInstance() API")
+	}
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {
@@ -335,5 +340,3 @@ func canErrBeIgnored(err error) bool {
 	return false
 
 }
-
-
