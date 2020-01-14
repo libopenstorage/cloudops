@@ -332,11 +332,11 @@ func (a *azureOps) SetInstanceGroupSize(instanceGroupID string,
 	}
 	future, err := a.agentPoolsClient.CreateOrUpdate(ctx, a.resourceGroupName,
 		a.managedClusterName,
-		a.agentPoolName,
+		instanceGroupID,
 		agentPool)
 	if err != nil {
 		return fmt.Errorf("Failed to set size for node group [%v] of managed cluster [%v]."+
-			"Error:[%v]", a.agentPoolName, a.managedClusterName, err)
+			"Error:[%v]", instanceGroupID, a.managedClusterName, err)
 	}
 	err = future.WaitForCompletionRef(ctx, a.agentPoolsClient.Client)
 	return err
