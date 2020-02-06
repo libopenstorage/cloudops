@@ -66,10 +66,10 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 512,
+						DriveCapacityGiB: 85,
 						DriveType:        "thin",
 						InstancesPerZone: 3,
-						DriveCount:       2,
+						DriveCount:       12,
 					},
 				},
 			},
@@ -91,10 +91,10 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 512,
+						DriveCapacityGiB: 170,
 						DriveType:        "thin",
 						InstancesPerZone: 3,
-						DriveCount:       4,
+						DriveCount:       12,
 					},
 				},
 			},
@@ -116,10 +116,10 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 768,
+						DriveCapacityGiB: 256,
 						DriveType:        "eagerzeroedthick",
 						InstancesPerZone: 3,
-						DriveCount:       4,
+						DriveCount:       12,
 					},
 				},
 			},
@@ -142,10 +142,10 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 1365,
+						DriveCapacityGiB: 682,
 						DriveType:        "thin",
 						InstancesPerZone: 1,
-						DriveCount:       6,
+						DriveCount:       12,
 					},
 				},
 			},
