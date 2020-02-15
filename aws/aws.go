@@ -968,6 +968,70 @@ func (s *awsOps) DevicePath(volumeID string) (string, error) {
 	return devicePath, nil
 }
 
+func (s *awsOps) UpdateIOPS(
+	volumeID string,
+	newIOPS uint64,
+) (uint64, error) {
+	vol, err := s.refreshVol(&volumeID)
+	if err != nil {
+		return 0, err
+	}
+	currentIOPS := uint64(*vol.Iops)
+	if currentIOPS >= newIOPS {
+		return currentIOPS, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+			fmt.Sprintf("disk is already has IOPS: %d greater than or equal "+
+				"requested IOPS: %d", currentIOPS, newIOPS), "")
+	}
+
+	newIOPSInt64 := int64(newIOPS)
+	request := &ec2.ModifyVolumeInput{
+		VolumeId: vol.VolumeId,
+		Iops:     &newIOPSInt64,
+	}
+	output, err := s.ec2.ModifyVolume(request)
+	if err != nil {
+		return currentIOPS, fmt.Errorf("failed to modify AWS volume for %v: %v", volumeID, err)
+	}
+
+	if string(*output.VolumeModification.ModificationState) == ec2.VolumeModificationStateCompleted {
+		return uint64(*output.VolumeModification.TargetSize), nil
+	}
+
+	// Taken from k8s.io/legacy-cloud-providers/aws
+	backoff := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   2,
+		Steps:    10,
+	}
+
+	checkForIOPS := func() (bool, error) {
+		request := &ec2.DescribeVolumesModificationsInput{
+			VolumeIds: []*string{&volumeID},
+		}
+
+		describeOutput, err := s.ec2.DescribeVolumesModifications(request)
+		if err != nil {
+			return false, fmt.Errorf("error while checking status for AWS EBS volume resize: %v", err)
+		}
+		volumeModifications := describeOutput.VolumesModifications
+		if len(volumeModifications) == 0 {
+			return false, fmt.Errorf("no volume modifications found for AWS EBS volume %v", volumeID)
+		}
+		volumeModification := volumeModifications[len(volumeModifications)-1]
+
+		// According to https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring_mods.html
+		// Size changes usually take a few seconds to complete and take effect after a volume is in the Optimizing state.
+		if *volumeModification.ModificationState == ec2.VolumeModificationStateCompleted {
+			return true, nil
+		}
+
+		logrus.Infof("[debug] volume modification state is : %s", *volumeModification.ModificationState)
+		return false, nil
+	}
+	waitWithErr := wait.ExponentialBackoff(backoff, checkForIOPS)
+	return newIOPS, waitWithErr
+}
+
 func getInfoFromMetadata() (string, string, string, error) {
 	zone, err := metadata("placement/availability-zone")
 	if err != nil {

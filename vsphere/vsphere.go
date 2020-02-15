@@ -34,6 +34,13 @@ type vsphereOps struct {
 	cfg  *VSphereConfig
 }
 
+func (ops *vsphereOps) UpdateIOPS(volumeID string, newIOPS uint64) (uint64, error) {
+	return 0, &cloudops.ErrNotSupported{
+		Operation: "UpdateIOPS",
+		Reason:    "NotSupported",
+	}
+}
+
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
 // reference to the datastore of the disk
 type VirtualDisk struct {

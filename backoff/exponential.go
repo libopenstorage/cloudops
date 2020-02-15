@@ -50,6 +50,23 @@ type exponentialBackoff struct {
 	backoff            wait.Backoff
 }
 
+func (e *exponentialBackoff) UpdateIOPS(volumeID string, newIOPS uint64) (uint64, error) {
+
+	var (
+		origErr error
+	)
+	conditionFn := func() (bool, error) {
+		_, origErr = e.cloudOps.UpdateIOPS(volumeID, newIOPS)
+		msg := fmt.Sprintf("Failed to update IOPS for drive (%v).", volumeID)
+		return e.handleError(origErr, msg)
+	}
+	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return 0, cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+	}
+	return newIOPS, origErr
+}
+
 func (e *exponentialBackoff) InstanceID() string {
 	return e.cloudOps.InstanceID()
 }

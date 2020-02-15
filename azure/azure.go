@@ -69,6 +69,13 @@ type azureOps struct {
 	agentPoolsClient   *containerservice.AgentPoolsClient
 }
 
+func (a *azureOps) UpdateIOPS(volumeID string, newIOPS uint64) (uint64, error) {
+	return 0, &cloudops.ErrNotSupported{
+		Operation: "UpdateIOPS",
+		Reason:    "NotSupported",
+	}
+}
+
 // NewClientFromMetadata initializes cloudops driver for azure based on environment
 // variables or based on instance metadata info available inside Azure VM
 func NewClientFromMetadata() (cloudops.Ops, error) {

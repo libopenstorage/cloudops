@@ -97,6 +97,8 @@ type Storage interface {
 	// only return once the requested size is validated with the cloud provider or
 	// the number of retries prescribed by the cloud provider are exhausted.
 	Expand(volumeID string, newSizeInGiB uint64) (uint64, error)
+	// UpdateIOPS  updates IOPS of the given volume
+	UpdateIOPS(volumeID string, newIOPS uint64) (uint64, error)
 	// Detach volumeID.
 	Detach(volumeID string) error
 	// DetachFrom detaches the disk/volume with given ID from the given instance ID

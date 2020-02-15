@@ -52,6 +52,13 @@ type gceOps struct {
 	mutex            sync.Mutex
 }
 
+func (s *gceOps) UpdateIOPS(volumeID string, newIOPS uint64) (uint64, error) {
+	return 0, &cloudops.ErrNotSupported{
+		Operation: "UpdateIOPS",
+		Reason:    "NotSupported",
+	}
+}
+
 // instance stores the metadata of the running GCE instance
 type instance struct {
 	name            string
