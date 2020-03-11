@@ -26,11 +26,11 @@ require (
 	github.com/prometheus/procfs v0.0.0-20190425082905-87a4384529e0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
-	github.com/vmware/govmomi v0.15.0
+	github.com/vmware/govmomi v0.20.1
 	google.golang.org/api v0.4.0
 	gopkg.in/yaml.v2 v2.2.4
 	k8s.io/apimachinery v0.0.0-20190816221834-a9f1d8a9c101
-	k8s.io/kubernetes v1.10.13
+	k8s.io/kubernetes v1.14.6
 )
 
 replace (
