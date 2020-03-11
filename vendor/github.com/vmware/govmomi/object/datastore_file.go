@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/vmware/govmomi/vim25/soap"
@@ -171,7 +172,7 @@ func (f *DatastoreFile) Stat() (os.FileInfo, error) {
 		return nil, err
 	}
 
-	res, err := f.d.Client().DownloadRequest(u, p)
+	res, err := f.d.Client().DownloadRequest(f.ctx, u, p)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +202,7 @@ func (f *DatastoreFile) get() (io.Reader, error) {
 		}
 	}
 
-	res, err := f.d.Client().DownloadRequest(u, p)
+	res, err := f.d.Client().DownloadRequest(f.ctx, u, p)
 	if err != nil {
 		return nil, err
 	}
@@ -347,6 +348,7 @@ type followDatastoreFile struct {
 	r *DatastoreFile
 	c chan struct{}
 	i time.Duration
+	o sync.Once
 }
 
 // Read reads up to len(b) bytes from the DatastoreFile being followed.
@@ -398,11 +400,15 @@ func (f *followDatastoreFile) Read(p []byte) (int, error) {
 
 // Close will stop Follow polling and close the underlying DatastoreFile.
 func (f *followDatastoreFile) Close() error {
-	close(f.c)
+	f.o.Do(func() { close(f.c) })
 	return nil
 }
 
 // Follow returns an io.ReadCloser to stream the file contents as data is appended.
 func (f *DatastoreFile) Follow(interval time.Duration) io.ReadCloser {
-	return &followDatastoreFile{f, make(chan struct{}), interval}
+	return &followDatastoreFile{
+		r: f,
+		c: make(chan struct{}),
+		i: interval,
+	}
 }
