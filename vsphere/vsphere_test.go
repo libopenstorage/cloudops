@@ -63,15 +63,24 @@ func TestAll(t *testing.T) {
 	}
 }
 
-func sizeCheck(template interface{}, targetSize uint64) bool {
-	return true
-	/* TODO
-	* disk, ok := template.(*compute.Disk)
-	if !ok {
-		return false
+func TestDevicePath(t *testing.T) {
+	if IsDevMode() {
+		d, _ := initVsphere(t)
+		require.NotNil(t, d)
+
+		// Based on your VM and environment, set
+		// VSPHERE_VM_TEST_DEVICE_PATH="[Phy-vsanDatastore] 260f0d5d-207e-2372-3d57-ac1f6b204d08/PX-DO-NOT-DELETE-6004befe-b554-4283-bc6a-efacc4a72010.vmdk"
+		testDevPath, err := cloudops.GetEnvValueStrict("VSPHERE_VM_TEST_DEVICE_PATH")
+		if err != nil {
+			t.Skip("skipping vSphere device path test as test device path is not set...")
+		}
+
+		attachedPath, err := d.DevicePath(testDevPath)
+		require.NoError(t, err, "failed to get attached device path")
+		require.NotEmpty(t, attachedPath)
+	} else {
+		fmt.Printf("skipping vSphere device path test as environment is not set...\n")
+		t.Skip("skipping vSphere device test as environment is not set...")
 	}
-	if disk.DiskProperties == nil || disk.DiskProperties.DiskSizeGB == nil {
-		return false
-	}
-	return targetSize == uint64(*disk.DiskProperties.DiskSizeGB)*/
+
 }
