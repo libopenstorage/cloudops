@@ -6,8 +6,10 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/backoff"
 	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware/govmomi/find"
@@ -16,6 +18,7 @@ import (
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib/diskmanagers"
 )
@@ -32,6 +35,13 @@ type vsphereOps struct {
 	vm   *vclib.VirtualMachine
 	conn *vclib.VSphereConnection
 	cfg  *VSphereConfig
+}
+
+var exponentialBackoff = wait.Backoff{
+	Duration: 2 * time.Second, // the base duration
+	Factor:   1.2,             // Duration is multiplied by factor each iteration
+	Jitter:   1.0,             // The amount of jitter applied each iteration
+	Steps:    12,              // Exit with error after this many steps
 }
 
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
@@ -65,12 +75,16 @@ func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 	logrus.Debugf("  Datacenter: %s", vmObj.Datacenter.Name())
 	logrus.Debugf("  VMUUID: %s", cfg.VMUUID)
 
-	return &vsphereOps{
-		Compute: unsupported.NewUnsupportedCompute(),
-		cfg:     cfg,
-		vm:      vmObj,
-		conn:    vSphereConn,
-	}, nil
+	return backoff.NewExponentialBackoffOps(
+		&vsphereOps{
+			Compute: unsupported.NewUnsupportedCompute(),
+			cfg:     cfg,
+			vm:      vmObj,
+			conn:    vSphereConn,
+		},
+		isExponentialError,
+		exponentialBackoff,
+	), nil
 }
 
 func (ops *vsphereOps) Name() string { return string(cloudops.Vsphere) }
@@ -339,6 +353,11 @@ func (ops *vsphereOps) DevicePath(diskPath string) (string, error) {
 		return "", err
 	}
 
+	vmName, err := vmObj.ObjectName(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	attached, err := vmObj.IsDiskAttached(ctx, diskPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to check if disk: %s is attached on vm: %s. err: %v",
@@ -346,13 +365,12 @@ func (ops *vsphereOps) DevicePath(diskPath string) (string, error) {
 	}
 
 	if !attached {
-		return "", fmt.Errorf("disk: %s is not attached on vm: %s", diskPath, vmObj.Name())
+		return "", fmt.Errorf("disk: %s is not attached on vm: %s", diskPath, vmName)
 	}
 
 	diskUUID, err := vmObj.Datacenter.GetVirtualDiskPage83Data(ctx, diskPath)
 	if err != nil {
-		logrus.Errorf("failed to get device path for disk: %s on vm: %s", diskPath, vmObj.Name())
-		return "", err
+		return "", fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", diskPath, vmName, err)
 	}
 
 	return path.Join(diskByIDPath, diskSCSIPrefix+diskUUID), nil
@@ -697,4 +715,20 @@ func IsStoragePod(ctx context.Context, vmObj *vclib.VirtualMachine, name string)
 	}
 
 	return true, sp, nil
+}
+
+func isExponentialError(err error) bool {
+	retryErrors := map[string]struct{}{
+		// ServerFaultCode is received from the vCenter API when we encounter intermittent errors on the vCenter
+		// server side and typically they always get resolved on retries
+		"ServerFaultCode": {},
+	}
+	if err != nil {
+		for retryErr := range retryErrors {
+			if strings.Contains(err.Error(), retryErr) {
+				return true
+			}
+		}
+	}
+	return false
 }
