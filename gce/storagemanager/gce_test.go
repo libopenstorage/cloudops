@@ -78,7 +78,7 @@ func storageDistribution(t *testing.T) {
 		},
 		// Test2: choose the right size of the disk by updating the instances per zone
 		//        in case of a conflict with two configurations providing the same IOPS
-		//        and min capacity choose based of priority
+		//        and min capacity choose based of priority.
 		{
 			request: &cloudops.StorageDistributionRequest{
 				UserStorageSpec: []*cloudops.StorageSpec{
