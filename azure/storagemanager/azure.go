@@ -27,7 +27,7 @@ func (a *azureStorageManager) GetStorageDistribution(
 ) (*cloudops.StorageDistributionResponse, error) {
 	response := &cloudops.StorageDistributionResponse{}
 	for _, userRequest := range request.UserStorageSpec {
-		// for for request, find how many instances per zone needs to have storage
+		// for request, find how many instances per zone needs to have storage
 		// and the storage spec for each of them
 		instStorage, instancePerZone, row, err :=
 			storagedistribution.GetStorageDistributionForPool(

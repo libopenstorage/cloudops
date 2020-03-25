@@ -1,4 +1,3 @@
-# This is an auto-generated file. DO NOT EDIT.
 rows:
 - min_iops: 100
   max_iops: 100
@@ -3539,7 +3538,7 @@ rows:
   region: '*'
   min_size: 50
   max_size: 100
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
 - min_iops: 800
@@ -3550,7 +3549,7 @@ rows:
   region: '*'
   min_size: 100
   max_size: 200
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
 - min_iops: 1600
@@ -3561,7 +3560,7 @@ rows:
   region: '*'
   min_size: 200
   max_size: 400
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
 - min_iops: 3200
@@ -3572,7 +3571,7 @@ rows:
   region: '*'
   min_size: 400
   max_size: 800
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
 - min_iops: 6400
@@ -3583,7 +3582,7 @@ rows:
   region: '*'
   min_size: 800
   max_size: 1600
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
 - min_iops: 12800
@@ -3594,7 +3593,7 @@ rows:
   region: '*'
   min_size: 1600
   max_size: 3200
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
 - min_iops: 25600
@@ -3605,7 +3604,7 @@ rows:
   region: '*'
   min_size: 3200
   max_size: 6400
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
 - min_iops: 32000
@@ -3616,6 +3615,6 @@ rows:
   region: '*'
   min_size: 6400
   max_size: 16000
-  priority: 0
+  priority: 1
   thin_provisioning: false
   drive_type: io1
