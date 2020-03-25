@@ -16,11 +16,11 @@ type gceStorageManager struct {
 }
 
 const (
-	// DriveTypeStandard is a constant for pd-standard drive types
+	// DriveTypeStandard is a constant for standard drive types
 	DriveTypeStandard = "pd-standard"
 	// DriveTypeSSD is a constant for ssd drive types
 	DriveTypeSSD = "pd-ssd"
-	// StandardIopsMultiplier is the amount with which a given pd-standard GiB size is multiplied
+	// StandardIopsMultiplier is the amount with which a given gp2 GiB size is multiplied
 	// in order to get that drive's baseline IOPS performance
 	StandardIopsMultiplier = 0.75
 	// SSDIopsMultiplier is the amount with which a given ssd GiB size is multiplied
