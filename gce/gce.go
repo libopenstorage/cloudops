@@ -3,6 +3,7 @@ package gce
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"os"
 	"path"
@@ -624,27 +625,58 @@ func (s *gceOps) Expand(
 	volumeID string,
 	newSizeInGiB uint64,
 ) (uint64, error) {
-	// TODO
-	return 0, &cloudops.ErrNotSupported{
-		Operation: "Expand",
+
+	vol, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, volumeID).Do()
+	if err != nil {
+		return 0, err
 	}
+	currentSizeInGiB := uint64(vol.SizeGb)
+
+	if currentSizeInGiB >= newSizeInGiB {
+		return currentSizeInGiB, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
+				"requested size: %d", currentSizeInGiB, newSizeInGiB), "")
+	}
+
+	op, err := s.computeService.Disks.Resize(s.inst.project, s.inst.zone, volumeID, &compute.DisksResizeRequest{
+		SizeGb:          int64(newSizeInGiB),
+		ForceSendFields: nil,
+		NullFields:      nil,
+	}).Do()
+	if err != nil {
+		return 0, err
+	}
+
+	// Taken from k8s.io/legacy-cloud-providers/aws
+	backoff := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   2,
+		Steps:    10,
+	}
+
+	checkForResize := func() (bool, error) {
+		newOp, err := s.computeService.ZoneOperations.Get(s.inst.project, s.inst.zone, fmt.Sprintf("%d", op.Id)).Do()
+		if err != nil {
+			return false, err
+		}
+		if newOp.Status == "DONE" {
+			return true, nil
+		}
+		return false, nil
+	}
+	waitWithErr := wait.ExponentialBackoff(backoff, checkForResize)
+	return newSizeInGiB, waitWithErr
 }
 
 func (s *gceOps) Inspect(diskNames []*string) ([]interface{}, error) {
-	allDisks, err := s.getDisksFromAllZones(nil)
-	if err != nil {
-		return nil, err
-	}
-
 	var disks []interface{}
-	for _, id := range diskNames {
-		if d, ok := allDisks[*id]; ok {
-			disks = append(disks, d)
-		} else {
-			return nil, fmt.Errorf("disk %s not found", *id)
+	for _, diskName := range diskNames {
+		disk, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, *diskName).Do()
+		if err != nil {
+			return nil, err
 		}
+		disks = append(disks, disk)
 	}
-
 	return disks, nil
 }
 
