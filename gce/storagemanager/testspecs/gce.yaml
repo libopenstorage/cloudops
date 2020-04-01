@@ -1661,17 +1661,6 @@ rows:
   thin_provisioning: false
   drive_type: pd-standard
 - min_iops: 100
-  max_iops: 100
-  instance_type: '*'
-  instance_max_drives: 8
-  instance_min_drives: 1
-  region: '*'
-  min_size: 10
-  max_size: 30
-  priority: 1
-  thin_provisioning: false
-  drive_type: pd-ssd
-- min_iops: 100
   max_iops: 150
   instance_type: '*'
   instance_max_drives: 8

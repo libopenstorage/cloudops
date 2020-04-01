@@ -31,11 +31,6 @@ func getSSDDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 	// First row has min and max 100 IOPS for 30Gi
 	row := getCommonRow(1)
 	row.DriveType = storagemanager.DriveTypeSSD
-	row.MinIOPS = 100
-	row.MaxIOPS = 100
-	row.MinSize = 10
-	row.MaxSize = 30
-	rows = append(rows, row)
 	// 15000 IOPS is max read IOPS for SSD persistent disks
 	for iops := 100; iops <= 15000; iops = iops + 50 {
 		row := getCommonRow(1)
