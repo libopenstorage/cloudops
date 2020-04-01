@@ -15,7 +15,7 @@ import (
 
 const (
 	newDiskSizeInGB    = 10
-	newDiskPrefix      = "openstorage-test"
+	newDiskPrefix      = "gce-test"
 	newDiskDescription = "Disk created by Openstorage tests"
 )
 
@@ -45,10 +45,20 @@ func TestAll(t *testing.T) {
 		d, disks := initGCE(t)
 		drivers[d.Name()] = d
 		diskTemplates[d.Name()] = disks
-		test.RunTest(drivers, diskTemplates, nil, t)
+		test.RunTest(drivers, diskTemplates, sizeCheck, t)
 	} else {
 		fmt.Printf("skipping GCE tests as environment is not set...\n")
 		t.Skip("skipping GCE tests as environment is not set...")
 	}
+}
 
+func sizeCheck(template interface{}, targetSize uint64) bool {
+	disk, ok := template.(*compute.Disk)
+	if !ok {
+		return false
+	}
+	if disk.SizeGb == 0 {
+		return false
+	}
+	return targetSize == uint64(disk.SizeGb)
 }

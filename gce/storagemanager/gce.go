@@ -16,7 +16,7 @@ type gceStorageManager struct {
 }
 
 const (
-	// DriveTypeStandard is a constant for pd-standard drive types
+	// DriveTypeStandard is a constant for standard drive types
 	DriveTypeStandard = "pd-standard"
 	// DriveTypeSSD is a constant for ssd drive types
 	DriveTypeSSD = "pd-ssd"

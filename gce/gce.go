@@ -23,6 +23,7 @@ import (
 	container "google.golang.org/api/container/v1"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var notFoundRegex = regexp.MustCompile(`.*notFound`)
@@ -624,27 +625,59 @@ func (s *gceOps) Expand(
 	volumeID string,
 	newSizeInGiB uint64,
 ) (uint64, error) {
-	// TODO
-	return 0, &cloudops.ErrNotSupported{
-		Operation: "Expand",
+
+	vol, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, volumeID).Do()
+	if err != nil {
+		return 0, err
 	}
+	currentSizeInGiB := uint64(vol.SizeGb)
+
+	if currentSizeInGiB >= newSizeInGiB {
+		return currentSizeInGiB, cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
+				"requested size: %d", currentSizeInGiB, newSizeInGiB), "")
+	}
+
+	op, err := s.computeService.Disks.Resize(s.inst.project, s.inst.zone, volumeID, &compute.DisksResizeRequest{
+		SizeGb:          int64(newSizeInGiB),
+		ForceSendFields: nil,
+		NullFields:      nil,
+	}).Do()
+	if err != nil {
+		return 0, err
+	}
+
+	// Taken from https://github.com/kubernetes/legacy-cloud-providers/blob/cebac2e3367faa71a39050bf5563fa7406006e76/gce/gce.go#L869
+	backoff := wait.Backoff{
+		// These values will add up to about a minute. See #56293 for background.
+		Duration: time.Second,
+		Factor:   1.4,
+		Steps:    10,
+	}
+
+	checkForResize := func() (bool, error) {
+		newOp, err := s.computeService.ZoneOperations.Get(s.inst.project, s.inst.zone, fmt.Sprintf("%d", op.Id)).Do()
+		if err != nil {
+			return false, err
+		}
+		if newOp.Status == doneStatus {
+			return true, nil
+		}
+		return false, nil
+	}
+	waitWithErr := wait.ExponentialBackoff(backoff, checkForResize)
+	return newSizeInGiB, waitWithErr
 }
 
 func (s *gceOps) Inspect(diskNames []*string) ([]interface{}, error) {
-	allDisks, err := s.getDisksFromAllZones(nil)
-	if err != nil {
-		return nil, err
-	}
-
 	var disks []interface{}
-	for _, id := range diskNames {
-		if d, ok := allDisks[*id]; ok {
-			disks = append(disks, d)
-		} else {
-			return nil, fmt.Errorf("disk %s not found", *id)
+	for _, diskName := range diskNames {
+		disk, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, *diskName).Do()
+		if err != nil {
+			return nil, err
 		}
+		disks = append(disks, disk)
 	}
-
 	return disks, nil
 }
 
