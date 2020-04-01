@@ -14,8 +14,8 @@ const (
 
 func main() {
 	matrixRows := append(
-		getGp2torageDecisionMatrixRows(),
-		getIo1torageDecisionMatrixRows()...,
+		getGp2StorageDecisionMatrixRows(),
+		getIo1StorageDecisionMatrixRows()...,
 	)
 	matrix := cloudops.StorageDecisionMatrix{Rows: matrixRows}
 	if err := parser.NewStorageDecisionMatrixParser().MarshalToYaml(&matrix, awsYamlPath); err != nil {
@@ -27,10 +27,10 @@ func main() {
 
 // getGp2StorageDecisionMatrixRows will programmatically generate rows for gp2 drive type
 // for the storage decision matrix
-func getGp2torageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
+func getGp2StorageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 	rows := []cloudops.StorageDecisionMatrixRow{}
 	// First row has min and max 100 IOPS for 0 - 33Gi
-	row := getCommonRow()
+	row := getCommonRow(0)
 	row.DriveType = storagemanager.DriveTypeGp2
 	row.MinIOPS = 100
 	row.MaxIOPS = 100
@@ -38,7 +38,7 @@ func getGp2torageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 	row.MaxSize = 33
 	rows = append(rows, row)
 	for iops := 100; iops <= 16000; iops = iops + 50 {
-		row := getCommonRow()
+		row := getCommonRow(0)
 		row.DriveType = storagemanager.DriveTypeGp2
 		row.MinIOPS = uint64(iops)
 		row.MaxIOPS = uint64(iops + 50)
@@ -47,7 +47,7 @@ func getGp2torageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 		rows = append(rows, row)
 	}
 	// Last row has min and max 16000 IOPS from 5333Gi - 16TiB
-	row = getCommonRow()
+	row = getCommonRow(0)
 	row.DriveType = storagemanager.DriveTypeGp2
 	row.MinIOPS = 16000
 	row.MaxIOPS = 16000
@@ -66,10 +66,10 @@ func getGp2torageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 // the MaxIOPS is chosen from MinSize
 // According to AWS docs, the provisioned IOPS can go upto 50 times the
 // size of the volume in GiB.
-func getIo1torageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
+func getIo1StorageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 	rows := []cloudops.StorageDecisionMatrixRow{}
 	for startSize := 50; startSize < 6400; startSize = startSize * 2 {
-		row := getCommonRow()
+		row := getCommonRow(1)
 		row.DriveType = storagemanager.DriveTypeIo1
 		row.MinSize = uint64(startSize)
 		row.MaxSize = uint64(startSize * 2)
@@ -89,7 +89,7 @@ func getIo1torageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 		rows = append(rows, row)
 	}
 	// Last row has minSize as 6400 and maxSize as 16TiB
-	row := getCommonRow()
+	row := getCommonRow(1)
 	row.MinIOPS = 32000
 	row.MaxIOPS = 32000
 	row.MinSize = 6400
@@ -99,12 +99,12 @@ func getIo1torageDecisionMatrixRows() []cloudops.StorageDecisionMatrixRow {
 	return rows
 }
 
-func getCommonRow() cloudops.StorageDecisionMatrixRow {
+func getCommonRow(priority int) cloudops.StorageDecisionMatrixRow {
 	return cloudops.StorageDecisionMatrixRow{
 		InstanceType:      "*",
 		InstanceMaxDrives: 8,
 		InstanceMinDrives: 1,
 		Region:            "*",
-		Priority:          0,
+		Priority:          priority,
 	}
 }
