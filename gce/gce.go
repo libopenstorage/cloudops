@@ -210,7 +210,7 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 				s.inst.project, clusterLocation, gkeClusterName, labelValue)
 			nodePool, err := s.containerService.Projects.Locations.Clusters.NodePools.Get(nodePoolPath).Do()
 			if err != nil {
-				logrus.Errorf("failed to get node pool")
+				logrus.Errorf("failed to get node pool at path: %s", nodePoolPath)
 				return nil, err
 			}
 
