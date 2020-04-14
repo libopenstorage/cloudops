@@ -33,11 +33,13 @@ const (
 	envResourceGroupName  = "AZURE_RESOURCE_GROUP_NAME"
 	envManagedClusterName = "AZURE_MANAGED_CLUSTER_NAME"
 	envAgentPoolName      = "AZURE_AGENT_POOL_NAME"
+	envUserAgent          = "AZURE_HTTP_USER_AGENT"
 	metadataAPIEndpoint   = "http://169.254.169.254/metadata/instance"
 	metadataAPIVersion    = "2019-03-11"
 	scaleSetNameKey       = "vmScaleSetName"
 	resourceGroupNameKey  = "resourceGroupName"
 	subscriptionIDKey     = "subscriptionId"
+	userAgentKey          = "useAgent"
 	vmIDKey               = "vmId"
 	computeMetadataKey    = "compute"
 )
@@ -75,8 +77,8 @@ func NewClientFromMetadata() (cloudops.Ops, error) {
 
 	if onAzure, metadata, err := onAzure(); onAzure && err == nil {
 		logrus.Info("Running on Azure IaaS VM")
-		var vmID, scalesetName, subscriptionID, resourceGroupName, managedClusterName, agentPoolName string
-		var scalesetNametemp, vmIDtemp, subscriptionIDtemp interface{}
+		var vmID, scalesetName, subscriptionID, resourceGroupName, managedClusterName, agentPoolName, userAgent string
+		var scalesetNametemp, vmIDtemp, subscriptionIDtemp, userAgenttemp interface{}
 		var exists bool
 
 		if temp, ok := metadata[computeMetadataKey]; ok {
@@ -101,9 +103,13 @@ func NewClientFromMetadata() (cloudops.Ops, error) {
 			if subscriptionIDtemp, exists = computeMetadata[subscriptionIDKey]; exists {
 				subscriptionID = subscriptionIDtemp.(string)
 			}
+
+			if userAgenttemp, exists = computeMetadata[userAgentKey]; exists {
+				userAgent = userAgenttemp.(string)
+			}
 		}
 
-		return NewClientWithPoolName(vmID, scalesetName, subscriptionID, resourceGroupName, managedClusterName, agentPoolName)
+		return NewClientWithPoolName(vmID, scalesetName, subscriptionID, resourceGroupName, managedClusterName, agentPoolName, userAgent)
 	}
 	logrus.Info("Not running on Azure IaaS VM")
 	return NewEnvClient()
@@ -175,22 +181,23 @@ func NewEnvClient() (cloudops.Ops, error) {
 	scaleSetName := os.Getenv(envScaleSetName)
 	managedClusterName := os.Getenv(envManagedClusterName)
 	agentPoolName := os.Getenv(envAgentPoolName)
+	userAgent := os.Getenv(envUserAgent)
 
 	return NewClientWithPoolName(instance, scaleSetName, subscriptionID, resourceGroupName,
-		managedClusterName, agentPoolName)
+		managedClusterName, agentPoolName, userAgent)
 }
 
 // NewClient creates new client from specified parameters.
 func NewClient(
-	instance, scaleSetName, subscriptionID, resourceGroupName string,
+	instance, scaleSetName, subscriptionID, resourceGroupName string, userAgent string,
 ) (cloudops.Ops, error) {
-	return NewClientWithPoolName(instance, scaleSetName, subscriptionID, resourceGroupName, "", "")
+	return NewClientWithPoolName(instance, scaleSetName, subscriptionID, resourceGroupName, "", "", userAgent)
 }
 
 // NewClientWithPoolName creates new client from specified parameters.
 func NewClientWithPoolName(
 	instance, scaleSetName, subscriptionID, resourceGroupName string,
-	managedClusterName, poolName string,
+	managedClusterName, poolName string, userAgent string,
 ) (cloudops.Ops, error) {
 
 	authorizer, err := auth.NewAuthorizerFromEnvironment()
@@ -198,22 +205,25 @@ func NewClientWithPoolName(
 		return nil, err
 	}
 
+	if len(userAgent) == 0 {
+		userAgent = userAgentExtension
+	}
 	disksClient := compute.NewDisksClient(subscriptionID)
 	disksClient.Authorizer = authorizer
 	disksClient.PollingDelay = clientPollingDelay
-	disksClient.AddToUserAgent(userAgentExtension)
+	disksClient.AddToUserAgent(userAgent)
 
 	vmsClient := newVMsClient(scaleSetName, subscriptionID, resourceGroupName, authorizer)
 
 	snapshotsClient := compute.NewSnapshotsClient(subscriptionID)
 	snapshotsClient.Authorizer = authorizer
 	snapshotsClient.PollingDelay = clientPollingDelay
-	snapshotsClient.AddToUserAgent(userAgentExtension)
+	snapshotsClient.AddToUserAgent(userAgent)
 
 	agentPoolsClient := containerservice.NewAgentPoolsClient(subscriptionID)
 	agentPoolsClient.Authorizer = authorizer
 	agentPoolsClient.PollingDelay = clientPollingDelay
-	agentPoolsClient.AddToUserAgent(userAgentExtension)
+	agentPoolsClient.AddToUserAgent(userAgent)
 
 	return backoff.NewExponentialBackoffOps(
 		&azureOps{
