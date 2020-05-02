@@ -670,13 +670,18 @@ func (s *gceOps) Expand(
 }
 
 func (s *gceOps) Inspect(diskNames []*string) ([]interface{}, error) {
+	allDisks, err := s.getDisksFromAllZones(nil)
+	if err != nil {
+		return nil, err
+	}
+
 	var disks []interface{}
-	for _, diskName := range diskNames {
-		disk, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, *diskName).Do()
-		if err != nil {
-			return nil, err
+	for _, id := range diskNames {
+		if d, ok := allDisks[*id]; ok {
+			disks = append(disks, d)
+		} else {
+			return nil, fmt.Errorf("disk %s not found", *id)
 		}
-		disks = append(disks, disk)
 	}
 	return disks, nil
 }
