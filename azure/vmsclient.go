@@ -19,10 +19,11 @@ type vmsClient interface {
 
 func newVMsClient(
 	config Config,
+	baseURI string,
 	authorizer autorest.Authorizer,
 ) vmsClient {
 	if config.ScaleSetName == "" {
-		return newBaseVMsClient(config, authorizer)
+		return newBaseVMsClient(config, baseURI, authorizer)
 	}
-	return newScaleSetVMsClient(config, authorizer)
+	return newScaleSetVMsClient(config, baseURI, authorizer)
 }
