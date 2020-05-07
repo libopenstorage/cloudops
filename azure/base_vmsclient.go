@@ -14,15 +14,15 @@ type baseVMsClient struct {
 }
 
 func newBaseVMsClient(
-	subscriptionID, resourceGroupName string,
+	config Config,
 	authorizer autorest.Authorizer,
 ) vmsClient {
-	vmsClient := compute.NewVirtualMachinesClient(subscriptionID)
+	vmsClient := compute.NewVirtualMachinesClient(config.SubscriptionID)
 	vmsClient.Authorizer = authorizer
 	vmsClient.PollingDelay = clientPollingDelay
-	vmsClient.AddToUserAgent(userAgentExtension)
+	vmsClient.AddToUserAgent(config.UserAgent)
 	return &baseVMsClient{
-		resourceGroupName: resourceGroupName,
+		resourceGroupName: config.ResourceGroupName,
 		client:            &vmsClient,
 	}
 }
