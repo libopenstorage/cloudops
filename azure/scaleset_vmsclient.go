@@ -16,9 +16,10 @@ type scaleSetVMsClient struct {
 
 func newScaleSetVMsClient(
 	config Config,
+	baseURI string,
 	authorizer autorest.Authorizer,
 ) vmsClient {
-	vmsClient := compute.NewVirtualMachineScaleSetVMsClient(config.SubscriptionID)
+	vmsClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(baseURI, config.SubscriptionID)
 	vmsClient.Authorizer = authorizer
 	vmsClient.PollingDelay = clientPollingDelay
 	vmsClient.AddToUserAgent(config.UserAgent)

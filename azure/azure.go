@@ -39,6 +39,7 @@ const (
 	scaleSetNameKey       = "vmScaleSetName"
 	resourceGroupNameKey  = "resourceGroupName"
 	subscriptionIDKey     = "subscriptionId"
+	cloudEnvironmentKey   = "azEnvironment"
 	userAgentKey          = "useAgent"
 	vmIDKey               = "vmId"
 )
@@ -78,6 +79,7 @@ type Config struct {
 	ScaleSetName       string
 	SubscriptionID     string
 	ResourceGroupName  string
+	CloudEnvironment   string
 	ManagedClusterName string
 	AgentPoolName      string
 	UserAgent          string
@@ -112,6 +114,10 @@ func NewClientFromMetadata() (cloudops.Ops, error) {
 
 		if userAgent, exists := computeMetadata[userAgentKey]; exists {
 			config.UserAgent = userAgent.(string)
+		}
+
+		if environment, exists := computeMetadata[cloudEnvironmentKey]; exists {
+			config.CloudEnvironment = environment.(string)
 		}
 
 		return NewClient(config)
@@ -188,6 +194,7 @@ func NewEnvClient() (cloudops.Ops, error) {
 		SubscriptionID:    subscriptionID,
 		ResourceGroupName: resourceGroupName,
 		// For backward compatibility, optional new environment variables
+		CloudEnvironment:   os.Getenv(auth.EnvironmentName),
 		ScaleSetName:       os.Getenv(envScaleSetName),
 		ManagedClusterName: os.Getenv(envManagedClusterName),
 		AgentPoolName:      os.Getenv(envAgentPoolName),
@@ -204,22 +211,28 @@ func NewClient(config Config) (cloudops.Ops, error) {
 		return nil, err
 	}
 
+	baseURI, err := azureBaseURI(config.CloudEnvironment)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(config.UserAgent) == 0 {
 		config.UserAgent = userAgentExtension
 	}
-	disksClient := compute.NewDisksClient(config.SubscriptionID)
+
+	disksClient := compute.NewDisksClientWithBaseURI(baseURI, config.SubscriptionID)
 	disksClient.Authorizer = authorizer
 	disksClient.PollingDelay = clientPollingDelay
 	disksClient.AddToUserAgent(config.UserAgent)
 
-	vmsClient := newVMsClient(config, authorizer)
+	vmsClient := newVMsClient(config, baseURI, authorizer)
 
-	snapshotsClient := compute.NewSnapshotsClient(config.SubscriptionID)
+	snapshotsClient := compute.NewSnapshotsClientWithBaseURI(baseURI, config.SubscriptionID)
 	snapshotsClient.Authorizer = authorizer
 	snapshotsClient.PollingDelay = clientPollingDelay
 	snapshotsClient.AddToUserAgent(config.UserAgent)
 
-	agentPoolsClient := containerservice.NewAgentPoolsClient(config.SubscriptionID)
+	agentPoolsClient := containerservice.NewAgentPoolsClientWithBaseURI(baseURI, config.SubscriptionID)
 	agentPoolsClient.Authorizer = authorizer
 	agentPoolsClient.PollingDelay = clientPollingDelay
 	agentPoolsClient.AddToUserAgent(config.UserAgent)
@@ -1150,4 +1163,20 @@ func isExponentialError(err error) bool {
 		}
 	}
 	return false
+}
+
+func azureBaseURI(cloudEnvName string) (string, error) {
+	if value, ok := os.LookupEnv(auth.EnvironmentName); ok {
+		cloudEnvName = value
+	}
+
+	if cloudEnvName == "" {
+		return azure.PublicCloud.ResourceManagerEndpoint, nil
+	}
+
+	cloudEnv, err := azure.EnvironmentFromName(cloudEnvName)
+	if err != nil {
+		return "", err
+	}
+	return cloudEnv.ResourceManagerEndpoint, nil
 }
