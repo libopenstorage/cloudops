@@ -291,6 +291,3 @@ k8s.io/apimachinery/pkg/version
 k8s.io/client-go/pkg/version
 # k8s.io/klog v1.0.0
 k8s.io/klog
-# k8s.io/kubernetes v1.14.6
-k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib
-k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib/diskmanagers

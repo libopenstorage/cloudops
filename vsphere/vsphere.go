@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-version"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/backoff"
 	"github.com/libopenstorage/cloudops/unsupported"
@@ -17,20 +18,23 @@ import (
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/units"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
+	"github.com/vmware/govmomi/vslm"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
-	diskDirectory  = "osd-provisioned-disks"
-	dummyDiskName  = "kube-dummyDisk.vmdk"
-	diskByIDPath   = "/dev/disk/by-id/"
-	diskSCSIPrefix = "wwn-0x"
 	// DiskAttachMode for attaching vmdk to vms
 	// persistent, independent-persistent, independent-persistent
-	DiskAttachMode = "DiskAttachMode"
+	DiskAttachMode              = "DiskAttachMode"
+	diskDirectory               = "osd-provisioned-disks"
+	dummyDiskName               = "kube-dummyDisk.vmdk"
+	diskByIDPath                = "/dev/disk/by-id/"
+	diskSCSIPrefix              = "wwn-0x"
+	keepAfterDeleteVMApiVersion = "6.7.3"
 )
 
 type vsphereOps struct {
@@ -140,7 +144,6 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 	}
 
 	logrus.Infof("Using datastore: %s for new disk", datastore)
-
 	ds, err := vmObj.Datacenter.GetDatastoreByName(ctx, datastore)
 	if err != nil {
 		logrus.Errorf("Failed to get datastore: %s due to: %v", datastore, err)
@@ -149,35 +152,95 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 
 	volumeOptions.Datastore = datastore
 
-	diskBasePath := filepath.Clean(ds.Path(diskDirectory)) + "/"
-	err = ds.CreateDirectory(ctx, diskBasePath, false)
-	if err != nil && err != vclib.ErrFileAlreadyExist {
-		logrus.Errorf("Cannot create dir %#v. err %s", diskBasePath, err)
-		return nil, err
-	}
+	var (
+		trueVar = true
+		disk    diskmanagers.VirtualDisk
+	)
 
-	diskPath := diskBasePath + volumeOptions.Name + ".vmdk"
-	disk := diskmanagers.VirtualDisk{
-		DiskPath:      diskPath,
-		VolumeOptions: volumeOptions,
-	}
-
-	diskPath, err = disk.Create(ctx, ds)
+	about := vmObj.Client().ServiceContent.About
+	apiVersion, err := version.NewVersion(about.ApiVersion)
 	if err != nil {
-		logrus.Errorf("Failed to create a vsphere volume with volumeOptions: %+v on "+
-			"datastore: %s. err: %+v", volumeOptions, datastore, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to detect vSphere API version due to: %v", err)
 	}
 
-	// Get the canonical path for the volume path.
-	canonicalVolumePath, err := getCanonicalVolumePath(ctx, vmObj.Datacenter, diskPath)
+	keepDiskVersion, err := version.NewVersion(keepAfterDeleteVMApiVersion)
 	if err != nil {
-		logrus.Errorf("Failed to get canonical vsphere disk path for: %s with "+
-			"volumeOptions: %+v on datastore: %s. err: %+v", diskPath, volumeOptions, datastore, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to parse vSphere API version that supports keepAfterDeleteVM due to: %v", err)
 	}
 
-	disk.DiskPath = canonicalVolumePath
+	if apiVersion.GreaterThan(keepDiskVersion) || apiVersion.Equal(keepDiskVersion) {
+		// create disk using the new API so it doesn't get deleted after VM deletion
+		m := vslm.NewObjectManager(vmObj.Client())
+		spec := types.VslmCreateSpec{
+			Name:              volumeOptions.Name,
+			CapacityInMB:      int64(volumeOptions.CapacityKB*1024) / units.MB,
+			KeepAfterDeleteVm: &trueVar,
+			BackingSpec: &types.VslmCreateSpecDiskFileBackingSpec{
+				VslmCreateSpecBackingSpec: types.VslmCreateSpecBackingSpec{
+					Datastore: ds.Reference(),
+				},
+				ProvisioningType: string(types.BaseConfigInfoDiskFileBackingInfoProvisioningTypeThin),
+			},
+		}
+
+		task, err := m.CreateDisk(ctx, spec)
+		if err != nil {
+			return nil, err
+		}
+
+		res, err := task.WaitForResult(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if res == nil {
+			return nil, fmt.Errorf("got empty result while creating vSphere disk")
+		}
+
+		myDisk := res.Result.(types.VStorageObject)
+		logrus.Infof("Created vSphere disk (VMDK) with ID: %s", myDisk.Config.Id.Id)
+
+		fileInfo, ok := myDisk.Config.Backing.(*types.BaseConfigInfoDiskFileBackingInfo)
+		if !ok {
+			return nil, fmt.Errorf("failed to get disk file path: %v", myDisk)
+		}
+		disk = diskmanagers.VirtualDisk{
+			DiskPath:      fileInfo.FilePath,
+			VolumeOptions: volumeOptions,
+		}
+	} else {
+		logrus.Warnf("Detected older vSphere version: %s. If VM gets deleted without detaching disk, disk "+
+			"will get deleted", apiVersion.String())
+		diskBasePath := filepath.Clean(ds.Path(diskDirectory)) + "/"
+		err = ds.CreateDirectory(ctx, diskBasePath, false)
+		if err != nil && err != vclib.ErrFileAlreadyExist {
+			logrus.Errorf("Cannot create dir %#v. err %s", diskBasePath, err)
+			return nil, err
+		}
+
+		diskPath := diskBasePath + volumeOptions.Name + ".vmdk"
+		disk = diskmanagers.VirtualDisk{
+			DiskPath:      diskPath,
+			VolumeOptions: volumeOptions,
+		}
+
+		diskPath, err = disk.Create(ctx, ds)
+		if err != nil {
+			logrus.Errorf("Failed to create a vsphere volume with volumeOptions: %+v on "+
+				"datastore: %s. err: %+v", volumeOptions, datastore, err)
+			return nil, err
+		}
+
+		// Get the canonical path for the volume path.
+		canonicalVolumePath, err := getCanonicalVolumePath(ctx, vmObj.Datacenter, diskPath)
+		if err != nil {
+			logrus.Errorf("Failed to get canonical vsphere disk path for: %s with "+
+				"volumeOptions: %+v on datastore: %s. err: %+v", diskPath, volumeOptions, datastore, err)
+			return nil, err
+		}
+
+		disk.DiskPath = canonicalVolumePath
+	}
 
 	return &VirtualDisk{
 		VirtualDisk:  disk,
