@@ -6,9 +6,9 @@ import (
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/test"
+	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/require"
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
 )
 
 const (

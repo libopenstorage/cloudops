@@ -11,6 +11,8 @@ import (
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/backoff"
 	"github.com/libopenstorage/cloudops/unsupported"
+	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
+	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib/diskmanagers"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
@@ -19,8 +21,6 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib/diskmanagers"
 )
 
 const (

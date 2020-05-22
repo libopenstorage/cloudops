@@ -20,10 +20,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/types"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
 )
 
 // virtualDiskManager implements VirtualDiskProvider Interface for creating and deleting volume using VirtualDiskManager

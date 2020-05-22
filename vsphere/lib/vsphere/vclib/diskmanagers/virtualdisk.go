@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
 )
 
 // VirtualDisk is for the Disk Management
