@@ -305,7 +305,9 @@ func (vm *VirtualMachine) CreateDiskSpec(ctx context.Context, diskPath string, d
 	*disk.UnitNumber = unitNumber
 	backing := disk.Backing.(*types.VirtualDiskFlatVer2BackingInfo)
 	backing.DiskMode = string(types.VirtualDiskModeIndependent_persistent)
-
+	if volumeOptions.DiskType != "" {
+		backing.DiskMode = volumeOptions.DiskType
+	}
 	if volumeOptions.CapacityKB != 0 {
 		disk.CapacityInKB = int64(volumeOptions.CapacityKB)
 	}

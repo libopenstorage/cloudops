@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/libopenstorage/cloudops"
+	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib"
 )
 
 // VSphereConfig represents the vsphere configuration
