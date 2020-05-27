@@ -296,7 +296,7 @@ func (s *gceOps) ApplyTags(
 	return s.waitForOpCompletion("disk.ApplyTags", s.inst.zone, operation)
 }
 
-func (s *gceOps) Attach(diskName string) (string, error) {
+func (s *gceOps) Attach(diskName string, options map[string]string) (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

@@ -268,7 +268,7 @@ func expand(t *testing.T, driver cloudops.Ops, diskName string, sizeCheck SizeCh
 }
 
 func attach(t *testing.T, driver cloudops.Ops, diskName string) {
-	devPath, err := driver.Attach(diskName)
+	devPath, err := driver.Attach(diskName, nil)
 	if err != nil && canErrBeIgnored(err) {
 		// don't check devPath
 	} else {
@@ -289,7 +289,7 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 
 	time.Sleep(3 * time.Second)
 
-	devPath, err = driver.Attach(diskName)
+	devPath, err = driver.Attach(diskName, nil)
 	if err != nil && canErrBeIgnored(err) {
 		// don't check devPath
 	} else {

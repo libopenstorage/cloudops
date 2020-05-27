@@ -183,13 +183,13 @@ func (e *exponentialBackoff) GetDeviceID(template interface{}) (string, error) {
 
 // Attach volumeID.
 // Return attach path.
-func (e *exponentialBackoff) Attach(volumeID string) (string, error) {
+func (e *exponentialBackoff) Attach(volumeID string, options map[string]string) (string, error) {
 	var (
 		devPath string
 		origErr error
 	)
 	conditionFn := func() (bool, error) {
-		devPath, origErr = e.cloudOps.Attach(volumeID)
+		devPath, origErr = e.cloudOps.Attach(volumeID, options)
 		msg := fmt.Sprintf("Failed to attach drive (%v).", volumeID)
 		return e.handleError(origErr, msg)
 	}
