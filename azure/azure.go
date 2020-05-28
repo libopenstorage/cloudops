@@ -442,7 +442,7 @@ func (a *azureOps) GetDeviceID(disk interface{}) (string, error) {
 	)
 }
 
-func (a *azureOps) Attach(diskName string) (string, error) {
+func (a *azureOps) Attach(diskName string, options map[string]string) (string, error) {
 	disk, err := a.checkDiskAttachmentStatus(diskName)
 	if err == nil {
 		// Disk is already attached locally, return device path

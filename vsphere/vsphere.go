@@ -28,6 +28,9 @@ const (
 	dummyDiskName  = "kube-dummyDisk.vmdk"
 	diskByIDPath   = "/dev/disk/by-id/"
 	diskSCSIPrefix = "wwn-0x"
+	// DiskAttachMode for attaching vmdk to vms
+	// persistent, independent-persistent, independent-persistent
+	DiskAttachMode = "DiskAttachMode"
 )
 
 type vsphereOps struct {
@@ -192,7 +195,7 @@ func (ops *vsphereOps) GetDeviceID(vDisk interface{}) (string, error) {
 }
 
 // Attach takes in the path of the vmdk file and returns where it is attached inside the vm instance
-func (ops *vsphereOps) Attach(diskPath string) (string, error) {
+func (ops *vsphereOps) Attach(diskPath string, options map[string]string) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -201,7 +204,12 @@ func (ops *vsphereOps) Attach(diskPath string) (string, error) {
 		return "", err
 	}
 
-	diskUUID, err := vmObj.AttachDisk(ctx, diskPath, &vclib.VolumeOptions{SCSIControllerType: vclib.PVSCSIControllerType})
+	volOpts := &vclib.VolumeOptions{SCSIControllerType: vclib.PVSCSIControllerType}
+	attachMode, ok := options[DiskAttachMode]
+	if ok {
+		volOpts.DiskMode = attachMode
+	}
+	diskUUID, err := vmObj.AttachDisk(ctx, diskPath, volOpts)
 	if err != nil {
 		logrus.Errorf("Failed to attach vsphere disk: %s for VM: %s. err: +%v", diskPath, vmObj.Name(), err)
 		return "", err

@@ -770,7 +770,7 @@ func (s *awsOps) Delete(id string) error {
 	return err
 }
 
-func (s *awsOps) Attach(volumeID string) (string, error) {
+func (s *awsOps) Attach(volumeID string, options map[string]string) (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
