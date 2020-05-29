@@ -12,9 +12,13 @@ import (
 )
 
 const (
-	newDiskSizeInKB    = 2097152 // 2GB
-	newDiskPrefix      = "openstorage-test"
-	newDiskDescription = "Disk created by Openstorage tests"
+	newDiskSizeInKB = 2097152 // 2GB
+	newDiskPrefix   = "openstorage-test"
+)
+
+var (
+	datastoreForTest string
+	driver           cloudops.Ops
 )
 
 var diskName = fmt.Sprintf("%s-%s", newDiskPrefix, uuid.New())
@@ -26,18 +30,14 @@ func initVsphere(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 	cfg.VMUUID, err = cloudops.GetEnvValueStrict("VSPHERE_VM_UUID")
 	require.NoError(t, err, "failed to get vsphere config from env variable VSPHERE_VM_UUID")
 
-	datastoreForTest, err := cloudops.GetEnvValueStrict("VSPHERE_TEST_DATASTORE")
+	datastoreForTest, err = cloudops.GetEnvValueStrict("VSPHERE_TEST_DATASTORE")
 	require.NoError(t, err, "failed to get datastore from env variable VSPHERE_TEST_DATASTORE")
 
-	driver, err := NewClient(cfg)
+	driver, err = NewClient(cfg)
 	require.NoError(t, err, "failed to instantiate storage ops driver")
 
-	tags := map[string]string{
-		"foo": "bar",
-	}
 	diskOptions := &vclib.VolumeOptions{
 		Name:       diskName,
-		Tags:       tags,
 		CapacityKB: newDiskSizeInKB,
 		Datastore:  datastoreForTest,
 	}
