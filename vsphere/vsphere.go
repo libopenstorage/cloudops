@@ -153,8 +153,8 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 	volumeOptions.Datastore = datastore
 
 	var (
-		trueVar = true
-		disk    diskmanagers.VirtualDisk
+		keepAfterDeleteVm = true
+		disk              diskmanagers.VirtualDisk
 	)
 
 	about := vmObj.Client().ServiceContent.About
@@ -174,7 +174,7 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 		spec := types.VslmCreateSpec{
 			Name:              volumeOptions.Name,
 			CapacityInMB:      int64(volumeOptions.CapacityKB*1024) / units.MB,
-			KeepAfterDeleteVm: &trueVar,
+			KeepAfterDeleteVm: &keepAfterDeleteVm,
 			BackingSpec: &types.VslmCreateSpecDiskFileBackingSpec{
 				VslmCreateSpecBackingSpec: types.VslmCreateSpecBackingSpec{
 					Datastore: ds.Reference(),
@@ -193,7 +193,7 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 			return nil, err
 		}
 
-		if res == nil {
+		if res == nil || res.Result == nil {
 			return nil, fmt.Errorf("got empty result while creating vSphere disk")
 		}
 
@@ -209,8 +209,6 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 			VolumeOptions: volumeOptions,
 		}
 	} else {
-		logrus.Warnf("Detected older vSphere version: %s. If VM gets deleted without detaching disk, disk "+
-			"will get deleted", apiVersion.String())
 		diskBasePath := filepath.Clean(ds.Path(diskDirectory)) + "/"
 		err = ds.CreateDirectory(ctx, diskBasePath, false)
 		if err != nil && err != vclib.ErrFileAlreadyExist {
