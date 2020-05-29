@@ -14,6 +14,7 @@ require (
 	github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
 	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/google/uuid v1.1.1 // indirect
+	github.com/hashicorp/go-version v1.1.0
 	github.com/libopenstorage/openstorage v8.0.1-0.20190926212733-daaed777713e+incompatible
 	github.com/libopenstorage/secrets v0.0.0-20190403224602-c282e8dc17bf
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
@@ -23,7 +24,7 @@ require (
 	github.com/prometheus/procfs v0.0.0-20190425082905-87a4384529e0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
-	github.com/vmware/govmomi v0.20.1
+	github.com/vmware/govmomi v0.22.2
 	google.golang.org/api v0.4.0
 	gopkg.in/yaml.v2 v2.2.4
 	k8s.io/apimachinery v0.0.0-20190816221834-a9f1d8a9c101

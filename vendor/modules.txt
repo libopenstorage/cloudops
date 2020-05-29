@@ -93,6 +93,8 @@ github.com/google/uuid
 github.com/grpc-ecosystem/grpc-gateway/internal
 github.com/grpc-ecosystem/grpc-gateway/runtime
 github.com/grpc-ecosystem/grpc-gateway/utilities
+# github.com/hashicorp/go-version v1.1.0
+github.com/hashicorp/go-version
 # github.com/hashicorp/golang-lru v0.5.1
 github.com/hashicorp/golang-lru/simplelru
 # github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
@@ -136,7 +138,7 @@ github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.4.0
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/vmware/govmomi v0.20.1
+# github.com/vmware/govmomi v0.22.2
 github.com/vmware/govmomi/find
 github.com/vmware/govmomi/list
 github.com/vmware/govmomi/lookup
@@ -152,6 +154,7 @@ github.com/vmware/govmomi/session
 github.com/vmware/govmomi/sts
 github.com/vmware/govmomi/sts/internal
 github.com/vmware/govmomi/task
+github.com/vmware/govmomi/units
 github.com/vmware/govmomi/vim25
 github.com/vmware/govmomi/vim25/debug
 github.com/vmware/govmomi/vim25/methods
@@ -160,6 +163,9 @@ github.com/vmware/govmomi/vim25/progress
 github.com/vmware/govmomi/vim25/soap
 github.com/vmware/govmomi/vim25/types
 github.com/vmware/govmomi/vim25/xml
+github.com/vmware/govmomi/vslm
+github.com/vmware/govmomi/vslm/methods
+github.com/vmware/govmomi/vslm/types
 # go.opencensus.io v0.21.0
 go.opencensus.io
 go.opencensus.io/internal
@@ -285,6 +291,3 @@ k8s.io/apimachinery/pkg/version
 k8s.io/client-go/pkg/version
 # k8s.io/klog v1.0.0
 k8s.io/klog
-# k8s.io/kubernetes v1.14.6
-k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib
-k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere/vclib/diskmanagers
