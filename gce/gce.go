@@ -716,6 +716,81 @@ func (s *gceOps) RemoveTags(
 	return err
 }
 
+// SetClusterVersion sets desired version for the cluster
+func (s *gceOps) SetClusterVersion(version string, timeout time.Duration) error {
+	clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+		s.inst.project, s.inst.clusterLocation, s.inst.clusterName)
+
+	updateClusterRequest := &container.UpdateClusterRequest{
+		Name: clusterPath,
+		Update: &container.ClusterUpdate{
+			DesiredMasterVersion: version,
+		},
+	}
+
+	zonalCluster, err := isZonalCluster(s.inst.clusterLocation)
+	if err != nil {
+		return err
+	}
+
+	var operation *container.Operation
+	if zonalCluster {
+		operation, err = s.containerService.Projects.Zones.Clusters.Update(s.inst.project,
+			s.inst.clusterLocation,
+			s.inst.clusterName,
+			updateClusterRequest).Do()
+	} else {
+		operation, err = s.containerService.Projects.Locations.Clusters.Update(
+			clusterPath,
+			updateClusterRequest).Do()
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return s.WaitForOperationCompletion(operation, zonalCluster, timeout)
+}
+
+// SetInstanceGroupVersion sets desired version for the node group
+func (s *gceOps) SetInstanceGroupVersion(instanceGroupID string,
+	version string,
+	timeout time.Duration) error {
+	clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+		s.inst.project, s.inst.clusterLocation, s.inst.clusterName)
+
+	updateClusterRequest := &container.UpdateClusterRequest{
+		Name: clusterPath,
+		Update: &container.ClusterUpdate{
+			DesiredNodeVersion: version,
+			DesiredNodePoolId:  instanceGroupID,
+		},
+	}
+
+	zonalCluster, err := isZonalCluster(s.inst.clusterLocation)
+	if err != nil {
+		return err
+	}
+
+	var operation *container.Operation
+	if zonalCluster {
+		operation, err = s.containerService.Projects.Zones.Clusters.Update(s.inst.project,
+			s.inst.clusterLocation,
+			s.inst.clusterName,
+			updateClusterRequest).Do()
+	} else {
+		operation, err = s.containerService.Projects.Locations.Clusters.Update(
+			clusterPath,
+			updateClusterRequest).Do()
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return s.WaitForOperationCompletion(operation, zonalCluster, timeout)
+}
+
 // SetInstanceGroupSize sets node count for a instance group.
 // Count here is per availability zone
 func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,
@@ -735,7 +810,6 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,
 		return err
 	}
 
-	var cluster *container.Cluster
 	var operation *container.Operation
 	if zonalCluster {
 		operation, err = s.containerService.Projects.Zones.Clusters.NodePools.SetSize(
@@ -756,8 +830,17 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,
 		return err
 	}
 
+	return s.WaitForOperationCompletion(operation, zonalCluster, timeout)
+}
+
+func (s *gceOps) WaitForOperationCompletion(operation *container.Operation,
+	zonalCluster bool,
+	timeout time.Duration) error {
+	var err error
 	operationPath := fmt.Sprintf("projects/%s/locations/%s/operations/%s",
 		s.inst.project, s.inst.clusterLocation, operation.Name)
+	clusterPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s",
+		s.inst.project, s.inst.clusterLocation, s.inst.clusterName)
 
 	if timeout > time.Nanosecond {
 		f := func() (interface{}, bool, error) {
@@ -794,7 +877,7 @@ func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,
 			return err
 		}
 	}
-
+	var cluster *container.Cluster
 	if timeout > time.Nanosecond {
 		f := func() (interface{}, bool, error) {
 

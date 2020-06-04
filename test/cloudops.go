@@ -60,6 +60,7 @@ func RunTest(
 			teardown(t, d, diskID)
 			fmt.Printf("Tore down disk: %v\n", disk)
 		}
+
 	}
 }
 
@@ -86,6 +87,22 @@ func compute(t *testing.T, driver cloudops.Ops) {
 
 	require.NoError(t, err, "failed to inspect instance group")
 	require.NotNil(t, groupInfo, "got nil instance group info from inspect")
+
+	err = driver.SetClusterVersion("1.14.10-gke.37", 10*time.Minute)
+	if err != nil {
+		_, ok := err.(*cloudops.ErrNotSupported)
+		if !ok {
+			t.Errorf("failed to set cluster version. Error:[%v]", err)
+		}
+	}
+
+	err = driver.SetInstanceGroupVersion(groupInfo.Name, "1.14.10-gke.37", 15*time.Minute)
+	if err != nil {
+		_, ok := err.(*cloudops.ErrNotSupported)
+		if !ok {
+			t.Errorf("failed to set instance group version. Error:[%v]", err)
+		}
+	}
 
 	err = driver.SetInstanceGroupSize(groupInfo.Name, clusterNodeCount, 5*time.Minute)
 	if err != nil {

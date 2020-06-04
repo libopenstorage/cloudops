@@ -81,6 +81,12 @@ type Compute interface {
 	// GetClusterSizeForInstance returns current node count in given cluster
 	// This count is total node count across all availability zones
 	GetClusterSizeForInstance(instanceID string) (int64, error)
+	// SetClusterVersion sets desired version for the cluster
+	SetClusterVersion(version string, timeout time.Duration) error
+	// SetInstanceGroupVersion sets desired node group version
+	SetInstanceGroupVersion(instanceGroupID string,
+		version string,
+		timeout time.Duration) error
 }
 
 // Storage interface to manage storage operations.
