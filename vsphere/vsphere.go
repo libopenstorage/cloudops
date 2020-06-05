@@ -268,6 +268,21 @@ func (ops *vsphereOps) Attach(diskPath string, options map[string]string) (strin
 	volOpts := &vclib.VolumeOptions{SCSIControllerType: vclib.PVSCSIControllerType}
 	attachMode, ok := options[DiskAttachMode]
 	if ok {
+		if strings.TrimSpace(attachMode) == string(types.VirtualDiskModePersistent) {
+			about := vmObj.Client().ServiceContent.About
+			apiVersion, err := version.NewVersion(about.ApiVersion)
+			if err != nil {
+				return "", fmt.Errorf("failed to detect vSphere API version due to: %v", err)
+			}
+
+			keepDiskVersion, err := version.NewVersion(keepAfterDeleteVMApiVersion)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse vSphere API version that supports keepAfterDeleteVM due to: %v", err)
+			}
+			if apiVersion.LessThan(keepDiskVersion) {
+				return "", fmt.Errorf("attaching disk as persistent is not supported for version less than %s", keepDiskVersion)
+			}
+		}
 		volOpts.DiskMode = attachMode
 	}
 	diskUUID, err := vmObj.AttachDisk(ctx, diskPath, volOpts)
