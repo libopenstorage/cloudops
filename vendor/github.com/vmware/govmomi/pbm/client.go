@@ -27,6 +27,18 @@ import (
 	vim "github.com/vmware/govmomi/vim25/types"
 )
 
+const (
+	Namespace = "pbm"
+	Path      = "/pbm"
+)
+
+var (
+	ServiceInstance = vim.ManagedObjectReference{
+		Type:  "PbmServiceInstance",
+		Value: "ServiceInstance",
+	}
+)
+
 type Client struct {
 	*soap.Client
 
@@ -34,13 +46,10 @@ type Client struct {
 }
 
 func NewClient(ctx context.Context, c *vim25.Client) (*Client, error) {
-	sc := c.Client.NewServiceClient("/pbm/sdk", "urn:pbm")
+	sc := c.Client.NewServiceClient(Path, Namespace)
 
 	req := types.PbmRetrieveServiceContent{
-		This: vim.ManagedObjectReference{
-			Type:  "PbmServiceInstance",
-			Value: "ServiceInstance",
-		},
+		This: ServiceInstance,
 	}
 
 	res, err := methods.PbmRetrieveServiceContent(ctx, sc, &req)
@@ -214,4 +223,19 @@ func (c *Client) ProfileIDByName(ctx context.Context, profileName string) (strin
 		}
 	}
 	return "", fmt.Errorf("no pbm profile found with name: %q", profileName)
+}
+
+func (c *Client) FetchCapabilityMetadata(ctx context.Context, rtype *types.PbmProfileResourceType, vendorUuid string) ([]types.PbmCapabilityMetadataPerCategory, error) {
+	req := types.PbmFetchCapabilityMetadata{
+		This:         c.ServiceContent.ProfileManager,
+		ResourceType: rtype,
+		VendorUuid:   vendorUuid,
+	}
+
+	res, err := methods.PbmFetchCapabilityMetadata(ctx, c, &req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Returnval, nil
 }
