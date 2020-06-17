@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/vmware/govmomi/find"
@@ -258,9 +257,6 @@ func (dc *Datacenter) GetVMMoList(ctx context.Context, vmObjList []*VirtualMachi
 
 // GetVirtualDiskPage83Data gets the virtual disk UUID by diskPath
 func (dc *Datacenter) GetVirtualDiskPage83Data(ctx context.Context, diskPath string) (string, error) {
-	if len(diskPath) > 0 && filepath.Ext(diskPath) != ".vmdk" {
-		diskPath += ".vmdk"
-	}
 	vdm := object.NewVirtualDiskManager(dc.Client())
 	// Returns uuid of vmdk virtual disk
 	diskUUID, err := vdm.QueryVirtualDiskUuid(ctx, diskPath, dc.Datacenter)
