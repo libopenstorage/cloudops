@@ -19,6 +19,7 @@ package vclib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -407,9 +408,8 @@ func (vm *VirtualMachine) getVirtualDeviceByPath(ctx context.Context, diskPath s
 }
 
 func matchVirtualDiskAndVolPath(diskPath, volPath string) bool {
-	fileExt := ".vmdk"
-	diskPath = strings.TrimSuffix(diskPath, fileExt)
-	volPath = strings.TrimSuffix(volPath, fileExt)
+	diskPath = strings.TrimSuffix(diskPath, filepath.Ext(diskPath))
+	volPath = strings.TrimSuffix(volPath, filepath.Ext(volPath))
 	return diskPath == volPath
 }
 
