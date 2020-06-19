@@ -19,7 +19,6 @@ package object
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -439,12 +438,6 @@ func (l VirtualDeviceList) AssignController(device types.BaseVirtualDevice, c ty
 
 // CreateDisk creates a new VirtualDisk device which can be added to a VM.
 func (l VirtualDeviceList) CreateDisk(c types.BaseVirtualController, ds types.ManagedObjectReference, name string) *types.VirtualDisk {
-	// If name is not specified, one will be chosen for you.
-	// But if when given, make sure it ends in .vmdk, otherwise it will be treated as a directory.
-	if len(name) > 0 && filepath.Ext(name) != ".vmdk" {
-		name += ".vmdk"
-	}
-
 	device := &types.VirtualDisk{
 		VirtualDevice: types.VirtualDevice{
 			Backing: &types.VirtualDiskFlatVer2BackingInfo{
