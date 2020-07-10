@@ -22,6 +22,7 @@ const (
 	PreallocatedDiskType     = "preallocated"
 	EagerZeroedThickDiskType = "eagerZeroedThick"
 	ZeroedThickDiskType      = "zeroedThick"
+	LazyZeroedThickDiskType  = "lazyZeroedThick"
 )
 
 // Controller Constants
