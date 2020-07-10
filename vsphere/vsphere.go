@@ -171,6 +171,20 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 	if apiVersion.GreaterThan(keepDiskVersion) || apiVersion.Equal(keepDiskVersion) {
 		// create disk using the new API so it doesn't get deleted after VM deletion
 		m := vslm.NewObjectManager(vmObj.Client())
+		var provisioningType string
+		switch volumeOptions.DiskFormat {
+		case vclib.LazyZeroedThickDiskType:
+			provisioningType = string(types.BaseConfigInfoDiskFileBackingInfoProvisioningTypeLazyZeroedThick)
+		case vclib.ThinDiskType:
+			provisioningType = string(types.BaseConfigInfoDiskFileBackingInfoProvisioningTypeThin)
+		case vclib.ZeroedThickDiskType:
+			fallthrough
+		case vclib.EagerZeroedThickDiskType:
+			fallthrough
+		default:
+			provisioningType = string(types.BaseConfigInfoDiskFileBackingInfoProvisioningTypeEagerZeroedThick)
+		}
+
 		spec := types.VslmCreateSpec{
 			Name:              volumeOptions.Name,
 			CapacityInMB:      int64(volumeOptions.CapacityKB*1024) / units.MB,
@@ -179,7 +193,7 @@ func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (inter
 				VslmCreateSpecBackingSpec: types.VslmCreateSpecBackingSpec{
 					Datastore: ds.Reference(),
 				},
-				ProvisioningType: string(types.BaseConfigInfoDiskFileBackingInfoProvisioningTypeThin),
+				ProvisioningType: provisioningType,
 			},
 		}
 
