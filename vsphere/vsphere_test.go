@@ -40,6 +40,7 @@ func initVsphere(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 		Name:       diskName,
 		CapacityKB: newDiskSizeInKB,
 		Datastore:  datastoreForTest,
+		DiskFormat: vclib.EagerZeroedThickDiskType,
 	}
 
 	return driver, map[string]interface{}{
