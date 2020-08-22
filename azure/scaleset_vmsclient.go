@@ -64,7 +64,11 @@ func (s *scaleSetVMsClient) updateDataDisks(
 		return err
 	}
 
-	vm.StorageProfile.DataDisks = &dataDisks
+	vm.VirtualMachineScaleSetVMProperties = &compute.VirtualMachineScaleSetVMProperties{
+		StorageProfile: &compute.StorageProfile{
+			DataDisks: &dataDisks,
+		},
+	}
 
 	ctx := context.Background()
 	future, err := s.client.Update(
