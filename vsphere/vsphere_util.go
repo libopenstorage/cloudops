@@ -63,42 +63,42 @@ func ReadVSphereConfigFromEnv() (*VSphereConfig, error) {
 	var cfg VSphereConfig
 	var err error
 
-	cfg.VCenterIP, err = cloudops.GetEnvValueStrict("VSPHERE_VCENTER")
+	cfg.VCenterIP, err = cloudops.GetEnvValueStrict(VCenterEnvKey)
 	if err != nil {
 		return nil, err
 	}
-	cfg.VCenterPort, err = cloudops.GetEnvValueStrict("VSPHERE_VCENTER_PORT")
+	cfg.VCenterPort, err = cloudops.GetEnvValueStrict(VCenterPortEnvKey)
 	if err != nil {
 		return nil, err
 	}
-	cfg.User, err = cloudops.GetEnvValueStrict("VSPHERE_USER")
+	cfg.User, err = cloudops.GetEnvValueStrict(UserEnvKey)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Password, err = cloudops.GetEnvValueStrict("VSPHERE_PASSWORD")
+	cfg.Password, err = cloudops.GetEnvValueStrict(PasswordEnvKey)
 	if err != nil {
 		return nil, err
 	}
 
 	cfg.InsecureFlag = false
-	insecure, err := cloudops.GetEnvValueStrict("VSPHERE_INSECURE")
+	insecure, err := cloudops.GetEnvValueStrict(InsecureEnvKey)
 	if err == nil && strings.ToLower(insecure) == "true" {
 		cfg.InsecureFlag = true
 	}
 
-	cfg.VMUUID, _ = cloudops.GetEnvValueStrict("VSPHERE_VM_UUID")
+	cfg.VMUUID, _ = cloudops.GetEnvValueStrict(VMUUIDEnvKey)
 
 	return &cfg, nil
 }
 
 // IsDevMode checks if requirement env variables are set to run the pkg outside vsphere in dev mode
 func IsDevMode() bool {
-	_, err := cloudops.GetEnvValueStrict("VSPHERE_VM_UUID")
+	_, err := cloudops.GetEnvValueStrict(VMUUIDEnvKey)
 	if err != nil {
 		return false
 	}
 
-	_, err = cloudops.GetEnvValueStrict("VSPHERE_TEST_DATASTORE")
+	_, err = cloudops.GetEnvValueStrict(TestDatastoreEnvKey)
 	return err == nil
 }
 
