@@ -249,9 +249,13 @@ func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 			}
 
 			if nodePool.Autoscaling != nil {
+				// to get actual min and max count, need to multiple total number of zones with the count
+				// for e.g if MinNodeCount = 1 and we have 3 zones, there will be a minimum of 3 nodes, 1 per zone.
+				minCount := nodePool.Autoscaling.MinNodeCount * int64(len(retval.Zones))
+				maxCount := nodePool.Autoscaling.MaxNodeCount * int64(len(retval.Zones))
 				retval.AutoscalingEnabled = nodePool.Autoscaling.Enabled
-				retval.Min = &nodePool.Autoscaling.MinNodeCount
-				retval.Max = &nodePool.Autoscaling.MaxNodeCount
+				retval.Min = &minCount
+				retval.Max = &maxCount
 			}
 
 			if nodePool.Config != nil {
