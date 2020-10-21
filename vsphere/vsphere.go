@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -33,12 +34,17 @@ type vsphereOps struct {
 	cfg  *VSphereConfig
 }
 
-var exponentialBackoff = wait.Backoff{
-	Duration: 2 * time.Second, // the base duration
-	Factor:   1.2,             // Duration is multiplied by factor each iteration
-	Jitter:   1.0,             // The amount of jitter applied each iteration
-	Steps:    12,              // Exit with error after this many steps
-}
+var (
+	exponentialBackoff = wait.Backoff{
+		Duration: 2 * time.Second, // the base duration
+		Factor:   1.2,             // Duration is multiplied by factor each iteration
+		Jitter:   1.0,             // The amount of jitter applied each iteration
+		Steps:    12,              // Exit with error after this many steps
+	}
+
+	vmdkMatcherRegex = regexp.MustCompile("\\[(.+)\\](.+)") // e.g [px-datastore-02] osd-provisioned-disks/PX-DO-NOT-DELETE-122be943-485f-4a66-b665-b592f685a3de.vmdk"
+
+)
 
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
 // reference to the datastore of the disk
@@ -387,13 +393,49 @@ func (ops *vsphereOps) FreeDevices(blockDeviceMappings []interface{}, rootDevice
 	}
 }
 
-func (ops *vsphereOps) Inspect(diskPaths []*string) ([]interface{}, error) {
-	// TODO find a way to map diskPaths to unattached/attached virtual disks and query info
-	// currently returning the disks directly
+func (ops *vsphereOps) Inspect(vmdksWithDS []*string) ([]interface{}, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	return nil, &cloudops.ErrNotSupported{
-		Operation: "Inspect",
+	vmObj, err := ops.renewVM(ctx, ops.vm)
+	if err != nil {
+		return nil, err
 	}
+	f := find.NewFinder(vmObj.Client(), true)
+	f.SetDatacenter(vmObj.Datacenter.Datacenter)
+
+	dsMap := make(map[string]*object.Datastore)
+	disks := []interface{}{}
+	for _, vmdkPathWithDS := range vmdksWithDS {
+		matches := vmdkMatcherRegex.FindStringSubmatch(*vmdkPathWithDS)
+		if len(matches) < 2 {
+			return nil, fmt.Errorf("failed to inspect drive: "+
+				"failed to parse datastore from vmdk path: %s", *vmdkPathWithDS)
+		}
+		dsName := matches[1]
+		vmdkPath := strings.TrimSpace(matches[2])
+
+		ds, exists := dsMap[dsName]
+		var err error
+		if !exists {
+			ds, err = f.Datastore(context.TODO(), dsName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to inspect drive: failed to "+
+					"get datastore %s for vmdk %s: %s", dsName, vmdkPath, err)
+			}
+			dsMap[dsName] = ds
+		}
+		m := object.NewVirtualDiskManager(ds.Client())
+		diskInfos, err := m.QueryVirtualDiskInfo(ctx, *vmdkPathWithDS, vmObj.Datacenter.Datacenter, false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to inspect drive %v: %v", *vmdkPathWithDS, err)
+		}
+		if len(diskInfos) != 1 {
+			return nil, fmt.Errorf("failed to inspect drive %v: found more than %d disks with the same name", *vmdkPathWithDS, len(diskInfos))
+		}
+		disks = append(disks, &diskInfos[0])
+	}
+	return disks, nil
 }
 
 // DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME

@@ -9,6 +9,7 @@ import (
 	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/vmware/govmomi/object"
 )
 
 const (
@@ -48,6 +49,15 @@ func initVsphere(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 	}
 }
 
+func sizeCheck(template interface{}, targetSize uint64) bool {
+	_, ok := template.(*object.VirtualDiskInfo)
+	if !ok {
+		return false
+	}
+	// inspect of vmdks does not return size
+	return true
+}
+
 func TestAll(t *testing.T) {
 	if IsDevMode() {
 		drivers := make(map[string]cloudops.Ops)
@@ -57,7 +67,7 @@ func TestAll(t *testing.T) {
 		drivers[d.Name()] = d
 		diskTemplates[d.Name()] = disks
 
-		test.RunTest(drivers, diskTemplates, nil, t)
+		test.RunTest(drivers, diskTemplates, sizeCheck, t)
 	} else {
 		fmt.Printf("skipping vSphere tests as environment is not set...\n")
 		t.Skip("skipping vSphere tests as environment is not set...")
