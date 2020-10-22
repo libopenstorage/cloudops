@@ -59,7 +59,24 @@ type InstanceGroupInfo struct {
 // InstanceInfo encapsulates info for a cloud instance
 type InstanceInfo struct {
 	CloudResourceInfo
+	// State is the current state of the instance
+	State InstanceState
 }
+
+type InstanceState uint64
+
+const (
+	// InstanceStateUnknown unknown instance state
+	InstanceStateUnknown InstanceState = iota
+	// InstanceStateOnline instance is online
+	InstanceStateOnline
+	// InstanceStateOffline instance is offline
+	InstanceStateOffline
+	// InstanceStateTerminating instance is terminating
+	InstanceStateTerminating
+	// InstanceStateStarting instance is starting
+	InstanceStateStarting
+)
 
 // Compute interface to manage compute instances.
 type Compute interface {
