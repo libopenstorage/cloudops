@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.37.4
 	github.com/Azure/azure-sdk-for-go v26.7.0+incompatible
 	github.com/Azure/go-autorest v11.9.0+incompatible
-	github.com/aws/aws-sdk-go v1.19.20
+	github.com/aws/aws-sdk-go v1.35.9
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/codegangsta/inject v0.0.0-20140425184007-37d7f8432a3e // indirect
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/vmware/govmomi v0.22.2
 	google.golang.org/api v0.4.0
-	gopkg.in/yaml.v2 v2.2.4
+	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/apimachinery v0.0.0-20190816221834-a9f1d8a9c101
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 	k8s.io/klog v1.0.0
