@@ -20,9 +20,9 @@ package vclib
 const (
 	ThinDiskType             = "thin"
 	PreallocatedDiskType     = "preallocated"
-	EagerZeroedThickDiskType = "eagerZeroedThick"
-	ZeroedThickDiskType      = "zeroedThick"
-	LazyZeroedThickDiskType  = "lazyZeroedThick"
+	EagerZeroedThickDiskType = "eagerzeroedthick"
+	ZeroedThickDiskType      = "zeroedthick"
+	LazyZeroedThickDiskType  = "lazyzeroedthick"
 )
 
 // Controller Constants
