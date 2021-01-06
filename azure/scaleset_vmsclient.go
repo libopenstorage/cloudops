@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/go-autorest/autorest"
@@ -48,11 +47,7 @@ func (s *scaleSetVMsClient) getDataDisks(
 		return nil, err
 	}
 
-	if vm.StorageProfile == nil || vm.StorageProfile.DataDisks == nil {
-		return nil, fmt.Errorf("vm storage profile is invalid")
-	}
-
-	return *vm.StorageProfile.DataDisks, nil
+	return retrieveDataDisks(vm), nil
 }
 
 func (s *scaleSetVMsClient) updateDataDisks(
@@ -98,4 +93,15 @@ func (s *scaleSetVMsClient) describeInstance(
 		s.scaleSetName,
 		instanceID,
 	)
+}
+
+func retrieveDataDisks(vm compute.VirtualMachineScaleSetVM) []compute.DataDisk {
+	if vm.VirtualMachineScaleSetVMProperties == nil ||
+		vm.VirtualMachineScaleSetVMProperties.StorageProfile == nil ||
+		vm.VirtualMachineScaleSetVMProperties.StorageProfile.DataDisks == nil ||
+		*vm.VirtualMachineScaleSetVMProperties.StorageProfile.DataDisks == nil {
+		return []compute.DataDisk{}
+	}
+
+	return *vm.StorageProfile.DataDisks
 }
