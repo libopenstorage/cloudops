@@ -24,6 +24,8 @@ const (
 	Vsphere = "vsphere"
 	// GCE provider
 	GCE = "gce"
+	// CSI provider
+	CSI = "csi"
 )
 
 // CloudResourceInfo provides metadata information on a cloud resource.
