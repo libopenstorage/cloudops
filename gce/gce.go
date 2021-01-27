@@ -131,8 +131,35 @@ func (s *gceOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, err
 			Region: s.inst.region,
 			Labels: inst.Labels,
 		},
+		State: mapState(inst.Status),
 	}
 	return instInfo, nil
+}
+
+// https://cloud.google.com/compute/docs/instances/instance-life-cycle
+func mapState(status string) cloudops.InstanceState {
+	switch status {
+	case "PROVISIONING":
+		fallthrough
+	case "STAGING":
+		return cloudops.InstanceStateStarting
+	case "RUNNING":
+		return cloudops.InstanceStateOnline
+	case "SUSPENDING":
+		fallthrough
+	case "STOPPING":
+		fallthrough
+	case "REPAIRING":
+		return cloudops.InstanceStateTerminating
+	case "TERMINATED":
+		fallthrough
+	case "SUSPENDED":
+		fallthrough
+	case "STOPPED":
+		return cloudops.InstanceStateOffline
+	}
+
+	return cloudops.InstanceStateUnknown
 }
 
 func (s *gceOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
