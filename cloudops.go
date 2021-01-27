@@ -63,6 +63,7 @@ type InstanceInfo struct {
 	State InstanceState
 }
 
+// InstanceState is an enum for the current state of a compute instance
 type InstanceState uint64
 
 const (
