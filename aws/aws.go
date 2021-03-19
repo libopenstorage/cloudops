@@ -41,6 +41,7 @@ type awsOps struct {
 	instance     string
 	zone         string
 	region       string
+	outpostARN   string
 	ec2          *ec2.EC2
 	autoscaling  *autoscaling.AutoScaling
 	mutex        sync.Mutex
@@ -54,7 +55,7 @@ var (
 
 // NewClient creates a new cloud operations client for AWS
 func NewClient() (cloudops.Ops, error) {
-	zone, instanceID, instanceType, err := getInfoFromMetadata()
+	zone, instanceID, instanceType, outpostARN, err := getInfoFromMetadata()
 	if err != nil {
 		// try to get it from env
 		zone, instanceID, instanceType, err = getInfoFromEnv()
@@ -100,6 +101,7 @@ func NewClient() (cloudops.Ops, error) {
 			zone:         zone,
 			region:       region,
 			autoscaling:  autoscaling,
+			outpostARN:   outpostARN,
 		},
 		isExponentialError,
 		backoff.DefaultExponentialBackoff,
@@ -711,6 +713,7 @@ func (s *awsOps) Create(
 			"Invalid volume template given", "")
 	}
 
+	outpostARN := s.outpostARN
 	req := &ec2.CreateVolumeInput{
 		AvailabilityZone: vol.AvailabilityZone,
 		Encrypted:        vol.Encrypted,
@@ -718,6 +721,7 @@ func (s *awsOps) Create(
 		Size:             vol.Size,
 		VolumeType:       vol.VolumeType,
 		SnapshotId:       vol.SnapshotId,
+		OutpostArn:       &outpostARN,
 	}
 
 	if len(vol.Tags) > 0 || len(labels) > 0 {
@@ -968,23 +972,31 @@ func (s *awsOps) DevicePath(volumeID string) (string, error) {
 	return devicePath, nil
 }
 
-func getInfoFromMetadata() (string, string, string, error) {
+func getInfoFromMetadata() (string, string, string, string, error) {
 	zone, err := metadata("placement/availability-zone")
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
 	instanceID, err := metadata("instance-id")
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
 	instanceType, err := metadata("instance-type")
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
-	return zone, instanceID, instanceType, nil
+	outpostARN, err := metadata("outpost-arn")
+	if err != nil {
+		// this metadata endpoint isn't guaranteed to be present
+		if !strings.Contains(err.Error(), "Code 404") {
+			return "", "", "", "", err
+		}
+	}
+
+	return zone, instanceID, instanceType, outpostARN, nil
 }
 
 func getInfoFromEnv() (string, string, string, error) {
