@@ -17,7 +17,7 @@ github.com/Azure/go-autorest/autorest/to
 github.com/Azure/go-autorest/autorest/validation
 github.com/Azure/go-autorest/logger
 github.com/Azure/go-autorest/tracing
-# github.com/aws/aws-sdk-go v1.19.20
+# github.com/aws/aws-sdk-go v1.25.46
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -38,6 +38,7 @@ github.com/aws/aws-sdk-go/aws/session
 github.com/aws/aws-sdk-go/aws/signer/v4
 github.com/aws/aws-sdk-go/internal/ini
 github.com/aws/aws-sdk-go/internal/sdkio
+github.com/aws/aws-sdk-go/internal/sdkmath
 github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/internal/sdkuri
 github.com/aws/aws-sdk-go/internal/shareddefaults
@@ -53,6 +54,7 @@ github.com/aws/aws-sdk-go/service/autoscaling
 github.com/aws/aws-sdk-go/service/ec2
 github.com/aws/aws-sdk-go/service/opsworks
 github.com/aws/aws-sdk-go/service/sts
+github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/census-instrumentation/opencensus-proto v0.2.0

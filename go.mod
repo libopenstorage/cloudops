@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.37.4
 	github.com/Azure/azure-sdk-for-go v26.7.0+incompatible
 	github.com/Azure/go-autorest v11.9.0+incompatible
-	github.com/aws/aws-sdk-go v1.19.20
+	github.com/aws/aws-sdk-go v1.25.46
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/codegangsta/inject v0.0.0-20140425184007-37d7f8432a3e // indirect
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
