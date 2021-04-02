@@ -713,7 +713,6 @@ func (s *awsOps) Create(
 			"Invalid volume template given", "")
 	}
 
-	outpostARN := s.outpostARN
 	req := &ec2.CreateVolumeInput{
 		AvailabilityZone: vol.AvailabilityZone,
 		Encrypted:        vol.Encrypted,
@@ -721,7 +720,11 @@ func (s *awsOps) Create(
 		Size:             vol.Size,
 		VolumeType:       vol.VolumeType,
 		SnapshotId:       vol.SnapshotId,
-		OutpostArn:       &outpostARN,
+	}
+
+	if len(s.outpostARN) > 0 {
+		outpostARN := s.outpostARN
+		req.OutpostArn = &outpostARN
 	}
 
 	if len(vol.Tags) > 0 || len(labels) > 0 {
