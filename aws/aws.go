@@ -750,7 +750,8 @@ func (s *awsOps) Create(
 		req.TagSpecifications = []*ec2.TagSpecification{tagSpec}
 	}
 
-	if *vol.VolumeType == opsworks.VolumeTypeIo1 {
+	// note, as of 2021-05-04, `opsworks` does not have `const VolumeTypeGp3 = gp3`  (using RAW format)
+	if *vol.VolumeType == opsworks.VolumeTypeIo1 || *vol.VolumeType == "gp3" {
 		req.Iops = vol.Iops
 	}
 
