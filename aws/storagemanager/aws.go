@@ -14,6 +14,8 @@ type awsStorageManager struct {
 }
 
 const (
+	// DriveTypeGp3 is a constant for gp3 drive types
+	DriveTypeGp3 = "gp3"
 	// DriveTypeGp2 is a constant for gp2 drive types
 	DriveTypeGp2 = "gp2"
 	// DriveTypeIo1 is a constant for io1 drive types
