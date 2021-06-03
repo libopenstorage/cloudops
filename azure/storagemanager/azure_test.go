@@ -115,7 +115,7 @@ func storageDistribution(t *testing.T) {
 					&cloudops.StorageSpec{
 						IOPS:        5000,
 						MinCapacity: 9216,
-						MaxCapacity: 100000,
+						MaxCapacity: 90000,
 					},
 				},
 				InstanceType:     "foo",
@@ -260,7 +260,7 @@ func storageDistribution(t *testing.T) {
 					&cloudops.StorageSpec{
 						IOPS:        5000,
 						MinCapacity: 9216,
-						MaxCapacity: 100000,
+						MaxCapacity: 90000,
 					},
 				},
 				InstanceType:     "foo",
@@ -742,7 +742,7 @@ func storageUpdate(t *testing.T) {
 			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{
 				Reason: "found no candidates for adding a new disk of existing size: 5 GiB. Only drives in following " +
 					"size ranges are supported: [[1024 GiB -> 8192 GiB (Premium_LRS)] [128 GiB -> 256 GiB (Premium_LRS)]" +
-					" [2048 GiB -> 8192 GiB (Premium_LRS)] [256 GiB -> 8192 GiB (Premium_LRS)] [32 GiB -> 64 GiB (Premium_LRS)] [512 GiB -> 8192 GiB (Premium_LRS)] [64 GiB -> 128 GiB (Premium_LRS)] [8192 GiB -> 8192 GiB (Premium_LRS)]]",
+					" [16384 GiB -> 32768 GiB (Premium_LRS)] [2048 GiB -> 8192 GiB (Premium_LRS)] [256 GiB -> 8192 GiB (Premium_LRS)] [32 GiB -> 64 GiB (Premium_LRS)] [32768 GiB -> 32768 GiB (Premium_LRS)] [512 GiB -> 8192 GiB (Premium_LRS)] [64 GiB -> 128 GiB (Premium_LRS)] [8192 GiB -> 16384 GiB (Premium_LRS)]]",
 			},
 		},
 	}
