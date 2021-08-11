@@ -2,8 +2,6 @@ package aws
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -490,7 +489,8 @@ func (s *awsOps) FreeDevices(
 	// in blockDeviceMappings
 	// See bottom of this page:
 	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html?icmpid=docs_ec2_console#instance-block-device-mapping
-	mappingsFromMetadata, err := metadata("block-device-mapping")
+	c := ec2metadata.New(session.New())
+	mappingsFromMetadata, err := c.GetMetadata("block-device-mapping")
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +501,7 @@ func (s *awsOps) FreeDevices(
 			continue
 		}
 
-		devName, err := metadata("block-device-mapping/" + device)
+		devName, err := c.GetMetadata("block-device-mapping/" + device)
 		if err != nil {
 			return nil, err
 		}
@@ -977,25 +977,26 @@ func (s *awsOps) DevicePath(volumeID string) (string, error) {
 }
 
 func getInfoFromMetadata() (string, string, string, string, error) {
-	zone, err := metadata("placement/availability-zone")
+	c := ec2metadata.New(session.New())
+	zone, err := c.GetMetadata("placement/availability-zone")
 	if err != nil {
 		return "", "", "", "", err
 	}
 
-	instanceID, err := metadata("instance-id")
+	instanceID, err := c.GetMetadata("instance-id")
 	if err != nil {
 		return "", "", "", "", err
 	}
 
-	instanceType, err := metadata("instance-type")
+	instanceType, err := c.GetMetadata("instance-type")
 	if err != nil {
 		return "", "", "", "", err
 	}
 
-	outpostARN, err := metadata("outpost-arn")
+	outpostARN, err := c.GetMetadata("outpost-arn")
 	if err != nil {
 		// this metadata endpoint isn't guaranteed to be present
-		if !strings.Contains(err.Error(), "Code 404") {
+		if !strings.Contains(err.Error(), "Code 404") && !strings.Contains(err.Error(), "status code: 404") {
 			return "", "", "", "", err
 		}
 	}
@@ -1024,33 +1025,6 @@ func getInfoFromEnv() (string, string, string, error) {
 	}
 
 	return zone, instance, instanceType, nil
-}
-
-func metadata(key string) (string, error) {
-	return instanceData("meta-data/" + key)
-}
-
-// instanceData retrieves instance data specified by key.
-func instanceData(key string) (string, error) {
-	client := http.Client{Timeout: time.Second * 3}
-	url := "http://169.254.169.254/latest/" + key
-	res, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		err = fmt.Errorf("Code %d returned for url %s", res.StatusCode, url)
-		return "", fmt.Errorf("Error querying AWS metadata for key %s: %v", key, err)
-	}
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return "", fmt.Errorf("Error querying AWS metadata for key %s: %v", key, err)
-	}
-	if len(body) == 0 {
-		return "", fmt.Errorf("Failed to retrieve AWS metadata for key %s: %v", key, err)
-	}
-	return string(body), nil
 }
 
 // DescribeInstanceByID describes the given instance by instance ID
