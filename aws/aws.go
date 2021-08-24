@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ const (
 	awsDevicePrefixWithX = "/dev/xvd"
 	awsDevicePrefixWithH = "/dev/hd"
 	awsDevicePrefixNvme  = "/dev/nvme"
+	contextTimeout       = 30 * time.Second
 )
 
 type awsOps struct {
@@ -54,8 +56,15 @@ var (
 
 // NewClient creates a new cloud operations client for AWS
 func NewClient() (cloudops.Ops, error) {
+	runningOnEc2 := true
 	zone, instanceID, instanceType, outpostARN, err := getInfoFromMetadata()
 	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			logrus.Infof("Code %v", awsErr.Code())
+			}
+	}
+	if err != nil {
+		runningOnEc2 = false
 		// try to get it from env
 		zone, instanceID, instanceType, err = getInfoFromEnv()
 		if err != nil {
@@ -64,7 +73,7 @@ func NewClient() (cloudops.Ops, error) {
 	}
 
 	region := zone[:len(zone)-1]
-	awsCreds, err := awscredentials.NewAWSCredentials("", "", "")
+	awsCreds, err := awscredentials.NewAWSCredentials("", "", "", runningOnEc2)
 	if err != nil {
 		return nil, err
 	}
@@ -478,6 +487,66 @@ func (s *awsOps) getNvmeDeviceFromVolumeID(volumeID string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GetMetadataInstance is the function to be called when trying to get metadata/user data on eks.
+func GetMetadataInstance() (*ec2metadata.EC2Metadata, error) {
+	sess, err := session.NewSession()
+	if err != nil {
+		return nil, err
+	}
+	metadata := ec2metadata.New(sess)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init aws provider. "+
+			"Failed to init from metadata due to: %v", err)
+	}
+	return metadata, nil
+}
+
+// GetMetadataWithTimeoutAndBackoff will get metadata with exponential backoff.
+func GetMetadataWithTimeoutAndBackoff(metadata *ec2metadata.EC2Metadata, path string) (string, error) {
+	out, err := helperWithTimeoutAndBackoff(metadata, path)
+	return out, err
+}
+
+// GetUserDataWithTimeoutAndBackoff will get user data with exponential backoff.
+func GetUserDataWithTimeoutAndBackoff(metadata *ec2metadata.EC2Metadata) (string, error) {
+	return helperWithTimeoutAndBackoff(metadata, "")
+}
+
+// RatelimitingExponentialBackoff will lead to  a backoff of a max of around 2 minutes. TestScale unit tests was used to come up with this empherical number.
+var RatelimitingExponentialBackoff = wait.Backoff{
+	Duration: 2 * time.Second, // the base duration
+	Factor:   2.0,             // Duration is multiplied by factor each iteration
+	Jitter:   1.0,             // The amount of jitter applied each iteration
+	Steps:    5,              // Exit with error after this many steps
+}
+
+func helperWithTimeoutAndBackoff(metadata *ec2metadata.EC2Metadata, p string) (string, error) {
+	var (
+		origErr error
+		result string
+	)
+	conditionFn := func() (bool, error) {
+		ctx, cancelFn := context.WithTimeout(context.Background(), contextTimeout)
+		defer cancelFn()
+		if p != "" {
+			result, origErr = metadata.GetMetadataWithContext(ctx, p)
+		} else {
+			result, origErr = metadata.GetUserDataWithContext(ctx)
+		}
+
+		if origErr != nil && (strings.Contains(origErr.Error(), "Client.Timeout exceeded while awaiting headers") || isExponentialError(origErr)) {
+			logrus.Errorf("Retrying aws metadata ops after backoff")
+			return false, nil
+		}
+		return true, origErr
+	}
+	expErr := wait.ExponentialBackoff(RatelimitingExponentialBackoff, conditionFn)
+	if expErr == wait.ErrWaitTimeout {
+		return "", cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
+		}
+	return result, origErr
+}
+
 func (s *awsOps) FreeDevices(
 	blockDeviceMappings []interface{},
 	rootDeviceName string,
@@ -489,8 +558,11 @@ func (s *awsOps) FreeDevices(
 	// in blockDeviceMappings
 	// See bottom of this page:
 	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html?icmpid=docs_ec2_console#instance-block-device-mapping
-	c := ec2metadata.New(session.New())
-	mappingsFromMetadata, err := c.GetMetadata("block-device-mapping")
+	c, err := GetMetadataInstance()
+	if err != nil {
+		return nil, err
+	}
+	mappingsFromMetadata, err := GetMetadataWithTimeoutAndBackoff(c, "block-device-mapping")
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +573,7 @@ func (s *awsOps) FreeDevices(
 			continue
 		}
 
-		devName, err := c.GetMetadata("block-device-mapping/" + device)
+		devName, err := GetMetadataWithTimeoutAndBackoff(c, "block-device-mapping/" + device)
 		if err != nil {
 			return nil, err
 		}
@@ -977,23 +1049,26 @@ func (s *awsOps) DevicePath(volumeID string) (string, error) {
 }
 
 func getInfoFromMetadata() (string, string, string, string, error) {
-	c := ec2metadata.New(session.New())
-	zone, err := c.GetMetadata("placement/availability-zone")
+	c, err := GetMetadataInstance()
+	if err != nil {
+		return "", "", "", "", err
+	}
+	zone, err := GetMetadataWithTimeoutAndBackoff(c, "placement/availability-zone")
 	if err != nil {
 		return "", "", "", "", err
 	}
 
-	instanceID, err := c.GetMetadata("instance-id")
+	instanceID, err := GetMetadataWithTimeoutAndBackoff(c, "instance-id")
 	if err != nil {
 		return "", "", "", "", err
 	}
 
-	instanceType, err := c.GetMetadata("instance-type")
+	instanceType, err := GetMetadataWithTimeoutAndBackoff(c, "instance-type")
 	if err != nil {
 		return "", "", "", "", err
 	}
 
-	outpostARN, err := c.GetMetadata("outpost-arn")
+	outpostARN, err := GetMetadataWithTimeoutAndBackoff(c, "outpost-arn")
 	if err != nil {
 		// this metadata endpoint isn't guaranteed to be present
 		if !strings.Contains(err.Error(), "Code 404") && !strings.Contains(err.Error(), "status code: 404") {
@@ -1097,6 +1172,7 @@ func isExponentialError(err error) bool {
 		"RequestLimitExceeded":    {},
 		"SnapshotLimitExceeded":   {},
 		"TagLimitExceeded":        {},
+		"EC2MetadataError":        {},
 	}
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
