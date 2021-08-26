@@ -9,7 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.5
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/aws/aws-sdk-go v1.25.46
+	github.com/aws/aws-sdk-go v1.30.3
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/codegangsta/inject v0.0.0-20140425184007-37d7f8432a3e // indirect
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
@@ -25,7 +25,7 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
 	github.com/prometheus/procfs v0.0.0-20190425082905-87a4384529e0 // indirect
 	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/vmware/govmomi v0.22.2
 	google.golang.org/api v0.4.0
 	gopkg.in/yaml.v2 v2.2.4
