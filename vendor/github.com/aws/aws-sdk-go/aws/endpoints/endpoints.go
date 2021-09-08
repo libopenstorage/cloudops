@@ -48,11 +48,41 @@ type Options struct {
 	// This option is ignored if StrictMatching is enabled.
 	ResolveUnknownService bool
 
+	// Specifies the EC2 Instance Metadata Service default endpoint selection mode (IPv4 or IPv6)
+	EC2MetadataEndpointMode EC2IMDSEndpointModeState
+
 	// STS Regional Endpoint flag helps with resolving the STS endpoint
 	STSRegionalEndpoint STSRegionalEndpoint
 
 	// S3 Regional Endpoint flag helps with resolving the S3 endpoint
 	S3UsEast1RegionalEndpoint S3UsEast1RegionalEndpoint
+}
+
+// EC2IMDSEndpointModeState is an enum configuration variable describing the client endpoint mode.
+type EC2IMDSEndpointModeState uint
+
+// Enumeration values for EC2IMDSEndpointModeState
+const (
+	EC2IMDSEndpointModeStateUnset EC2IMDSEndpointModeState = iota
+	EC2IMDSEndpointModeStateIPv4
+	EC2IMDSEndpointModeStateIPv6
+)
+
+// SetFromString sets the EC2IMDSEndpointModeState based on the provided string value. Unknown values will default to EC2IMDSEndpointModeStateUnset
+func (e *EC2IMDSEndpointModeState) SetFromString(v string) error {
+	v = strings.TrimSpace(v)
+
+	switch {
+	case len(v) == 0:
+		*e = EC2IMDSEndpointModeStateUnset
+	case strings.EqualFold(v, "IPv6"):
+		*e = EC2IMDSEndpointModeStateIPv6
+	case strings.EqualFold(v, "IPv4"):
+		*e = EC2IMDSEndpointModeStateIPv4
+	default:
+		return fmt.Errorf("unknown EC2 IMDS endpoint mode, must be either IPv6 or IPv4")
+	}
+	return nil
 }
 
 // STSRegionalEndpoint is an enum for the states of the STS Regional Endpoint
@@ -247,7 +277,7 @@ func RegionsForService(ps []Partition, partitionID, serviceID string) (map[strin
 		if p.ID() != partitionID {
 			continue
 		}
-		if _, ok := p.p.Services[serviceID]; !ok {
+		if _, ok := p.p.Services[serviceID]; !(ok || serviceID == Ec2metadataServiceID) {
 			break
 		}
 
@@ -317,7 +347,7 @@ func (p Partition) EndpointFor(service, region string, opts ...func(*Options)) (
 // Regions returns a map of Regions indexed by their ID. This is useful for
 // enumerating over the regions in a partition.
 func (p Partition) Regions() map[string]Region {
-	rs := map[string]Region{}
+	rs := make(map[string]Region, len(p.p.Regions))
 	for id, r := range p.p.Regions {
 		rs[id] = Region{
 			id:   id,
@@ -332,10 +362,20 @@ func (p Partition) Regions() map[string]Region {
 // Services returns a map of Service indexed by their ID. This is useful for
 // enumerating over the services in a partition.
 func (p Partition) Services() map[string]Service {
-	ss := map[string]Service{}
+	ss := make(map[string]Service, len(p.p.Services))
+
 	for id := range p.p.Services {
 		ss[id] = Service{
 			id: id,
+			p:  p.p,
+		}
+	}
+
+	// Since we have removed the customization that injected this into the model
+	// we still need to pretend that this is a modeled service.
+	if _, ok := ss[Ec2metadataServiceID]; !ok {
+		ss[Ec2metadataServiceID] = Service{
+			id: Ec2metadataServiceID,
 			p:  p.p,
 		}
 	}
@@ -400,7 +440,18 @@ func (s Service) ResolveEndpoint(region string, opts ...func(*Options)) (Resolve
 // an URL that can be resolved to a instance of a service.
 func (s Service) Regions() map[string]Region {
 	rs := map[string]Region{}
-	for id := range s.p.Services[s.id].Endpoints {
+
+	service, ok := s.p.Services[s.id]
+
+	// Since ec2metadata customization has been removed we need to check
+	// if it was defined in non-standard endpoints.json file. If it's not
+	// then we can return the empty map as there is no regional-endpoints for IMDS.
+	// Otherwise, we iterate need to iterate the non-standard model.
+	if s.id == Ec2metadataServiceID && !ok {
+		return rs
+	}
+
+	for id := range service.Endpoints {
 		if r, ok := s.p.Regions[id]; ok {
 			rs[id] = Region{
 				id:   id,
@@ -419,7 +470,7 @@ func (s Service) Regions() map[string]Region {
 // A region is the AWS region the service exists in. Whereas a Endpoint is
 // an URL that can be resolved to a instance of a service.
 func (s Service) Endpoints() map[string]Endpoint {
-	es := map[string]Endpoint{}
+	es := make(map[string]Endpoint, len(s.p.Services[s.id].Endpoints))
 	for id := range s.p.Services[s.id].Endpoints {
 		es[id] = Endpoint{
 			id:        id,
