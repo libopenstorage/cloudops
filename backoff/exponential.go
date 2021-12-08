@@ -377,7 +377,13 @@ func (e *exponentialBackoff) Enumerate(volumeIds []*string,
 	)
 	conditionFn := func() (bool, error) {
 		enumerateResponse, origErr = e.cloudOps.Enumerate(volumeIds, labels, setIdentifier)
-		msg := fmt.Sprintf("Failed to enumerate drives (%v).", volumeIds)
+
+		// PWX-21720: derefernce each volumeId to string format for better error message
+		var volumeIdsStr []string
+		for _, volumeID := range volumeIds {
+			volumeIdsStr = append(volumeIdsStr, *volumeID)
+		}
+		msg := fmt.Sprintf("Failed to enumerate drives (%v).", volumeIdsStr)
 		return e.handleError(origErr, msg)
 	}
 	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
