@@ -378,7 +378,6 @@ func (e *exponentialBackoff) Enumerate(volumeIds []*string,
 	conditionFn := func() (bool, error) {
 		enumerateResponse, origErr = e.cloudOps.Enumerate(volumeIds, labels, setIdentifier)
 
-		// PWX-21720: derefernce each volumeId to string format for better error message
 		var volumeIdsStr []string
 		for _, volumeID := range volumeIds {
 			volumeIdsStr = append(volumeIdsStr, *volumeID)
