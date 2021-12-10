@@ -1,6 +1,7 @@
 package backoff
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -377,12 +378,13 @@ func (e *exponentialBackoff) Enumerate(volumeIds []*string,
 	)
 	conditionFn := func() (bool, error) {
 		enumerateResponse, origErr = e.cloudOps.Enumerate(volumeIds, labels, setIdentifier)
-
-		var volumeIdsStr []string
-		for _, volumeID := range volumeIds {
-			volumeIdsStr = append(volumeIdsStr, *volumeID)
+		volumeIdsStr, err := volumeIdsStringDereference(volumeIds)
+		var msg string
+		if err != nil {
+			msg = err.Error()
+		} else {
+			msg = fmt.Sprintf("Failed to enumerate drives (%v).", volumeIdsStr)
 		}
-		msg := fmt.Sprintf("Failed to enumerate drives (%v).", volumeIdsStr)
 		return e.handleError(origErr, msg)
 	}
 	expErr := wait.ExponentialBackoff(e.backoff, conditionFn)
@@ -390,6 +392,17 @@ func (e *exponentialBackoff) Enumerate(volumeIds []*string,
 		return nil, cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
 	}
 	return enumerateResponse, origErr
+}
+
+func volumeIdsStringDereference(volumeIds []*string) ([]string, error) {
+	var volumeIdsStr []string
+	for _, volumeID := range volumeIds {
+		if volumeID == nil {
+			return nil, errors.New("failed to enumerate driver, volumeIds contains nil pointer")
+		}
+		volumeIdsStr = append(volumeIdsStr, *volumeID)
+	}
+	return volumeIdsStr, nil
 }
 
 // DevicePath for the given volume i.e path where it's attached
