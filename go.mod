@@ -6,29 +6,30 @@ require (
 	github.com/Azure/azure-sdk-for-go v26.7.0+incompatible
 	github.com/Azure/go-autorest v11.9.0+incompatible
 	cloud.google.com/go v0.54.0
+	cloud.google.com/go v0.65.0
 	github.com/aws/aws-sdk-go v1.40.39
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
-	github.com/golang/mock v1.4.3
-	github.com/hashicorp/go-version v1.2.0
-	github.com/libopenstorage/openstorage v8.0.1-0.20190926212733-daaed777713e+incompatible
+	github.com/golang/mock v1.4.4
+	github.com/hashicorp/go-version v1.2.1
+	github.com/libopenstorage/openstorage v8.0.1-0.20210603043922-faf638fed3e5+incompatible
 	github.com/libopenstorage/secrets v0.0.0-20210908194121-a1d19aa9713a
 	github.com/pborman/uuid v1.2.0
-	github.com/portworx/sched-ops v0.0.0-20200831185134-3e8010dc7056
-	github.com/prometheus/client_golang v1.7.1
-	github.com/sirupsen/logrus v1.6.0
-	github.com/stretchr/testify v1.6.1
+	github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d
+	github.com/prometheus/client_golang v1.9.0
+	github.com/sirupsen/logrus v1.8.1
+	github.com/stretchr/testify v1.7.0
 	github.com/vmware/govmomi v0.22.2
 	golang.org/x/net v0.0.0-20210907225631-ff17edfbf26d // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/api v0.20.0
-	gopkg.in/yaml.v2 v2.2.8
+	google.golang.org/api v0.30.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.20.4
-	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
+	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 )
 
 replace (
-	github.com/kubernetes-incubator/external-storage v0.0.0-00010101000000-000000000000 => github.com/libopenstorage/external-storage v5.1.1-0.20190919185747-9394ee8dd536+incompatible
+	github.com/kubernetes-incubator/external-storage => github.com/libopenstorage/external-storage v5.1.1-0.20190919185747-9394ee8dd536+incompatible
 	github.com/prometheus/prometheus v2.9.2+incompatible => github.com/prometheus/prometheus v1.8.2-0.20190424153033-d3245f150225
 	github.com/vmware/govmomi => github.com/libopenstorage/govmomi v0.22.3-0.20200619175019-4b44cc8cf4d1
 	k8s.io/api => k8s.io/api v0.20.4
