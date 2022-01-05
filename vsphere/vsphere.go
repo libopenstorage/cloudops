@@ -3,6 +3,7 @@ package vsphere
 import (
 	"context"
 	"fmt"
+	"github.com/portworx/sched-ops/k8s/core/configmap"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -27,11 +28,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+const (
+	vSphereDataStoreLock = "vsphere-ds-lock"
+)
+
 type vsphereOps struct {
 	cloudops.Compute
-	vm   *vclib.VirtualMachine
-	conn *vclib.VSphereConnection
-	cfg  *VSphereConfig
+	vm     *vclib.VirtualMachine
+	conn   *vclib.VSphereConnection
+	cfg    *VSphereConfig
+	dsLock configmap.ConfigMap
 }
 
 var (
@@ -77,12 +83,19 @@ func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 	logrus.Debugf("  Datacenter: %s", vmObj.Datacenter.Name())
 	logrus.Debugf("  VMUUID: %s", cfg.VMUUID)
 
+	configMap, err := configmap.New(vSphereDataStoreLock, nil, 0, 420, 5*time.Second, 10*time.Second)
+	if err != nil {
+		logrus.Errorf(err.Error())
+		return nil, err
+	}
+
 	return backoff.NewExponentialBackoffOps(
 		&vsphereOps{
 			Compute: unsupported.NewUnsupportedCompute(),
 			cfg:     cfg,
 			vm:      vmObj,
 			conn:    vSphereConn,
+			dsLock:  configMap,
 		},
 		isExponentialError,
 		exponentialBackoff,
@@ -729,7 +742,9 @@ func (ops *vsphereOps) getDatastoreToUseInStoragePod(
 	}
 
 	spec.DeviceChange = deviceChange
+	ops.dsLock.LockWithKey(ops.cfg.VMUUID, storagePod.Name())
 	recommendedDatastore, err := recommendDatastore(ctx, vmObj, storagePod, spec)
+	ops.dsLock.UnlockWithKey(storagePod.Name())
 	if err != nil {
 		return "", err
 	}
@@ -796,6 +811,8 @@ func recommendDatastore(
 		PodSelectionSpec: podSelectionSpec,
 		ConfigSpec:       spec,
 		ResourcePool:     &resourcePoolRef,
+		// lock the recommended resources for us for the next 90 seconds
+		ResourceLeaseDurationSec: 90,
 	}
 
 	srm := object.NewStorageResourceManager(vmObj.Client())
@@ -811,7 +828,27 @@ func recommendDatastore(
 		return nil, fmt.Errorf("no datastores recommendations")
 	}
 
-	ds := recs[0].Action[0].(*types.StoragePlacementAction).Destination
+	var ds types.ManagedObjectReference
+	maxRating := int32(0)
+
+	// recs are the recommendations made by vSphere. There will be multiple datastore recommendations made by vSphere
+	// and it's expected for us to select one manually based on any of the parameters given to us. The below code picks
+	// the best datastore based on two factors:
+	// 1. Rating
+	// 2. Space Utilization after virtual disk placement.
+	for _, r := range recs {
+		if maxRating < r.Rating {
+			maxRating = r.Rating
+			minSpaceUtilization := float32(100)
+			for _, a := range r.Action {
+				action := a.(*types.StoragePlacementAction)
+				if action.SpaceUtilAfter < minSpaceUtilization {
+					minSpaceUtilization = action.SpaceUtilAfter
+					ds = action.Destination
+				}
+			}
+		}
+	}
 
 	var mds mo.Datastore
 	err = property.DefaultCollector(vmObj.Client()).RetrieveOne(ctx, ds, []string{"name"}, &mds)
