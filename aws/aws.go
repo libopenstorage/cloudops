@@ -534,7 +534,7 @@ func helperWithTimeoutAndBackoff(metadata *ec2metadata.EC2Metadata, p string) (s
 			result, origErr = metadata.GetUserDataWithContext(ctx)
 		}
 
-		if origErr != nil && (strings.Contains(origErr.Error(), "Client.Timeout exceeded while awaiting headers") || isExponentialError(origErr)) {
+		if origErr != nil && !isErrorCode404(origErr) && (strings.Contains(origErr.Error(), "Client.Timeout exceeded while awaiting headers") || isExponentialError(origErr)) {
 			logrus.Errorf("Retrying aws metadata ops after backoff")
 			return false, nil
 		}
@@ -1071,12 +1071,16 @@ func getInfoFromMetadata() (string, string, string, string, error) {
 	outpostARN, err := GetMetadataWithTimeoutAndBackoff(c, "outpost-arn")
 	if err != nil {
 		// this metadata endpoint isn't guaranteed to be present
-		if !strings.Contains(err.Error(), "Code 404") && !strings.Contains(err.Error(), "status code: 404") {
+		if !isErrorCode404(err) {
 			return "", "", "", "", err
 		}
 	}
 
 	return zone, instanceID, instanceType, outpostARN, nil
+}
+
+func isErrorCode404(err error) bool {
+	return strings.Contains(err.Error(), "Code 404") || strings.Contains(err.Error(), "status code: 404")
 }
 
 func getInfoFromEnv() (string, string, string, error) {
