@@ -720,6 +720,7 @@ func (s *awsOps) Create(
 		Size:             vol.Size,
 		VolumeType:       vol.VolumeType,
 		SnapshotId:       vol.SnapshotId,
+		Throughput:       vol.Throughput,
 	}
 
 	if len(s.outpostARN) > 0 {
