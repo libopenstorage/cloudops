@@ -829,23 +829,33 @@ func recommendDatastore(
 	}
 
 	var ds types.ManagedObjectReference
-	maxRating := int32(0)
-
-	// recs are the recommendations made by vSphere. There will be multiple datastore recommendations made by vSphere
-	// and it's expected for us to select one manually based on any of the parameters given to us. The below code picks
-	// the best datastore based on two factors:
-	// 1. Rating
-	// 2. Space Utilization after virtual disk placement.
-	for _, r := range recs {
-		if maxRating < r.Rating {
-			maxRating = r.Rating
-			minSpaceUtilization := float32(100)
-			for _, a := range r.Action {
-				action := a.(*types.StoragePlacementAction)
-				if action.SpaceUtilAfter < minSpaceUtilization {
-					minSpaceUtilization = action.SpaceUtilAfter
-					ds = action.Destination
-				}
+	/*
+	recs are the recommendations made by vSphere. There will be multiple datastore recommendations made by vSphere
+	and it's expected for us to select one manually based on any of the parameters given to us. The below code picks
+	the best datastore based on two factors:
+	1. Rating: Valid values range from 1 (lowest confidence) to 5 (highest confidence).
+	2. Space Utilization after virtual disk placement: It's percentage value
+	If there is a higher rating recommendation with the best space utilization, we'll select that.
+	Many recommendations will be made with the same rating. In those cases we'll pick the one with lease space util.
+	What is interesting will be when a lower recommendation has very less space util than a higher rating one. In order
+	to consider those cases, let's assign a 9% value for each rating and decide which one to pick. Let's consider some examples:
+	1. Rating 5, Util 41.00 vs Rating 4, Util 30.0000 -> We'll pick the second one since it's atleast 10% less utilized
+	2. Rating 5, Util 50.000 vs Rating 3, Util 20.000 -> We'll pick the second one again for the same reason
+	*/
+	minSpaceUtilization := float32(200)
+	const (
+		maxRating = int32(5)
+		normalizationPercent = float32(9)
+	)
+	for i, r := range recs {
+		logrus.Infof("vsphere datastore recommendation #%v: %v", i, r)
+		for _, a := range r.Action {
+			action := a.(*types.StoragePlacementAction)
+			logrus.Infof("vsphere recommendation action %v", action)
+			normalizedUtilization := (float32(maxRating - r.Rating) * normalizationPercent) + action.SpaceUtilAfter
+			if normalizedUtilization < minSpaceUtilization {
+				 minSpaceUtilization = normalizedUtilization
+				 ds = action.Destination
 			}
 		}
 	}
