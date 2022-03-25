@@ -67,7 +67,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1267,
-						DriveType:        DriveTypeStandard,
+						DriveType:        GCEDriveTypeStandard,
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             951,
@@ -88,7 +88,7 @@ func storageDistribution(t *testing.T) {
 						MaxCapacity: 100000,
 					},
 				},
-				InstanceType:     DriveTypeStandard,
+				InstanceType:     GCEDriveTypeStandard,
 				InstancesPerZone: 3,
 				ZoneCount:        3,
 			},
@@ -96,7 +96,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
-						DriveType:        DriveTypeStandard,
+						DriveType:        GCEDriveTypeStandard,
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             450,
@@ -124,7 +124,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 3800,
-						DriveType:        DriveTypeStandard,
+						DriveType:        GCEDriveTypeStandard,
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             2850,
@@ -152,7 +152,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 7534,
-						DriveType:        DriveTypeStandard,
+						DriveType:        GCEDriveTypeStandard,
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             5651,
@@ -180,7 +180,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1000,
-						DriveType:        DriveTypeStandard,
+						DriveType:        GCEDriveTypeStandard,
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             750,
@@ -207,7 +207,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 9934,
-						DriveType:        DriveTypeStandard,
+						DriveType:        GCEDriveTypeStandard,
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             7451,
@@ -225,7 +225,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        7500,
 						MinCapacity: 1000,
 						MaxCapacity: 2000,
-						DriveType:   genDriveType(DriveTypeSSD),
+						DriveType:   genDriveType(GCEDriveTypeSSD),
 					},
 				},
 				InstanceType:     "foo",
@@ -236,7 +236,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 249,
-						DriveType:        genDriveType(DriveTypeSSD),
+						DriveType:        genDriveType(GCEDriveTypeSSD),
 						InstancesPerZone: 2,
 						DriveCount:       1,
 						IOPS:             7470,
@@ -254,7 +254,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        500,
 						MinCapacity: 1000,
 						MaxCapacity: 100000,
-						DriveType:   genDriveType(DriveTypeStandard),
+						DriveType:   genDriveType(GCEDriveTypeStandard),
 					},
 					&cloudops.StorageSpec{
 						IOPS:        5000,
@@ -270,14 +270,14 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             450,
 					},
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 6600,
-						DriveType:        DriveTypeStandard, // no drive type in this request, so response contains pd-standard only, url will be generated later in porx
+						DriveType:        GCEDriveTypeStandard, // no drive type in this request, so response contains pd-standard only, url will be generated later in porx
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             4950,
@@ -315,6 +315,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        300,
 						MinCapacity: 150,
 						MaxCapacity: 300,
+						DriveType:   GCEDriveTypeSSD,
 					},
 				},
 				InstanceType:     "foo",
@@ -325,7 +326,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 10,
-						DriveType:        DriveTypeSSD,
+						DriveType:        GCEDriveTypeSSD,
 						InstancesPerZone: 1,
 						DriveCount:       5,
 						IOPS:             300,
@@ -342,7 +343,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        2500,
 						MinCapacity: 150,
 						MaxCapacity: 300,
-						DriveType:   genDriveType(DriveTypeSSD),
+						DriveType:   genDriveType(GCEDriveTypeSSD),
 					},
 				},
 				InstanceType:     "foo",
@@ -353,7 +354,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 82,
-						DriveType:        genDriveType(DriveTypeSSD),
+						DriveType:        genDriveType(GCEDriveTypeSSD),
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             2460,
@@ -393,7 +394,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1536,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentIOPS:         192,
 				CurrentDriveCount:   3,
 			},
@@ -402,7 +403,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 512,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       3,
 						IOPS:             384,
 					},
@@ -418,7 +419,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     800,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    350,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -427,7 +428,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 400,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       2,
 						IOPS:             300,
 					},
@@ -443,7 +444,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1200,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    300,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -452,7 +453,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 400,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       3,
 						IOPS:             300,
 					},
@@ -468,7 +469,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     4096,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -477,7 +478,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       2,
 						IOPS:             768,
 					},
@@ -493,7 +494,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     3072,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -502,7 +503,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       1,
 						IOPS:             768,
 					},
@@ -518,7 +519,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     2000,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    600,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -527,7 +528,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       1,
 						IOPS:             450,
 					},
@@ -549,7 +550,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 700,
-						DriveType:        DriveTypeStandard, // don't return a drive type as url, AddDrive function will manage this later
+						DriveType:        GCEDriveTypeStandard, // don't return a drive type as url, AddDrive function will manage this later
 						DriveCount:       1,
 						IOPS:             525,
 					},
@@ -565,7 +566,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     280,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -574,7 +575,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 280,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       1,
 						IOPS:             210,
 					},
@@ -590,7 +591,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     400,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -599,7 +600,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       1,
 						IOPS:             150,
 					},
@@ -615,7 +616,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     401,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -624,7 +625,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        genDriveType(DriveTypeStandard),
+						DriveType:        genDriveType(GCEDriveTypeStandard),
 						DriveCount:       1,
 						IOPS:             150,
 					},
@@ -640,7 +641,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     401,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    genDriveType(DriveTypeStandard),
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -649,6 +650,155 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage:     nil,
 			},
 			expectedErr: &cloudops.ErrCurrentCapacityHigherThanDesired{Current: 600, Desired: 401},
+		},
+		{
+			// ***** TEST: instance is already at higher capacity than requested
+			//        Instance has 3 x 200 GiB
+			//        Update from 600 GiB to 401 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     401,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    200,
+				CurrentDriveType:    genDriveType(GCEDriveTypeBalanced),
+				CurrentDriveCount:   3,
+				TotalDrivesOnNode:   3,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage:     nil,
+			},
+			expectedErr: &cloudops.ErrCurrentCapacityHigherThanDesired{Current: 600, Desired: 401},
+		},
+		{
+			// ***** TEST:
+			//		  Instances has 2 x 1024 GiB
+			//        Update from 2048 GiB to 4096 GiB by adding disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				CurrentDriveSize:    1024,
+				DesiredCapacity:     4096,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveType:    genDriveType(GCEDriveTypeBalanced),
+				CurrentDriveCount:   2,
+				TotalDrivesOnNode:   2,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 1024,
+						DriveType:        genDriveType(GCEDriveTypeBalanced),
+						DriveCount:       2,
+						IOPS:             6144,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST:
+			request: &cloudops.StoragePoolUpdateRequest{
+				CurrentDriveSize:    1024,
+				DesiredCapacity:     64000,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveType:    genDriveType(GCEDriveTypeBalanced),
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   1,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 64000,
+						DriveType:        genDriveType(GCEDriveTypeBalanced),
+						DriveCount:       1,
+						IOPS:             GCEBalancedMaxIopsMost,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST:
+			request: &cloudops.StoragePoolUpdateRequest{
+				CurrentDriveSize:    64 * 1000,
+				DesiredCapacity:     3 * 64 * 1000,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveType:    genDriveType(GCEDriveTypeBalanced),
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   1,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 64 * 1000,
+						DriveType:        genDriveType(GCEDriveTypeBalanced),
+						DriveCount:       2,
+						IOPS:             GCEBalancedMaxIopsMost,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST:
+			request: &cloudops.StoragePoolUpdateRequest{
+				CurrentDriveSize:    64 * 1000,
+				DesiredCapacity:     3 * 64 * 1000,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveType:    genDriveType(GCEDriveTypeStandard),
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   1,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 64 * 1000,
+						DriveType:        genDriveType(GCEDriveTypeStandard),
+						DriveCount:       2,
+						IOPS:             GCEStandardMaxIops,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST:
+			request: &cloudops.StoragePoolUpdateRequest{
+				CurrentDriveSize:    64 * 1000,
+				DesiredCapacity:     3 * 64 * 1000,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveType:    genDriveType(GCEDriveTypeSSD),
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   1,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					&cloudops.StoragePoolSpec{
+						DriveCapacityGiB: 64 * 1000,
+						DriveType:        genDriveType(GCEDriveTypeSSD),
+						DriveCount:       2,
+						IOPS:             GCESSDMaxIopsMost,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST:
+			request: &cloudops.StoragePoolUpdateRequest{
+				CurrentDriveSize:    64 * 1000,
+				DesiredCapacity:     3 * 64 * 1000,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
+				CurrentDriveType:    genDriveType(GCEDriveTypeBalanced),
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   1,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+			},
+			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{Reason:""},
 		},
 	}
 
