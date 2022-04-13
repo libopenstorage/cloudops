@@ -2,6 +2,7 @@ package storagemanager
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"math"
 	"strings"
 
@@ -16,16 +17,33 @@ type gceStorageManager struct {
 }
 
 const (
-	// DriveTypeStandard is a constant for standard drive types
-	DriveTypeStandard = "pd-standard"
-	// DriveTypeSSD is a constant for ssd drive types
-	DriveTypeSSD = "pd-ssd"
-	// StandardIopsMultiplier is the amount with which a given pd-standard GiB size is multiplied
+	// GCEDriveTypeStandard is a constant for standard drive types
+	GCEDriveTypeStandard = "pd-standard"
+	// GCEDriveTypeBalanced is a constant for pd-balanced drive types in GCE
+	GCEDriveTypeBalanced = "pd-balanced"
+	// GCEDriveTypeSSD is a constant for ssd drive types
+	GCEDriveTypeSSD = "pd-ssd"
+	// GCEStandardIopsMultiplier is the amount with which a given pd-standard GiB size is multiplied
 	// in order to get that drive's baseline IOPS performance
-	StandardIopsMultiplier = 0.75
-	// SSDIopsMultiplier is the amount with which a given ssd GiB size is multiplied
+	GCEStandardIopsMultiplier = 0.75
+	// GCEBalancedIopsMultiplier is the amount by which a given balanced disk's
+	// size is multiplied to get it's maximum IOPS performance.
+	GCEBalancedIopsMultiplier = 6
+	// GCESSDIopsMultiplier is the amount with which a given ssd GiB size is multiplied
 	// in order to get that drive's baseline IOPS performance
-	SSDIopsMultiplier = 30
+	GCESSDIopsMultiplier = 30
+	// GCEStandardMaxIops is the minimum of all the maximum iops that can be achieved with disk type px-standard.
+	// https://cloud.google.com/compute/docs/disks#:~:text=Standard%20persistent%20disks%20(%20pd%2Dstandard,that%20balance%20performance%20and%20cost.
+	GCEStandardMaxIops uint64 = 7500
+	// GCEBalancedMaxIopsLeast is the minimum of all the maximum iops that can be achieved with disk type px-balanced.
+	GCEBalancedMaxIopsLeast uint64 = 15000
+	// GCEBalancedMaxIopsMost is the most of all the maximum iops that can be achieved with disk type px-balanced.
+	GCEBalancedMaxIopsMost uint64 = 80000
+	// GCESSDMaxIopsLeast is the minimum of all the maximum iops that can be achieved with disk type px-ssd.
+	GCESSDMaxIopsLeast uint64 = 15000
+	// GCESSDMaxIopsMost is the most of all the maximum iops that can be achieved with disk type px-ssd.
+	GCESSDMaxIopsMost uint64 = 100000
+
 )
 
 // NewStorageManager returns a GCE specific implementation of StorageManager interface.
@@ -108,13 +126,28 @@ func (g *gceStorageManager) RecommendStoragePoolUpdate(request *cloudops.Storage
 }
 
 func determineIOPSForPool(instStorage *cloudops.StoragePoolSpec, row *cloudops.StorageDecisionMatrixRow) uint64 {
-	if instStorage.DriveType == DriveTypeStandard {
-		return uint64(math.Ceil(float64(instStorage.DriveCapacityGiB) * StandardIopsMultiplier))
-	} else if instStorage.DriveType == DriveTypeSSD {
-		return uint64(math.Ceil(float64(instStorage.DriveCapacityGiB) * SSDIopsMultiplier))
+	iops := uint64(0)
+	maxIops := uint64(0)
+	if instStorage.DriveType == GCEDriveTypeStandard {
+		iops = uint64(math.Ceil(float64(instStorage.DriveCapacityGiB) * GCEStandardIopsMultiplier))
+		maxIops = GCEStandardMaxIops
+	} else if instStorage.DriveType == GCEDriveTypeSSD {
+		iops = uint64(math.Ceil(float64(instStorage.DriveCapacityGiB) * GCESSDIopsMultiplier))
+		maxIops = GCESSDMaxIopsMost
+	} else if instStorage.DriveType == GCEDriveTypeBalanced {
+		iops = uint64(math.Ceil(float64(instStorage.DriveCapacityGiB) * GCEBalancedIopsMultiplier))
+		maxIops = GCEBalancedMaxIopsMost
 	}
-	return row.MinIOPS
+	if iops == 0 {
+		log.Errorf("Unknown disk type %v", instStorage.DriveType)
+		return row.MinIOPS
+	}
+	if iops < maxIops {
+		return iops
+	}
+	return maxIops
 }
+
 func init() {
 	cloudops.RegisterStorageManager(cloudops.GCE, NewStorageManager)
 }
