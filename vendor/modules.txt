@@ -25,6 +25,19 @@ github.com/Azure/go-autorest/autorest/validation
 github.com/Azure/go-autorest/logger
 # github.com/Azure/go-autorest/tracing v0.6.0
 github.com/Azure/go-autorest/tracing
+# github.com/IBM-Cloud/bluemix-go v0.0.0-20220329045155-d2a8118ac5c7
+github.com/IBM-Cloud/bluemix-go
+github.com/IBM-Cloud/bluemix-go/api/container/containerv1
+github.com/IBM-Cloud/bluemix-go/api/container/containerv2
+github.com/IBM-Cloud/bluemix-go/authentication
+github.com/IBM-Cloud/bluemix-go/bmxerror
+github.com/IBM-Cloud/bluemix-go/client
+github.com/IBM-Cloud/bluemix-go/endpoints
+github.com/IBM-Cloud/bluemix-go/helpers
+github.com/IBM-Cloud/bluemix-go/http
+github.com/IBM-Cloud/bluemix-go/rest
+github.com/IBM-Cloud/bluemix-go/session
+github.com/IBM-Cloud/bluemix-go/trace
 # github.com/aws/aws-sdk-go v1.40.39
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
@@ -91,6 +104,8 @@ github.com/docker/spdystream
 github.com/docker/spdystream/spdy
 # github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 github.com/form3tech-oss/jwt-go
+# github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
+github.com/ghodss/yaml
 # github.com/go-logr/logr v0.3.0
 github.com/go-logr/logr
 # github.com/gogo/protobuf v1.3.2
@@ -100,7 +115,7 @@ github.com/gogo/protobuf/sortkeys
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.4.4
 github.com/golang/mock/gomock
-# github.com/golang/protobuf v1.4.3
+# github.com/golang/protobuf v1.5.2
 github.com/golang/protobuf/descriptor
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
@@ -239,7 +254,7 @@ golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20210907225631-ff17edfbf26d
+# golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/http/httpguts
@@ -248,18 +263,19 @@ golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
+golang.org/x/net/websocket
 # golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
 golang.org/x/oauth2
 golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sys v0.0.0-20210423082822-04245dca01da
+# golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+# golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 golang.org/x/term
 # golang.org/x/text v0.3.7
 golang.org/x/text/secure/bidirule
@@ -342,7 +358,7 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.25.0
+# google.golang.org/protobuf v1.26.0
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -355,13 +371,12 @@ google.golang.org/protobuf/internal/encoding/messageset
 google.golang.org/protobuf/internal/encoding/tag
 google.golang.org/protobuf/internal/encoding/text
 google.golang.org/protobuf/internal/errors
-google.golang.org/protobuf/internal/fieldsort
 google.golang.org/protobuf/internal/filedesc
 google.golang.org/protobuf/internal/filetype
 google.golang.org/protobuf/internal/flags
 google.golang.org/protobuf/internal/genid
 google.golang.org/protobuf/internal/impl
-google.golang.org/protobuf/internal/mapsort
+google.golang.org/protobuf/internal/order
 google.golang.org/protobuf/internal/pragma
 google.golang.org/protobuf/internal/set
 google.golang.org/protobuf/internal/strs
