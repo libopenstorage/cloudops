@@ -48,8 +48,8 @@ func TestAll(t *testing.T) {
 		diskTemplates[d.Name()] = disks
 		test.RunTest(drivers, diskTemplates, sizeCheck, t)
 	} else {
-		fmt.Printf("skipping GCE tests as environment is not set...\n")
-		t.Skip("skipping GCE tests as environment is not set...")
+		fmt.Printf("skipping IBMM tests as environment is not set...\n")
+		t.Skip("skipping IBM tests as environment is not set...")
 	}
 }
 
