@@ -39,14 +39,18 @@ func initIBM(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 }
 
 func TestAll(t *testing.T) {
-	fmt.Println("Inside TestALL")
-	drivers := make(map[string]cloudops.Ops)
-	diskTemplates := make(map[string]map[string]interface{})
+	if ibm.IsDevMode() {
+		drivers := make(map[string]cloudops.Ops)
+		diskTemplates := make(map[string]map[string]interface{})
 
-	d, disks := initIBM(t)
-	drivers[d.Name()] = d
-	diskTemplates[d.Name()] = disks
-	test.RunTest(drivers, diskTemplates, sizeCheck, t)
+		d, disks := initIBM(t)
+		drivers[d.Name()] = d
+		diskTemplates[d.Name()] = disks
+		test.RunTest(drivers, diskTemplates, sizeCheck, t)
+	} else {
+		fmt.Printf("skipping GCE tests as environment is not set...\n")
+		t.Skip("skipping GCE tests as environment is not set...")
+	}
 }
 
 func sizeCheck(template interface{}, targetSize uint64) bool {
