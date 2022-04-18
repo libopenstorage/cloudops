@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	LABEL_WORKER_POOLNAME = "ibm-cloud.kubernetes.io/worker-pool-name"
-	LABEL_WORKER_POOLID   = "ibm-cloud.kubernetes.io/worker-pool-id"
-	VPC_PROVIDER_NAME     = "vpc-gen2"
+	labelWorkerPoolName = "ibm-cloud.kubernetes.io/worker-pool-name"
+	labelWorkerPoolID   = "ibm-cloud.kubernetes.io/worker-pool-id"
+	vpcProviderName     = "vpc-gen2"
 )
 
 type ibmOps struct {
@@ -90,7 +90,7 @@ func isExponentialError(err error) bool {
 func (i *ibmOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
 	target := v2.ClusterTargetHeader{
 		ResourceGroup: i.inst.resourceGroup,
-		Provider:      VPC_PROVIDER_NAME,
+		Provider:      vpcProviderName,
 	}
 	workerDetails, err := i.ibmClusterClient.Workers().Get(i.inst.clusterName, instanceID, target)
 	if err != nil {
@@ -101,8 +101,8 @@ func (i *ibmOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, err
 		CloudResourceInfo: cloudops.CloudResourceInfo{
 			Name: workerDetails.ID,
 			Labels: map[string]string{
-				LABEL_WORKER_POOLNAME: workerDetails.PoolName,
-				LABEL_WORKER_POOLID:   workerDetails.PoolID,
+				labelWorkerPoolName: workerDetails.PoolName,
+				labelWorkerPoolID:   workerDetails.PoolID,
 			},
 			Zone:   workerDetails.Location,
 			Region: workerDetails.Location,
@@ -117,10 +117,10 @@ func (i *ibmOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 		return nil, err
 	}
 	var instGroupInfo *cloudops.InstanceGroupInfo
-	if workerPoolID, ok := instanceInfo.Labels[LABEL_WORKER_POOLID]; ok {
+	if workerPoolID, ok := instanceInfo.Labels[labelWorkerPoolID]; ok {
 		target := v2.ClusterTargetHeader{
 			ResourceGroup: i.inst.resourceGroup,
-			Provider:      VPC_PROVIDER_NAME,
+			Provider:      vpcProviderName,
 		}
 		workerPoolDetails, err := i.ibmClusterClient.WorkerPools().GetWorkerPool(i.inst.clusterName, workerPoolID, target)
 		if err != nil {
@@ -143,7 +143,7 @@ func (i *ibmOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 
 		return instGroupInfo, nil
 	}
-	return instGroupInfo, fmt.Errorf("no [%s] label found for instance [%s]", LABEL_WORKER_POOLID, instanceID)
+	return instGroupInfo, fmt.Errorf("no [%s] label found for instance [%s]", labelWorkerPoolID, instanceID)
 }
 func getInfoFromEnv() (string, string, string, error) {
 	instanceName, err := cloudops.GetEnvValueStrict("IBM_INSTANCE_NAME")
@@ -175,7 +175,7 @@ func (i *ibmOps) SetInstanceGroupSize(instanceGroupID string,
 	}
 	target := v2.ClusterTargetHeader{
 		ResourceGroup: i.inst.resourceGroup,
-		Provider:      VPC_PROVIDER_NAME,
+		Provider:      vpcProviderName,
 	}
 	err := i.ibmClusterClient.WorkerPools().ResizeWorkerPool(req, target)
 	if err != nil {
@@ -188,7 +188,7 @@ func (i *ibmOps) SetInstanceGroupSize(instanceGroupID string,
 func (i *ibmOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
 	target := v2.ClusterTargetHeader{
 		ResourceGroup: i.inst.resourceGroup,
-		Provider:      VPC_PROVIDER_NAME,
+		Provider:      vpcProviderName,
 	}
 	workerPoolDetails, err := i.ibmClusterClient.WorkerPools().GetWorkerPool(i.inst.clusterName, instanceGroupID, target)
 	if err != nil {
