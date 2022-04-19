@@ -9,6 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.5
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
+	github.com/IBM-Cloud/bluemix-go v0.0.0-20220329045155-d2a8118ac5c7
 	github.com/aws/aws-sdk-go v1.40.39
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
 	github.com/golang/mock v1.4.4
@@ -21,8 +22,6 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vmware/govmomi v0.22.2
-	golang.org/x/net v0.0.0-20210907225631-ff17edfbf26d // indirect
-	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/api v0.30.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.20.4
