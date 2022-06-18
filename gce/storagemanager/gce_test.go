@@ -796,9 +796,8 @@ func storageUpdate(t *testing.T) {
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
-			response: &cloudops.StoragePoolUpdateResponse{
-			},
-			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{Reason:""},
+			response:    &cloudops.StoragePoolUpdateResponse{},
+			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{Reason: "cannot reach target drive size of 192000, max supported drive size for drive type pd-balanced: 64000"},
 		},
 	}
 
