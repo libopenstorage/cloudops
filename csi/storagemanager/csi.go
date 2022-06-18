@@ -11,7 +11,14 @@ type csiStorageManager struct {
 	decisionMatrix *cloudops.StorageDecisionMatrix
 }
 
-// newVsphereStorageManager returns an vsphere implementation for Storage Management
+// NewCSIStorageManager returns an CSI implementation for Storage Management
+func NewCSIStorageManager(
+	decisionMatrix cloudops.StorageDecisionMatrix,
+) (cloudops.StorageManager, error) {
+	return newCSIStorageManager(decisionMatrix)
+}
+
+// newCSIStorageManager returns an CSI implementation for Storage Management
 func newCSIStorageManager(
 	decisionMatrix cloudops.StorageDecisionMatrix,
 ) (cloudops.StorageManager, error) {
