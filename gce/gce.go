@@ -379,14 +379,15 @@ func (s *gceOps) Create(
 	}
 
 	newDisk := &compute.Disk{
-		Description:    "Disk created by openstorage",
-		Labels:         formatLabels(labels),
-		Name:           v.Name,
-		SizeGb:         v.SizeGb,
-		SourceImage:    v.SourceImage,
-		SourceSnapshot: v.SourceSnapshot,
-		Type:           v.Type,
-		Zone:           path.Base(v.Zone),
+		Description:       "Disk created by openstorage",
+		Labels:            formatLabels(labels),
+		Name:              v.Name,
+		SizeGb:            v.SizeGb,
+		SourceImage:       v.SourceImage,
+		SourceSnapshot:    v.SourceSnapshot,
+		Type:              v.Type,
+		DiskEncryptionKey: v.DiskEncryptionKey,
+		Zone:              path.Base(v.Zone),
 	}
 
 	operation, err := s.computeService.Disks.Insert(s.inst.project, newDisk.Zone, newDisk).Do()
