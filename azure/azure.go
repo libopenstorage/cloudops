@@ -83,7 +83,12 @@ type Config struct {
 	ManagedClusterName string
 	AgentPoolName      string
 	UserAgent          string
-	Authorizer         autorest.Authorizer
+	// Auth is optional - if not provided, we'll use generic `auth.NewAuthorizerFromEnvironment`
+	Auth struct {
+		ClientID     string
+		ClientSecret string
+		TenantID     string
+	}
 }
 
 // NewClientFromMetadata initializes cloudops driver for azure based on environment
@@ -207,16 +212,14 @@ func NewEnvClient() (cloudops.Ops, error) {
 
 // NewClient creates new client from specified config.
 func NewClient(config Config) (cloudops.Ops, error) {
-	authorizer := config.Authorizer
-	if authorizer == nil {
-		logrus.Info("azure.NewClient authorizer generated from Env")
-		var err error
-		authorizer, err = auth.NewAuthorizerFromEnvironment()
-		if err != nil {
-			return nil, err
-		}
+	var authorizer autorest.Authorizer
+	var err error
+	if a := config.Auth; a.ClientID != "" && a.ClientSecret != "" {
+		logrus.Info("azure.NewClient authorizer using config")
+		authorizer, err = auth.NewClientCredentialsConfig(a.ClientID, a.ClientSecret, a.TenantID).Authorizer()
 	} else {
-		logrus.Info("azure.NewClient authorizer passed from caller")
+		logrus.Info("azure.NewClient authorizer generated from Env")
+		authorizer, err = auth.NewAuthorizerFromEnvironment()
 	}
 
 	baseURI, err := azureBaseURI(config.CloudEnvironment)
