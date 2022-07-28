@@ -83,6 +83,7 @@ type Config struct {
 	ManagedClusterName string
 	AgentPoolName      string
 	UserAgent          string
+	Authorizer         autorest.Authorizer
 }
 
 // NewClientFromMetadata initializes cloudops driver for azure based on environment
@@ -206,9 +207,16 @@ func NewEnvClient() (cloudops.Ops, error) {
 
 // NewClient creates new client from specified config.
 func NewClient(config Config) (cloudops.Ops, error) {
-	authorizer, err := auth.NewAuthorizerFromEnvironment()
-	if err != nil {
-		return nil, err
+	authorizer := config.Authorizer
+	if authorizer == nil {
+		logrus.Info("azure.NewClient authorizer generated from Env")
+		var err error
+		authorizer, err = auth.NewAuthorizerFromEnvironment()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		logrus.Info("azure.NewClient authorizer passed from caller")
 	}
 
 	baseURI, err := azureBaseURI(config.CloudEnvironment)
@@ -346,7 +354,7 @@ func (a *azureOps) SetInstanceGroupSize(instanceGroupID string,
 
 	instanceGroupSize := int32(count)
 	agentPoolProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
-		Count: &instanceGroupSize,
+		Count:  &instanceGroupSize,
 		OsType: containerservice.Linux,
 	}
 
