@@ -16,21 +16,29 @@ import (
 )
 
 const (
-	v1MetadataAPIEndpoint         = "http://169.254.169.254/opc/v1/instance/"
-	v2MetadataAPIEndpoint         = "http://169.254.169.254/opc/v2/instance/"
-	metadataInstanceIDkey         = "id"
-	metadataRegionKey             = "region"
-	metadataAvailabilityDomainKey = "availabilityDomain"
+	v1MetadataAPIEndpoint = "http://169.254.169.254/opc/v1/instance/"
+	v2MetadataAPIEndpoint = "http://169.254.169.254/opc/v2/instance/"
+	metadataInstanceIDkey = "id"
+	// MetadataRegionKey key name for region in metadata JSON
+	// returned by IMDS service
+	MetadataRegionKey = "canonicalRegionName"
+	// MetadataAvailabilityDomainKey key name for availability domain
+	// in metadata JSON returned by IMDS service
+	MetadataAvailabilityDomainKey = "availabilityDomain"
 	metadataCompartmentIDkey      = "compartmentId"
-	metadataKey                   = "metadata"
-	metadataTenancyIDKey          = "oke-tenancy-id"
-	metadataPoolIDKey             = "oke-pool-id"
-	envInstanceID                 = "ORACLE_INSTANCE_ID"
-	envRegion                     = "ORACLE_INSTANCE_REGION"
-	envAvailabilityDomain         = "ORACLE_INSTNACE_AVAILABILITY_DOMAIN"
-	envCompartmentID              = "ORACLE_COMPARTMENT_ID"
-	envTenancyID                  = "ORACLE_TENANCY_ID"
-	envPoolID                     = "ORACLE_POOL_ID"
+	// MetadataKey key name in metadata json for metadata returned by IMDS service
+	MetadataKey = "metadata"
+	// MetadataUserDataKey key name in metadata json for user data
+	MetadataUserDataKey   = "user_data"
+	metadataTenancyIDKey  = "oke-tenancy-id"
+	metadataPoolIDKey     = "oke-pool-id"
+	envPrefix             = "PX_ORACLE"
+	envInstanceID         = "INSTANCE_ID"
+	envRegion             = "INSTANCE_REGION"
+	envAvailabilityDomain = "INSTNACE_AVAILABILITY_DOMAIN"
+	envCompartmentID      = "COMPARTMENT_ID"
+	envTenancyID          = "TENANCY_ID"
+	envPoolID             = "POOL_ID"
 )
 
 type oracleOps struct {
@@ -49,189 +57,175 @@ type oracleOps struct {
 
 // NewClient creates a new cloud operations client for Oracle cloud
 func NewClient() (cloudops.Ops, error) {
-	instance, region, availabilityDomain, compartmentID, tenancyID, poolID, err := getInfoFromMetadata()
+	oracleOps := &oracleOps{}
+	err := getInfoFromMetadata(oracleOps)
 	if err != nil {
-		instance, region, availabilityDomain, compartmentID, tenancyID, poolID, err = getInfoFromEnv()
+		fmt.Printf("Got error [%v] from metadata\n", err)
+		err = getInfoFromEnv(oracleOps)
 		if err != nil {
 			return nil, err
 		}
 	}
-	os.Setenv("ORACLE_tenancy_ocid", tenancyID)
-	os.Setenv("ORACLE_region", region)
-	configProvider := common.ConfigurationProviderEnvironmentVariables("ORACLE", "")
-	storage, err := core.NewBlockstorageClientWithConfigurationProvider(configProvider)
+	os.Setenv(fmt.Sprintf("%s_tenancy_ocid", envPrefix), oracleOps.tenancyID)
+	os.Setenv(fmt.Sprintf("%s_region", envPrefix), oracleOps.region)
+	configProvider := common.ConfigurationProviderEnvironmentVariables(envPrefix, "")
+	oracleOps.storage, err = core.NewBlockstorageClientWithConfigurationProvider(configProvider)
 	if err != nil {
 		return nil, err
 	}
-	compute, err := core.NewComputeClientWithConfigurationProvider(configProvider)
+	oracleOps.compute, err = core.NewComputeClientWithConfigurationProvider(configProvider)
 	if err != nil {
 		return nil, err
 	}
-	containerEngine, err := containerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	oracleOps.containerEngine, err = containerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: wrap around exponentialBackoffOps
-	return &oracleOps{
-		compute:            compute,
-		storage:            storage,
-		containerEngine:    containerEngine,
-		instance:           instance,
-		region:             region,
-		availabilityDomain: availabilityDomain,
-		compartmentID:      compartmentID,
-		tenancyID:          tenancyID,
-		poolID:             poolID,
-	}, nil
+	// TODO: [PWX-18717] wrap around exponentialBackoffOps
+	return oracleOps, nil
 }
 
-func getInfoFromEnv() (string, string, string, string, string, string, error) {
-	instance, err := cloudops.GetEnvValueStrict(envInstanceID)
+func getInfoFromEnv(oracleOps *oracleOps) error {
+	var err error
+	oracleOps.instance, err = cloudops.GetEnvValueStrict(envInstanceID)
 	if err != nil {
-		return "", "", "", "", "", "", err
+		return err
 	}
 
-	region, err := cloudops.GetEnvValueStrict(envRegion)
+	oracleOps.region, err = cloudops.GetEnvValueStrict(envRegion)
 	if err != nil {
-		return "", "", "", "", "", "", err
+		return err
 	}
 
-	availabilityDomain, err := cloudops.GetEnvValueStrict(envAvailabilityDomain)
+	oracleOps.availabilityDomain, err = cloudops.GetEnvValueStrict(envAvailabilityDomain)
 	if err != nil {
-		return "", "", "", "", "", "", err
+		return err
 	}
 
-	compartmentID, err := cloudops.GetEnvValueStrict(envCompartmentID)
+	oracleOps.compartmentID, err = cloudops.GetEnvValueStrict(envCompartmentID)
 	if err != nil {
-		return "", "", "", "", "", "", err
+		return err
 	}
 
-	tenancyID, err := cloudops.GetEnvValueStrict(envTenancyID)
+	oracleOps.tenancyID, err = cloudops.GetEnvValueStrict(envTenancyID)
 	if err != nil {
-		return "", "", "", "", "", "", err
+		return err
 	}
 
-	poolID, err := cloudops.GetEnvValueStrict(envPoolID)
+	oracleOps.poolID, err = cloudops.GetEnvValueStrict(envPoolID)
 	if err != nil {
-		return "", "", "", "", "", "", err
+		return err
 	}
-
-	return instance, region, availabilityDomain, compartmentID, tenancyID, poolID, nil
+	return nil
 }
 
-func getMetadata() (map[string]interface{}, error) {
+func getRequest(endpoint string, headers map[string]string) (map[string]interface{}, int, error) {
 	metadata := make(map[string]interface{})
 	client := &http.Client{}
-	v2req, err := http.NewRequest("GET", v2MetadataAPIEndpoint, nil)
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		return metadata, err
+		return metadata, 0, err
 	}
-	v2req.Header.Add("Authorization", "Bearer Oracle")
-	q := v2req.URL.Query()
-	v2req.URL.RawQuery = q.Encode()
 
-	resp, err := client.Do(v2req)
+	for headerKey, headerValue := range headers {
+		req.Header.Add(headerKey, headerValue)
+	}
+	q := req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := client.Do(req)
 	if err != nil {
-		logrus.Warnf("metadata lookup from IMDS v1 endpoint failed")
-		return metadata,
-			fmt.Errorf("error occured while getting instance metadata from Oracle Metadata API. Error:[%v]", err)
+		return metadata, resp.StatusCode,
+			fmt.Errorf("metadata lookup from [%s] endpoint failed with error:[%v]", endpoint, err)
 	}
-	if resp.StatusCode != 200 {
-		if resp.StatusCode == 404 {
-			// v2 IMDS endpoint not enabled, try v1
-			v1req, err := http.NewRequest("GET", v1MetadataAPIEndpoint, nil)
-			if err != nil {
-				return metadata, err
-			}
-			q := v2req.URL.Query()
-			v1req.URL.RawQuery = q.Encode()
-
-			resp, err = client.Do(v1req)
-			if err != nil {
-				logrus.Warnf("metadata lookup from IMDS v1 endpoint failed")
-				return metadata,
-					fmt.Errorf("error occured while getting instance metadata from Oracle Metadata API. Error:[%v]", err)
-			}
-			if resp.StatusCode != 200 {
-				return metadata,
-					fmt.Errorf("error querying Oracle metadata service: Code %d returned for url %s", resp.StatusCode, v1req.URL)
-			}
-		} else {
-			return metadata,
-				fmt.Errorf("error querying Oracle metadata service: Code %d returned for url %s", resp.StatusCode, v2req.URL)
-		}
+	if resp.StatusCode != http.StatusOK {
+		return metadata, resp.StatusCode, nil
 	}
-
 	if resp.Body != nil {
 		defer resp.Body.Close()
 		respBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return metadata,
+			return metadata, resp.StatusCode,
 				fmt.Errorf("error while reading Oracle metadata response: [%v]", err)
 		}
 		if len(respBody) == 0 {
-			return metadata,
+			return metadata, resp.StatusCode,
 				fmt.Errorf("error querying Oracle metadata: Empty response")
 		}
 
 		err = json.Unmarshal(respBody, &metadata)
 		if err != nil {
-			return metadata,
+			return metadata, resp.StatusCode,
 				fmt.Errorf("error parsing Oracle metadata: %v", err)
 		}
 	}
+	return metadata, resp.StatusCode, nil
+}
+
+// GetMetadata returns metadata from IMDS
+func GetMetadata() (map[string]interface{}, error) {
+	httpHeaders := map[string]string{}
+	httpHeaders["Authorization"] = "Bearer Oracle"
+	var httpStatusCode int
+	var err error
+	var metadata map[string]interface{}
+	metadata, httpStatusCode, err = getRequest(v2MetadataAPIEndpoint, httpHeaders)
+	if err != nil {
+		return nil, err
+	}
+
+	if httpStatusCode != http.StatusOK {
+		logrus.Warnf("Trying %s endpoint as got %d http response from %s\n",
+			v1MetadataAPIEndpoint, httpStatusCode, v2MetadataAPIEndpoint)
+		metadata, httpStatusCode, err = getRequest(v1MetadataAPIEndpoint, map[string]string{})
+		if err != nil {
+			return nil, err
+		}
+	}
+	if httpStatusCode != http.StatusOK {
+		return metadata,
+			fmt.Errorf("error:[%v] got HTTP Code %d", err, httpStatusCode)
+	}
 	return metadata, nil
 }
-func getInfoFromMetadata() (string, string, string, string, string, string, error) {
+
+func getInfoFromMetadata(oracleOps *oracleOps) error {
 	var tenancyID, poolID string
 	var ok bool
-	metadata, err := getMetadata()
+	metadata, err := GetMetadata()
 	if err != nil {
-		return "", "", "", "", "", "", err
+		return err
 	}
-	if metadata[metadataKey] != nil {
-		if okeMetadata, ok := metadata[metadataKey].(map[string]interface{}); ok {
+	if metadata[MetadataKey] != nil {
+		if okeMetadata, ok := metadata[MetadataKey].(map[string]interface{}); ok {
 			if okeMetadata[metadataTenancyIDKey] != nil {
 				if tenancyID, ok = okeMetadata[metadataTenancyIDKey].(string); !ok {
-					return "", "", "", "", "", "",
-						fmt.Errorf("can not get tenancy ID from oracle metadata service. error: [%v]", err)
+					return fmt.Errorf("can not get tenancy ID from oracle metadata service. error: [%v]", err)
 				}
 				if poolID, ok = okeMetadata[metadataPoolIDKey].(string); !ok {
-					return "", "", "", "", "", "",
-						fmt.Errorf("can not get tenancy ID from oracle metadata service. error: [%v]", err)
+					return fmt.Errorf("can not get pool ID from oracle metadata service. error: [%v]", err)
 				}
 			}
 		} else {
-			return "", "", "", "", "", "",
-				fmt.Errorf("can not get OKE metadata from oracle metadata service. error: [%v]", err)
+			return fmt.Errorf("can not get OKE metadata from oracle metadata service. error: [%v]", err)
 		}
 	}
-
-	var instanceID, region, availabilityDomain, compartmentID string
-
-	if instanceID, ok = metadata[metadataInstanceIDkey].(string); !ok {
-		return "", "", "", "", "", "",
-			fmt.Errorf("can not get instance id from oracle metadata service. error: [%v]", err)
+	oracleOps.tenancyID = tenancyID
+	oracleOps.poolID = poolID
+	if oracleOps.instance, ok = metadata[metadataInstanceIDkey].(string); !ok {
+		return fmt.Errorf("can not get instance id from oracle metadata service. error: [%v]", err)
 	}
-	if region, ok = metadata[metadataRegionKey].(string); !ok {
-		return "", "", "", "", "", "",
-			fmt.Errorf("can not get region from oracle metadata service. error: [%v]", err)
+	if oracleOps.region, ok = metadata[MetadataRegionKey].(string); !ok {
+		return fmt.Errorf("can not get region from oracle metadata service. error: [%v]", err)
 	}
-	if availabilityDomain, ok = metadata[metadataAvailabilityDomainKey].(string); !ok {
-		return "", "", "", "", "", "",
-			fmt.Errorf("can not get instance availability domain from oracle metadata service. error: [%v]", err)
+	if oracleOps.availabilityDomain, ok = metadata[MetadataAvailabilityDomainKey].(string); !ok {
+		return fmt.Errorf("can not get instance availability domain from oracle metadata service. error: [%v]", err)
 	}
-	if compartmentID, ok = metadata[metadataCompartmentIDkey].(string); !ok {
-		return "", "", "", "", "", "",
-			fmt.Errorf("can not get compartment ID from oracle metadata service. error: [%v]", err)
+	if oracleOps.compartmentID, ok = metadata[metadataCompartmentIDkey].(string); !ok {
+		return fmt.Errorf("can not get compartment ID from oracle metadata service. error: [%v]", err)
 	}
-
-	return instanceID, region,
-		availabilityDomain,
-		compartmentID,
-		tenancyID, poolID,
-		nil
+	return nil
 }
 
 func (o *oracleOps) Name() string { return string(cloudops.Oracle) }
@@ -248,7 +242,6 @@ func (o *oracleOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, 
 		return nil, err
 	}
 
-	// TODO: get labels from tags
 	return &cloudops.InstanceInfo{
 		CloudResourceInfo: cloudops.CloudResourceInfo{
 			Name:   string(*resp.DisplayName),
@@ -274,7 +267,7 @@ func (o *oracleOps) InspectInstanceGroupForInstance(instanceID string) (*cloudop
 		zones = append(zones, *placementConfig.AvailabilityDomain)
 	}
 	size := int64(*nodePoolDetails.NodeConfigDetails.Size)
-	// TODO: Populate labels from tags
+
 	return &cloudops.InstanceGroupInfo{
 		CloudResourceInfo: cloudops.CloudResourceInfo{
 			Name:   *nodePoolDetails.Name,
@@ -292,5 +285,84 @@ func (o *oracleOps) Describe() (interface{}, error) {
 		InstanceId: &o.instance,
 	}
 	resp, err := o.compute.GetInstance(context.Background(), getInstanceReq)
-	return resp.Instance, err
+	if err != nil {
+		return nil, err
+	}
+	return resp.Instance, nil
+}
+
+func (o *oracleOps) DeviceMappings() (map[string]string, error) {
+	m := make(map[string]string)
+	var devicePath, volID string
+	volumeAttachmentReq := core.ListVolumeAttachmentsRequest{
+		InstanceId: common.String(o.instance),
+	}
+	volumeAttachmentResp, err := o.compute.ListVolumeAttachments(context.Background(), volumeAttachmentReq)
+	if err != nil {
+		return m, err
+	}
+	for _, va := range volumeAttachmentResp.Items {
+		if va.GetDevice() != nil && va.GetVolumeId() != nil {
+			devicePath = *va.GetDevice()
+			volID = *va.GetVolumeId()
+		} else {
+			logrus.Warnf("Device path or volume id for [%+v] volume attachment not found", va)
+			continue
+		}
+		m[devicePath] = volID
+	}
+	return m, nil
+}
+
+func (o *oracleOps) DevicePath(volumeID string) (string, error) {
+	volumeAttachmentReq := core.ListVolumeAttachmentsRequest{
+		VolumeId: common.String(volumeID),
+	}
+	volumeAttachmentResp, err := o.compute.ListVolumeAttachments(context.Background(), volumeAttachmentReq)
+	if err != nil {
+		return "", err
+	}
+
+	if volumeAttachmentResp.Items == nil || len(volumeAttachmentResp.Items) == 0 {
+		return "", cloudops.NewStorageError(cloudops.ErrVolDetached,
+			"Volume is detached", volumeID)
+	}
+	volumeAttachment := volumeAttachmentResp.Items[0]
+	if volumeAttachment.GetInstanceId() == nil {
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Unable to determine volume instance attachment", "")
+	}
+	if o.instance != *volumeAttachment.GetInstanceId() {
+		return "", cloudops.NewStorageError(cloudops.ErrVolAttachedOnRemoteNode,
+			fmt.Sprintf("Volume attached on %q current instance %q",
+				*volumeAttachment.GetInstanceId(), o.instance),
+			*volumeAttachment.GetInstanceId())
+	}
+
+	if volumeAttachment.GetLifecycleState() != core.VolumeAttachmentLifecycleStateAttached {
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
+			fmt.Sprintf("Invalid state %q, volume is not attached",
+				volumeAttachment.GetLifecycleState()), "")
+	}
+	if volumeAttachment.GetDevice() == nil {
+		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Unable to determine volume attachment path", "")
+	}
+	return *volumeAttachment.GetDevice(), nil
+}
+
+// Inspect volumes specified by volumeID
+func (o *oracleOps) Inspect(volumeIds []*string) ([]interface{}, error) {
+	oracleVols := []interface{}{}
+	for _, volID := range volumeIds {
+		getVolReq := core.GetVolumeRequest{
+			VolumeId: volID,
+		}
+		getVolResp, err := o.storage.GetVolume(context.Background(), getVolReq)
+		if err != nil {
+			return nil, err
+		}
+		oracleVols = append(oracleVols, getVolResp.Volume)
+	}
+	return oracleVols, nil
 }
