@@ -12,6 +12,7 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/containerengine"
 	"github.com/oracle/oci-go-sdk/v65/core"
+	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 )
 
@@ -25,7 +26,9 @@ const (
 	// MetadataAvailabilityDomainKey key name for availability domain
 	// in metadata JSON returned by IMDS service
 	MetadataAvailabilityDomainKey = "availabilityDomain"
-	metadataCompartmentIDkey      = "compartmentId"
+	// MetadataCompartmentIDkey key name for compartmentID
+	// in metadata JSON returned by IMDS service
+	MetadataCompartmentIDkey = "compartmentId"
 	// MetadataKey key name in metadata json for metadata returned by IMDS service
 	MetadataKey = "metadata"
 	// MetadataUserDataKey key name in metadata json for user data
@@ -365,4 +368,92 @@ func (o *oracleOps) Inspect(volumeIds []*string) ([]interface{}, error) {
 		oracleVols = append(oracleVols, getVolResp.Volume)
 	}
 	return oracleVols, nil
+}
+
+// Create volume based on input template volume and also apply given labels.
+func (o *oracleOps) Create(template interface{}, labels map[string]string) (interface{}, error) {
+	vol, ok := template.(core.Volume)
+	if !ok {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Invalid volume template given", "")
+	}
+
+	createVolReq := core.CreateVolumeRequest{
+		CreateVolumeDetails: core.CreateVolumeDetails{
+			CompartmentId:      &o.compartmentID,
+			AvailabilityDomain: &o.availabilityDomain,
+			SizeInGBs:          vol.SizeInGBs,
+			VpusPerGB:          vol.VpusPerGB,
+			DisplayName:        vol.DisplayName,
+			FreeformTags:       labels,
+		},
+	}
+	createVolResp, err := o.storage.CreateVolume(context.Background(), createVolReq)
+	if err != nil {
+		return nil, err
+	}
+
+	err = o.waitVolumeStatus(*createVolResp.Id, core.VolumeLifecycleStateAvailable)
+	if err != nil {
+		return nil, o.rollbackCreate(*createVolResp.Id, err)
+	}
+	return o.refreshVol(createVolResp.Id)
+}
+
+func (o *oracleOps) waitVolumeStatus(volID string, desiredStatus core.VolumeLifecycleStateEnum) error {
+	getVolReq := core.GetVolumeRequest{
+		VolumeId: &volID,
+	}
+	f := func() (interface{}, bool, error) {
+		getVolResp, err := o.storage.GetVolume(context.Background(), getVolReq)
+		if err != nil {
+			return nil, true, err
+		}
+		if getVolResp.Volume.LifecycleState == core.VolumeLifecycleStateAvailable {
+			return nil, false, nil
+		}
+
+		logrus.Debugf("volume [%s] is still in [%s] state", volID, getVolResp.Volume.LifecycleState)
+		return nil, true, fmt.Errorf("volume [%s] is still in [%s] state", volID, getVolResp.Volume.LifecycleState)
+	}
+	_, err := task.DoRetryWithTimeout(f, cloudops.ProviderOpsTimeout, cloudops.ProviderOpsRetryInterval)
+	return err
+}
+
+func (o *oracleOps) refreshVol(id *string) (*core.Volume, error) {
+	vols, err := o.Inspect([]*string{id})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(vols) != 1 {
+		return nil, fmt.Errorf("failed to get vol: %s."+
+			"Found: %d volumes on inspecting", *id, len(vols))
+	}
+
+	resp, ok := vols[0].(core.Volume)
+	if !ok {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			fmt.Sprintf("Invalid volume returned by inspect API for vol: %s", *id),
+			"")
+	}
+	return &resp, nil
+}
+
+func (o *oracleOps) rollbackCreate(id string, createErr error) error {
+	logrus.Warnf("Rollback create volume %v, Error %v", id, createErr)
+	err := o.Delete(id)
+	if err != nil {
+		logrus.Warnf("Rollback failed volume %v, Error %v", id, err)
+	}
+	return createErr
+}
+
+// Delete volumeID.
+func (o *oracleOps) Delete(volumeID string) error {
+	delVolReq := core.DeleteVolumeRequest{
+		VolumeId: &volumeID,
+	}
+	_, err := o.storage.DeleteVolume(context.Background(), delVolReq)
+	return err
 }
