@@ -225,7 +225,7 @@ func getInfoFromMetadata(oracleOps *oracleOps) error {
 	if oracleOps.availabilityDomain, ok = metadata[MetadataAvailabilityDomainKey].(string); !ok {
 		return fmt.Errorf("can not get instance availability domain from oracle metadata service. error: [%v]", err)
 	}
-	if oracleOps.compartmentID, ok = metadata[metadataCompartmentIDkey].(string); !ok {
+	if oracleOps.compartmentID, ok = metadata[MetadataCompartmentIDkey].(string); !ok {
 		return fmt.Errorf("can not get compartment ID from oracle metadata service. error: [%v]", err)
 	}
 	return nil
@@ -393,14 +393,14 @@ func (o *oracleOps) Create(template interface{}, labels map[string]string) (inte
 		return nil, err
 	}
 
-	err = o.waitVolumeStatus(*createVolResp.Id, core.VolumeLifecycleStateAvailable)
+	oracleVol, err := o.waitVolumeStatus(*createVolResp.Id, core.VolumeLifecycleStateAvailable)
 	if err != nil {
 		return nil, o.rollbackCreate(*createVolResp.Id, err)
 	}
-	return o.refreshVol(createVolResp.Id)
+	return oracleVol, nil
 }
 
-func (o *oracleOps) waitVolumeStatus(volID string, desiredStatus core.VolumeLifecycleStateEnum) error {
+func (o *oracleOps) waitVolumeStatus(volID string, desiredStatus core.VolumeLifecycleStateEnum) (interface{}, error) {
 	getVolReq := core.GetVolumeRequest{
 		VolumeId: &volID,
 	}
@@ -410,34 +410,14 @@ func (o *oracleOps) waitVolumeStatus(volID string, desiredStatus core.VolumeLife
 			return nil, true, err
 		}
 		if getVolResp.Volume.LifecycleState == core.VolumeLifecycleStateAvailable {
-			return nil, false, nil
+			return getVolResp.Volume, false, nil
 		}
 
 		logrus.Debugf("volume [%s] is still in [%s] state", volID, getVolResp.Volume.LifecycleState)
 		return nil, true, fmt.Errorf("volume [%s] is still in [%s] state", volID, getVolResp.Volume.LifecycleState)
 	}
-	_, err := task.DoRetryWithTimeout(f, cloudops.ProviderOpsTimeout, cloudops.ProviderOpsRetryInterval)
-	return err
-}
-
-func (o *oracleOps) refreshVol(id *string) (*core.Volume, error) {
-	vols, err := o.Inspect([]*string{id})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(vols) != 1 {
-		return nil, fmt.Errorf("failed to get vol: %s."+
-			"Found: %d volumes on inspecting", *id, len(vols))
-	}
-
-	resp, ok := vols[0].(core.Volume)
-	if !ok {
-		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
-			fmt.Sprintf("Invalid volume returned by inspect API for vol: %s", *id),
-			"")
-	}
-	return &resp, nil
+	oracleVol, err := task.DoRetryWithTimeout(f, cloudops.ProviderOpsTimeout, cloudops.ProviderOpsRetryInterval)
+	return oracleVol, err
 }
 
 func (o *oracleOps) rollbackCreate(id string, createErr error) error {
@@ -454,6 +434,10 @@ func (o *oracleOps) Delete(volumeID string) error {
 	delVolReq := core.DeleteVolumeRequest{
 		VolumeId: &volumeID,
 	}
-	_, err := o.storage.DeleteVolume(context.Background(), delVolReq)
-	return err
+	delVolResp, err := o.storage.DeleteVolume(context.Background(), delVolReq)
+	if err != nil {
+		logrus.Errorf("failed to delete volume [%s]. Response: [%v], Error: [%v]", volumeID, delVolResp, err)
+		return err
+	}
+	return nil
 }
