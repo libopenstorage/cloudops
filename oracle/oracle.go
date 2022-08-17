@@ -139,8 +139,11 @@ func getRequest(endpoint string, headers map[string]string) (map[string]interfac
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return metadata, resp.StatusCode,
-			fmt.Errorf("metadata lookup from [%s] endpoint failed with error:[%v]", endpoint, err)
+		errMsg := fmt.Errorf("metadata lookup from [%s] endpoint failed with error:[%v]", endpoint, err)
+		if resp != nil {
+			return metadata, resp.StatusCode, errMsg
+		}
+		return metadata, http.StatusNotFound, errMsg
 	}
 	if resp.StatusCode != http.StatusOK {
 		return metadata, resp.StatusCode, nil
