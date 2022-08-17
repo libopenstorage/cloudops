@@ -4,9 +4,20 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/test"
+	"github.com/oracle/oci-go-sdk/v65/common"
+	"github.com/oracle/oci-go-sdk/v65/core"
 )
+
+const (
+	// Minimum size supported by oracle cloud is 50 GB
+	newDiskSizeInGB = 50
+	newDiskPrefix   = "openstorage-test"
+)
+
+var diskName = fmt.Sprintf("%s-%s", newDiskPrefix, uuid.New())
 
 func TestAll(t *testing.T) {
 	drivers := make(map[string]cloudops.Ops)
@@ -17,7 +28,20 @@ func TestAll(t *testing.T) {
 		fmt.Printf("err : %+v", err)
 		t.Skipf("skipping Oracle tests as environment is not set...\n")
 	}
+
+	compartmentID, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s_%s", envPrefix, envCompartmentID))
+	availabilityDomain, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s_%s", envPrefix, envAvailabilityDomain))
+	oracleVol := core.Volume{
+		SizeInGBs:          common.Int64(newDiskSizeInGB),
+		CompartmentId:      common.String(compartmentID),
+		DisplayName:        &diskName,
+		VpusPerGB:          common.Int64(10),
+		AvailabilityDomain: common.String(availabilityDomain),
+	}
 	drivers[d.Name()] = d
+	diskTemplates[d.Name()] = map[string]interface{}{
+		diskName: oracleVol,
+	}
 	test.RunTest(drivers, diskTemplates, sizeCheck, t)
 }
 
