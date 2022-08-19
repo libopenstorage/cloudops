@@ -1240,11 +1240,11 @@ func gceInfo(ctx context.Context, inst *instance) error {
 	if content["client_email"] != nil {
 		inst.serviceAccount = fmt.Sprintf("%s", content["client_email"])
 	} else {
-		serviceAccount, err := metadata.Email("")
+		inst.serviceAccount, err = metadata.Email("")
 		if err != nil {
-			return fmt.Errorf("unable to get gce instance service account")
+			// No need to error out for non-GKE compute instances
+			logrus.Warnf("unable to get gce instance service account")
 		}
-		inst.serviceAccount = serviceAccount
 	}
 	return nil
 }
