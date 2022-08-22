@@ -3,10 +3,12 @@ package oracle
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -35,6 +37,7 @@ const (
 	MetadataUserDataKey   = "user_data"
 	metadataTenancyIDKey  = "oke-tenancy-id"
 	metadataPoolIDKey     = "oke-pool-id"
+	metadataClusterIdKey  = "oke-cluster-id"
 	envPrefix             = "PX_ORACLE"
 	envInstanceID         = "INSTANCE_ID"
 	envRegion             = "INSTANCE_REGION"
@@ -42,6 +45,7 @@ const (
 	envCompartmentID      = "COMPARTMENT_ID"
 	envTenancyID          = "TENANCY_ID"
 	envPoolID             = "POOL_ID"
+	envClusterID          = "CLUSTER_ID"
 )
 
 type oracleOps struct {
@@ -53,6 +57,7 @@ type oracleOps struct {
 	compartmentID      string
 	tenancyID          string
 	poolID             string
+	clusterId          string
 	storage            core.BlockstorageClient
 	compute            core.ComputeClient
 	containerEngine    containerengine.ContainerEngineClient
@@ -91,32 +96,37 @@ func NewClient() (cloudops.Ops, error) {
 
 func getInfoFromEnv(oracleOps *oracleOps) error {
 	var err error
-	oracleOps.instance, err = cloudops.GetEnvValueStrict(envInstanceID)
+	oracleOps.instance, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envInstanceID)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.region, err = cloudops.GetEnvValueStrict(envRegion)
+	oracleOps.region, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envRegion)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.availabilityDomain, err = cloudops.GetEnvValueStrict(envAvailabilityDomain)
+	oracleOps.availabilityDomain, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envAvailabilityDomain)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.compartmentID, err = cloudops.GetEnvValueStrict(envCompartmentID)
+	oracleOps.compartmentID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envCompartmentID)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.tenancyID, err = cloudops.GetEnvValueStrict(envTenancyID)
+	oracleOps.tenancyID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envTenancyID)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.poolID, err = cloudops.GetEnvValueStrict(envPoolID)
+	oracleOps.poolID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envPoolID)
+	if err != nil {
+		return err
+	}
+
+	oracleOps.clusterId, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envClusterID)
 	if err != nil {
 		return err
 	}
@@ -197,7 +207,7 @@ func GetMetadata() (map[string]interface{}, error) {
 }
 
 func getInfoFromMetadata(oracleOps *oracleOps) error {
-	var tenancyID, poolID string
+	var tenancyID, poolID, clusterId string
 	var ok bool
 	metadata, err := GetMetadata()
 	if err != nil {
@@ -212,6 +222,9 @@ func getInfoFromMetadata(oracleOps *oracleOps) error {
 				if poolID, ok = okeMetadata[metadataPoolIDKey].(string); !ok {
 					return fmt.Errorf("can not get pool ID from oracle metadata service. error: [%v]", err)
 				}
+				if clusterId, ok = okeMetadata[metadataClusterIdKey].(string); !ok {
+					return fmt.Errorf("can not get cluster ID from oracle metadata service. error: [%v]", err)
+				}
 			}
 		} else {
 			return fmt.Errorf("can not get OKE metadata from oracle metadata service. error: [%v]", err)
@@ -219,6 +232,7 @@ func getInfoFromMetadata(oracleOps *oracleOps) error {
 	}
 	oracleOps.tenancyID = tenancyID
 	oracleOps.poolID = poolID
+	oracleOps.clusterId = clusterId
 	if oracleOps.instance, ok = metadata[metadataInstanceIDkey].(string); !ok {
 		return fmt.Errorf("can not get instance id from oracle metadata service. error: [%v]", err)
 	}
@@ -443,4 +457,126 @@ func (o *oracleOps) Delete(volumeID string) error {
 		return err
 	}
 	return nil
+}
+
+func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, timeout time.Duration) error {
+
+	ctx := context.Background()
+	var cancel context.CancelFunc
+	if timeout > time.Nanosecond {
+		// If timeout is non-zero then
+		// add deadline to the operation else
+		// wait infinitely for operation to complete
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	instanceGroupSize := int(count)
+
+	//get containerengine client
+	client, err := containerengine.NewContainerEngineClientWithConfigurationProvider(common.DefaultConfigProvider())
+	if err != nil {
+		return err
+	}
+
+	//get nodepool by ID to be updated
+	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterId}
+	nodePools, err := client.ListNodePools(context.Background(), nodePoolReq)
+	if err != nil {
+		return err
+	}
+
+	if len(nodePools.Items) == 0 {
+		return errors.New("No node pool found with name " + instanceGroupID)
+	}
+	numberOfDomains := len(nodePools.Items[0].NodeConfigDetails.PlacementConfigs)
+	totalClusterSize := numberOfDomains * instanceGroupSize
+	logrus.Println("Setting instanceGroupSize to ", totalClusterSize, " in total ", numberOfDomains, " regions.")
+
+	//get all availabliity domain
+	nodePoolPlacementConfigDetails := make([]containerengine.NodePoolPlacementConfigDetails, numberOfDomains)
+
+	for i, placementConfigs := range nodePools.Items[0].NodeConfigDetails.PlacementConfigs {
+		nodePoolPlacementConfigDetails[i].AvailabilityDomain = placementConfigs.AvailabilityDomain
+		nodePoolPlacementConfigDetails[i].SubnetId = placementConfigs.SubnetId
+	}
+
+	//update node pools
+	req := containerengine.UpdateNodePoolRequest{
+		NodePoolId: nodePools.Items[0].Id, //get node pool id
+		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
+			NodeConfigDetails: &containerengine.UpdateNodePoolNodeConfigDetails{
+				Size:             &totalClusterSize,
+				PlacementConfigs: nodePoolPlacementConfigDetails,
+			},
+		},
+	}
+
+	resp, err := client.UpdateNodePool(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	err = o.waitNodeStatus(resp.OpcRequestId, resp.OpcWorkRequestId, client)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (o *oracleOps) waitNodeStatus(opcRequestId, opcWorkRequestId *string, client containerengine.ContainerEngineClient) error {
+	workReq := containerengine.GetWorkRequestRequest{OpcRequestId: opcRequestId,
+		WorkRequestId: opcWorkRequestId}
+
+	f := func() (interface{}, bool, error) {
+		workResp, err := client.GetWorkRequest(context.Background(), workReq)
+		if err != nil {
+			return nil, true, err
+		}
+
+		if workResp.Status == containerengine.WorkRequestStatusSucceeded {
+			return workResp.Status, false, nil
+		}
+
+		logrus.Debugf("Node status is in [%s] state", workResp.Status)
+		return nil, true, fmt.Errorf("Node status is still in [%s] state", workResp.Status)
+	}
+	_, err := task.DoRetryWithTimeout(f, 5*time.Minute, 10*time.Second)
+	return err
+}
+
+func (o *oracleOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
+	client, err := containerengine.NewContainerEngineClientWithConfigurationProvider(common.DefaultConfigProvider())
+	if err != nil {
+		return 0, err
+	}
+
+	var count int64
+
+	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterId}
+	nodePools, err := client.ListNodePools(context.Background(), nodePoolReq)
+	if err != nil {
+		return 0, err
+	}
+
+	req := containerengine.GetNodePoolRequest{NodePoolId: nodePools.Items[0].Id}
+
+	resp, err := client.GetNodePool(context.Background(), req)
+
+	if err != nil {
+		return 0, err
+	}
+
+	if len(resp.Nodes) == 0 {
+		return 0, errors.New("Got empty pool size")
+	}
+
+	for _, node := range resp.Nodes {
+		if node.LifecycleState == containerengine.NodeLifecycleStateActive {
+			count++
+		}
+	}
+
+	return count, nil
 }
