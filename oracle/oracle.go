@@ -37,7 +37,7 @@ const (
 	MetadataUserDataKey   = "user_data"
 	metadataTenancyIDKey  = "oke-tenancy-id"
 	metadataPoolIDKey     = "oke-pool-id"
-	metadataClusterIdKey  = "oke-cluster-id"
+	metadataClusterIDKey  = "oke-cluster-id"
 	envPrefix             = "PX_ORACLE"
 	envInstanceID         = "INSTANCE_ID"
 	envRegion             = "INSTANCE_REGION"
@@ -57,7 +57,7 @@ type oracleOps struct {
 	compartmentID      string
 	tenancyID          string
 	poolID             string
-	clusterId          string
+	clusterID          string
 	storage            core.BlockstorageClient
 	compute            core.ComputeClient
 	containerEngine    containerengine.ContainerEngineClient
@@ -126,7 +126,7 @@ func getInfoFromEnv(oracleOps *oracleOps) error {
 		return err
 	}
 
-	oracleOps.clusterId, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envClusterID)
+	oracleOps.clusterID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envClusterID)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func GetMetadata() (map[string]interface{}, error) {
 }
 
 func getInfoFromMetadata(oracleOps *oracleOps) error {
-	var tenancyID, poolID, clusterId string
+	var tenancyID, poolID, clusterID string
 	var ok bool
 	metadata, err := GetMetadata()
 	if err != nil {
@@ -222,7 +222,7 @@ func getInfoFromMetadata(oracleOps *oracleOps) error {
 				if poolID, ok = okeMetadata[metadataPoolIDKey].(string); !ok {
 					return fmt.Errorf("can not get pool ID from oracle metadata service. error: [%v]", err)
 				}
-				if clusterId, ok = okeMetadata[metadataClusterIdKey].(string); !ok {
+				if clusterID, ok = okeMetadata[metadataClusterIDKey].(string); !ok {
 					return fmt.Errorf("can not get cluster ID from oracle metadata service. error: [%v]", err)
 				}
 			}
@@ -232,7 +232,7 @@ func getInfoFromMetadata(oracleOps *oracleOps) error {
 	}
 	oracleOps.tenancyID = tenancyID
 	oracleOps.poolID = poolID
-	oracleOps.clusterId = clusterId
+	oracleOps.clusterID = clusterID
 	if oracleOps.instance, ok = metadata[metadataInstanceIDkey].(string); !ok {
 		return fmt.Errorf("can not get instance id from oracle metadata service. error: [%v]", err)
 	}
@@ -480,7 +480,7 @@ func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, ti
 	}
 
 	//get nodepool by ID to be updated
-	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterId}
+	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterID}
 	nodePools, err := client.ListNodePools(context.Background(), nodePoolReq)
 	if err != nil {
 		return err
@@ -525,9 +525,9 @@ func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, ti
 	return nil
 }
 
-func (o *oracleOps) waitNodeStatus(opcRequestId, opcWorkRequestId *string, client containerengine.ContainerEngineClient) error {
-	workReq := containerengine.GetWorkRequestRequest{OpcRequestId: opcRequestId,
-		WorkRequestId: opcWorkRequestId}
+func (o *oracleOps) waitNodeStatus(opcRequestID, opcWorkRequestID *string, client containerengine.ContainerEngineClient) error {
+	workReq := containerengine.GetWorkRequestRequest{OpcRequestId: opcRequestID,
+		WorkRequestId: opcWorkRequestID}
 
 	f := func() (interface{}, bool, error) {
 		workResp, err := client.GetWorkRequest(context.Background(), workReq)
@@ -554,7 +554,7 @@ func (o *oracleOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) 
 
 	var count int64
 
-	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterId}
+	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterID}
 	nodePools, err := client.ListNodePools(context.Background(), nodePoolReq)
 	if err != nil {
 		return 0, err
