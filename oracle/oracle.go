@@ -485,12 +485,14 @@ func (o *oracleOps) Attach(volumeID string, options map[string]string) (string, 
 			return "", err
 		}
 
-		err = o.waitVolumeAttachmentStatus(
-			attachVolResp.GetId(),
-			core.VolumeAttachmentLifecycleStateAttached,
-		)
-		if err != nil {
-			return "", err
+		if attachVolResp.GetLifecycleState() != core.VolumeAttachmentLifecycleStateAttached {
+			err = o.waitVolumeAttachmentStatus(
+				attachVolResp.GetId(),
+				core.VolumeAttachmentLifecycleStateAttached,
+			)
+			if err != nil {
+				return "", err
+			}
 		}
 		devicePath, err := o.DevicePath(volumeID)
 		if err != nil {

@@ -31,7 +31,7 @@ func TestAll(t *testing.T) {
 
 	compartmentID, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s_%s", envPrefix, envCompartmentID))
 	availabilityDomain, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s_%s", envPrefix, envAvailabilityDomain))
-	oracleVol := core.Volume{
+	oracleVol := &core.Volume{
 		SizeInGBs:          common.Int64(newDiskSizeInGB),
 		CompartmentId:      common.String(compartmentID),
 		DisplayName:        &diskName,
