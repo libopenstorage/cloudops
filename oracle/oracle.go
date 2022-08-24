@@ -96,37 +96,37 @@ func NewClient() (cloudops.Ops, error) {
 
 func getInfoFromEnv(oracleOps *oracleOps) error {
 	var err error
-	oracleOps.instance, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envInstanceID)
+	oracleOps.instance, err = cloudops.GetEnvValueStrict(envInstanceID)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.region, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envRegion)
+	oracleOps.region, err = cloudops.GetEnvValueStrict(envRegion)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.availabilityDomain, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envAvailabilityDomain)
+	oracleOps.availabilityDomain, err = cloudops.GetEnvValueStrict(envAvailabilityDomain)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.compartmentID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envCompartmentID)
+	oracleOps.compartmentID, err = cloudops.GetEnvValueStrict(envCompartmentID)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.tenancyID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envTenancyID)
+	oracleOps.tenancyID, err = cloudops.GetEnvValueStrict(envTenancyID)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.poolID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envPoolID)
+	oracleOps.poolID, err = cloudops.GetEnvValueStrict(envPoolID)
 	if err != nil {
 		return err
 	}
 
-	oracleOps.clusterID, err = cloudops.GetEnvValueStrict(envPrefix + "_" + envClusterID)
+	oracleOps.clusterID, err = cloudops.GetEnvValueStrict(envClusterID)
 	if err != nil {
 		return err
 	}
@@ -461,6 +461,10 @@ func (o *oracleOps) Delete(volumeID string) error {
 
 func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, timeout time.Duration) error {
 
+	if timeout == 0*time.Second {
+		timeout = 5 * time.Minute
+	}
+
 	instanceGroupSize := int(count)
 
 	//get nodepool by ID to be updated
@@ -501,7 +505,7 @@ func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, ti
 		return err
 	}
 
-	err = o.waitNodePoolStatus(resp.OpcRequestId, resp.OpcWorkRequestId)
+	err = o.waitTillWorkStatusIsSucceeded(resp.OpcRequestId, resp.OpcWorkRequestId, timeout)
 	if err != nil {
 		return err
 	}
@@ -509,7 +513,7 @@ func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, ti
 	return nil
 }
 
-func (o *oracleOps) waitNodePoolStatus(opcRequestID, opcWorkRequestID *string) error {
+func (o *oracleOps) waitTillWorkStatusIsSucceeded(opcRequestID, opcWorkRequestID *string, timeout time.Duration) error {
 	workReq := containerengine.GetWorkRequestRequest{OpcRequestId: opcRequestID,
 		WorkRequestId: opcWorkRequestID}
 
@@ -523,10 +527,10 @@ func (o *oracleOps) waitNodePoolStatus(opcRequestID, opcWorkRequestID *string) e
 			return workResp.Status, false, nil
 		}
 
-		logrus.Debugf("Node status is in [%s] state", workResp.Status)
-		return nil, true, fmt.Errorf("Node status is still in [%s] state", workResp.Status)
+		logrus.Debugf("Work status is in [%s] state", workResp.Status)
+		return nil, true, fmt.Errorf("Work status is in [%s] state", workResp.Status)
 	}
-	_, err := task.DoRetryWithTimeout(f, 5*time.Minute, 10*time.Second)
+	_, err := task.DoRetryWithTimeout(f, timeout, 10*time.Second)
 	return err
 }
 
@@ -541,7 +545,7 @@ func (o *oracleOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) 
 	}
 
 	if len(nodePools.Items) == 0 {
-		return 0, nil
+		return 0, errors.New("No node pool found with name " + instanceGroupID)
 	}
 
 	req := containerengine.GetNodePoolRequest{NodePoolId: nodePools.Items[0].Id}
@@ -550,10 +554,6 @@ func (o *oracleOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) 
 
 	if err != nil {
 		return 0, err
-	}
-
-	if len(resp.Nodes) == 0 {
-		return 0, errors.New("Got empty pool size")
 	}
 
 	for _, node := range resp.Nodes {
