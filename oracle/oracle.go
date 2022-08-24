@@ -461,27 +461,11 @@ func (o *oracleOps) Delete(volumeID string) error {
 
 func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, timeout time.Duration) error {
 
-	ctx := context.Background()
-	var cancel context.CancelFunc
-	if timeout > time.Nanosecond {
-		// If timeout is non-zero then
-		// add deadline to the operation else
-		// wait infinitely for operation to complete
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
-
 	instanceGroupSize := int(count)
-
-	//get containerengine client
-	client, err := containerengine.NewContainerEngineClientWithConfigurationProvider(common.DefaultConfigProvider())
-	if err != nil {
-		return err
-	}
 
 	//get nodepool by ID to be updated
 	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterID}
-	nodePools, err := client.ListNodePools(context.Background(), nodePoolReq)
+	nodePools, err := o.containerEngine.ListNodePools(context.Background(), nodePoolReq)
 	if err != nil {
 		return err
 	}
@@ -512,12 +496,12 @@ func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, ti
 		},
 	}
 
-	resp, err := client.UpdateNodePool(context.Background(), req)
+	resp, err := o.containerEngine.UpdateNodePool(context.Background(), req)
 	if err != nil {
 		return err
 	}
 
-	err = o.waitNodeStatus(resp.OpcRequestId, resp.OpcWorkRequestId, client)
+	err = o.waitNodePoolStatus(resp.OpcRequestId, resp.OpcWorkRequestId)
 	if err != nil {
 		return err
 	}
@@ -525,12 +509,12 @@ func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, ti
 	return nil
 }
 
-func (o *oracleOps) waitNodeStatus(opcRequestID, opcWorkRequestID *string, client containerengine.ContainerEngineClient) error {
+func (o *oracleOps) waitNodePoolStatus(opcRequestID, opcWorkRequestID *string) error {
 	workReq := containerengine.GetWorkRequestRequest{OpcRequestId: opcRequestID,
 		WorkRequestId: opcWorkRequestID}
 
 	f := func() (interface{}, bool, error) {
-		workResp, err := client.GetWorkRequest(context.Background(), workReq)
+		workResp, err := o.containerEngine.GetWorkRequest(context.Background(), workReq)
 		if err != nil {
 			return nil, true, err
 		}
@@ -547,22 +531,22 @@ func (o *oracleOps) waitNodeStatus(opcRequestID, opcWorkRequestID *string, clien
 }
 
 func (o *oracleOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
-	client, err := containerengine.NewContainerEngineClientWithConfigurationProvider(common.DefaultConfigProvider())
-	if err != nil {
-		return 0, err
-	}
 
 	var count int64
 
 	nodePoolReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupID, ClusterId: &o.clusterID}
-	nodePools, err := client.ListNodePools(context.Background(), nodePoolReq)
+	nodePools, err := o.containerEngine.ListNodePools(context.Background(), nodePoolReq)
 	if err != nil {
 		return 0, err
 	}
 
+	if len(nodePools.Items) == 0 {
+		return 0, nil
+	}
+
 	req := containerengine.GetNodePoolRequest{NodePoolId: nodePools.Items[0].Id}
 
-	resp, err := client.GetNodePool(context.Background(), req)
+	resp, err := o.containerEngine.GetNodePool(context.Background(), req)
 
 	if err != nil {
 		return 0, err
