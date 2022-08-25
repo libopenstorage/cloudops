@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"strings"
+	"sync"
+
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -58,10 +61,12 @@ type oracleOps struct {
 	tenancyID          string
 	poolID             string
 	clusterID          string
+  volumeAttachmentMapping map[string]*string
 	storage            core.BlockstorageClient
 	compute            core.ComputeClient
 	containerEngine    containerengine.ContainerEngineClient
-}
+  mutex                   sync.Mutex
+
 
 // NewClient creates a new cloud operations client for Oracle cloud
 func NewClient() (cloudops.Ops, error) {
@@ -90,6 +95,7 @@ func NewClient() (cloudops.Ops, error) {
 		return nil, err
 	}
 
+	oracleOps.volumeAttachmentMapping = map[string]*string{}
 	// TODO: [PWX-18717] wrap around exponentialBackoffOps
 	return oracleOps, nil
 }
@@ -315,7 +321,8 @@ func (o *oracleOps) DeviceMappings() (map[string]string, error) {
 	m := make(map[string]string)
 	var devicePath, volID string
 	volumeAttachmentReq := core.ListVolumeAttachmentsRequest{
-		InstanceId: common.String(o.instance),
+		CompartmentId: common.String(o.compartmentID),
+		InstanceId:    common.String(o.instance),
 	}
 	volumeAttachmentResp, err := o.compute.ListVolumeAttachments(context.Background(), volumeAttachmentReq)
 	if err != nil {
@@ -336,8 +343,10 @@ func (o *oracleOps) DeviceMappings() (map[string]string, error) {
 
 func (o *oracleOps) DevicePath(volumeID string) (string, error) {
 	volumeAttachmentReq := core.ListVolumeAttachmentsRequest{
-		VolumeId: common.String(volumeID),
+		CompartmentId: common.String(o.compartmentID),
+		VolumeId:      common.String(volumeID),
 	}
+
 	volumeAttachmentResp, err := o.compute.ListVolumeAttachments(context.Background(), volumeAttachmentReq)
 	if err != nil {
 		return "", err
@@ -347,11 +356,13 @@ func (o *oracleOps) DevicePath(volumeID string) (string, error) {
 		return "", cloudops.NewStorageError(cloudops.ErrVolDetached,
 			"Volume is detached", volumeID)
 	}
+
 	volumeAttachment := volumeAttachmentResp.Items[0]
 	if volumeAttachment.GetInstanceId() == nil {
 		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Unable to determine volume instance attachment", "")
 	}
+
 	if o.instance != *volumeAttachment.GetInstanceId() {
 		return "", cloudops.NewStorageError(cloudops.ErrVolAttachedOnRemoteNode,
 			fmt.Sprintf("Volume attached on %q current instance %q",
@@ -364,10 +375,12 @@ func (o *oracleOps) DevicePath(volumeID string) (string, error) {
 			fmt.Sprintf("Invalid state %q, volume is not attached",
 				volumeAttachment.GetLifecycleState()), "")
 	}
+
 	if volumeAttachment.GetDevice() == nil {
 		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Unable to determine volume attachment path", "")
 	}
+
 	return *volumeAttachment.GetDevice(), nil
 }
 
@@ -382,14 +395,14 @@ func (o *oracleOps) Inspect(volumeIds []*string) ([]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		oracleVols = append(oracleVols, getVolResp.Volume)
+		oracleVols = append(oracleVols, &getVolResp.Volume)
 	}
 	return oracleVols, nil
 }
 
 // Create volume based on input template volume and also apply given labels.
 func (o *oracleOps) Create(template interface{}, labels map[string]string) (interface{}, error) {
-	vol, ok := template.(core.Volume)
+	vol, ok := template.(*core.Volume)
 	if !ok {
 		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Invalid volume template given", "")
@@ -426,8 +439,8 @@ func (o *oracleOps) waitVolumeStatus(volID string, desiredStatus core.VolumeLife
 		if err != nil {
 			return nil, true, err
 		}
-		if getVolResp.Volume.LifecycleState == core.VolumeLifecycleStateAvailable {
-			return getVolResp.Volume, false, nil
+		if getVolResp.Volume.LifecycleState == desiredStatus {
+			return &getVolResp.Volume, false, nil
 		}
 
 		logrus.Debugf("volume [%s] is still in [%s] state", volID, getVolResp.Volume.LifecycleState)
@@ -458,6 +471,7 @@ func (o *oracleOps) Delete(volumeID string) error {
 	}
 	return nil
 }
+
 
 func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, timeout time.Duration) error {
 
@@ -563,4 +577,155 @@ func (o *oracleOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) 
 	}
 
 	return count, nil
+
+// Attach volumeID, accepts attachOptions as opaque data
+// Return attach path.
+func (o *oracleOps) Attach(volumeID string, options map[string]string) (string, error) {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	devices, err := o.FreeDevices([]interface{}{}, "")
+	if err != nil {
+		return "", err
+	}
+
+	for _, device := range devices {
+		attachVolReq := core.AttachVolumeRequest{
+			AttachVolumeDetails: core.AttachParavirtualizedVolumeDetails{
+				InstanceId:  common.String(o.instance),
+				VolumeId:    common.String(volumeID),
+				Device:      common.String(device),
+				IsShareable: common.Bool(false),
+				IsReadOnly:  common.Bool(false),
+			},
+		}
+
+		attachVolResp, err := o.compute.AttachVolume(context.Background(), attachVolReq)
+		if err != nil {
+			if strings.Contains(err.Error(), "is already in use") {
+				logrus.Infof("Skipping device: %s as it's in use. Will try next free device", device)
+				continue
+			}
+			return "", err
+		}
+
+		if attachVolResp.GetLifecycleState() != core.VolumeAttachmentLifecycleStateAttached {
+			err = o.waitVolumeAttachmentStatus(
+				attachVolResp.GetId(),
+				core.VolumeAttachmentLifecycleStateAttached,
+			)
+			if err != nil {
+				return "", err
+			}
+		}
+		devicePath, err := o.DevicePath(volumeID)
+		if err != nil {
+			logrus.Errorf("Error while getting device path. Error: %v", err)
+		}
+		o.volumeAttachmentMapping[volumeID] = attachVolResp.GetId()
+		return devicePath, err
+	}
+	return "", fmt.Errorf("failed to attach any of the free devices. Attempted: %v", devices)
+}
+
+func (o *oracleOps) waitVolumeAttachmentStatus(volumeAttachmentID *string, desiredStatus core.VolumeAttachmentLifecycleStateEnum) error {
+	getVolAttachmentReq := core.GetVolumeAttachmentRequest{
+		VolumeAttachmentId: volumeAttachmentID,
+	}
+	f := func() (interface{}, bool, error) {
+		getVolAttachmentResp, err := o.compute.GetVolumeAttachment(context.Background(), getVolAttachmentReq)
+		if err != nil {
+			return nil, true, err
+		}
+		if getVolAttachmentResp.GetLifecycleState() == desiredStatus {
+			return nil, false, nil
+		}
+
+		logrus.Debugf("volume [%s] is still in [%s] state", *getVolAttachmentResp.GetVolumeId(), getVolAttachmentResp.GetLifecycleState())
+		return nil, true, fmt.Errorf("volume [%s] is still in [%s] state", *getVolAttachmentResp.GetVolumeId(), getVolAttachmentResp.GetLifecycleState())
+	}
+	_, err := task.DoRetryWithTimeout(f, cloudops.ProviderOpsTimeout, cloudops.ProviderOpsRetryInterval)
+	return err
+}
+
+// Detach volumeID.
+func (o *oracleOps) Detach(volumeID string) error {
+	return o.detachInternal(volumeID, o.instance)
+}
+
+// DetachFrom detaches the disk/volume with given ID from the given instance ID
+func (o *oracleOps) DetachFrom(volumeID, instanceID string) error {
+	return o.detachInternal(volumeID, instanceID)
+}
+
+func (o *oracleOps) detachInternal(volumeID, instanceID string) error {
+	attachmentID, ok := o.volumeAttachmentMapping[volumeID]
+	if !ok {
+		logrus.Warnf("could not find volume attachment ID for volume [%s] locally", volumeID)
+		listVolAttachmentReq := core.ListVolumeAttachmentsRequest{
+			VolumeId:           common.String(volumeID),
+			InstanceId:         common.String(instanceID),
+			CompartmentId:      common.String(o.compartmentID),
+			AvailabilityDomain: common.String(o.availabilityDomain),
+		}
+		listVolAttachmentResp, err := o.compute.ListVolumeAttachments(context.Background(), listVolAttachmentReq)
+		if err != nil {
+			logrus.Errorf("error while getting attachments for volume [%s]. Response: [%+v]. Error: [%v]",
+				volumeID, listVolAttachmentResp, err)
+			return err
+		}
+		if len(listVolAttachmentResp.Items) > 0 {
+			attachmentID = listVolAttachmentResp.Items[0].GetId()
+		} else {
+			return fmt.Errorf("volume [%s] is not attached to node [%s]", volumeID, instanceID)
+		}
+	}
+	detachVolReq := core.DetachVolumeRequest{
+		VolumeAttachmentId: attachmentID,
+	}
+	detachVolResp, err := o.compute.DetachVolume(context.Background(), detachVolReq)
+	if err != nil {
+		logrus.Errorf("error while detaching volume [%s] from instance [%s]. Response: [%+v]. Error: [%v]",
+			volumeID, instanceID, detachVolResp, err)
+		return err
+	}
+	err = o.waitVolumeAttachmentStatus(
+		attachmentID,
+		core.VolumeAttachmentLifecycleStateDetached,
+	)
+	if err == nil {
+		o.mutex.Lock()
+		delete(o.volumeAttachmentMapping, volumeID)
+		o.mutex.Unlock()
+	}
+	return err
+}
+
+// FreeDevices returns free block devices on the instance.
+// blockDeviceMappings is a data structure that contains all block devices on
+// the instance and where they are mapped to
+func (o *oracleOps) FreeDevices(
+	blockDeviceMappings []interface{},
+	rootDeviceName string) ([]string, error) {
+	freeDevices := []string{}
+	listDevicesReq := core.ListInstanceDevicesRequest{
+		InstanceId:  common.String(o.instance),
+		IsAvailable: common.Bool(true),
+	}
+	respListDevices, err := o.compute.ListInstanceDevices(context.Background(), listDevicesReq)
+	if err != nil {
+		return freeDevices, err
+	}
+	for _, d := range respListDevices.Items {
+		freeDevices = append(freeDevices, *d.Name)
+	}
+	return freeDevices, nil
+}
+
+func (o *oracleOps) GetDeviceID(vol interface{}) (string, error) {
+	if d, ok := vol.(*core.Volume); ok {
+		return *d.Id, nil
+	}
+	return "", fmt.Errorf("invalid type: %v given to GetDeviceID", vol)
+
 }
