@@ -8,10 +8,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"time"
 	"strings"
 	"sync"
-
+	"time"
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -49,24 +48,25 @@ const (
 	envTenancyID          = "TENANCY_ID"
 	envPoolID             = "POOL_ID"
 	envClusterID          = "CLUSTER_ID"
+	defaultTimeout        = 5 * time.Minute
 )
 
 type oracleOps struct {
 	cloudops.Compute
 	cloudops.Storage
-	instance           string
-	region             string
-	availabilityDomain string
-	compartmentID      string
-	tenancyID          string
-	poolID             string
-	clusterID          string
-  volumeAttachmentMapping map[string]*string
-	storage            core.BlockstorageClient
-	compute            core.ComputeClient
-	containerEngine    containerengine.ContainerEngineClient
-  mutex                   sync.Mutex
-
+	instance                string
+	region                  string
+	availabilityDomain      string
+	compartmentID           string
+	tenancyID               string
+	poolID                  string
+	clusterID               string
+	volumeAttachmentMapping map[string]*string
+	storage                 core.BlockstorageClient
+	compute                 core.ComputeClient
+	containerEngine         containerengine.ContainerEngineClient
+	mutex                   sync.Mutex
+}
 
 // NewClient creates a new cloud operations client for Oracle cloud
 func NewClient() (cloudops.Ops, error) {
@@ -472,11 +472,10 @@ func (o *oracleOps) Delete(volumeID string) error {
 	return nil
 }
 
-
 func (o *oracleOps) SetInstanceGroupSize(instanceGroupID string, count int64, timeout time.Duration) error {
 
 	if timeout == 0*time.Second {
-		timeout = 5 * time.Minute
+		timeout = defaultTimeout
 	}
 
 	instanceGroupSize := int(count)
@@ -575,8 +574,8 @@ func (o *oracleOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) 
 			count++
 		}
 	}
-
 	return count, nil
+}
 
 // Attach volumeID, accepts attachOptions as opaque data
 // Return attach path.
