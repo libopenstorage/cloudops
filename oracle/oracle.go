@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -67,7 +68,6 @@ func NewClient() (cloudops.Ops, error) {
 	oracleOps := &oracleOps{}
 	err := getInfoFromMetadata(oracleOps)
 	if err != nil {
-		fmt.Printf("Got error [%v] from metadata\n", err)
 		err = getInfoFromEnv(oracleOps)
 		if err != nil {
 			return nil, err
@@ -130,7 +130,9 @@ func getInfoFromEnv(oracleOps *oracleOps) error {
 
 func getRequest(endpoint string, headers map[string]string) (map[string]interface{}, int, error) {
 	metadata := make(map[string]interface{})
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+	}
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return metadata, 0, err
