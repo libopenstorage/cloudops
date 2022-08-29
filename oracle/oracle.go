@@ -609,3 +609,117 @@ func (o *oracleOps) GetDeviceID(vol interface{}) (string, error) {
 	}
 	return "", fmt.Errorf("invalid type: %v given to GetDeviceID", vol)
 }
+
+// Enumerate volumes that match given filters. Organize them into
+// sets identified by setIdentifier.
+// labels can be nil, setIdentifier can be empty string.
+func (o *oracleOps) Enumerate(volumeIds []*string,
+	labels map[string]string,
+	setIdentifier string,
+) (map[string][]interface{}, error) {
+	sets := make(map[string][]interface{})
+	req := core.ListVolumesRequest{
+		CompartmentId: common.String(o.compartmentID),
+	}
+	resp, err := o.storage.ListVolumes(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	volIDsMap := map[string]string{}
+	for _, volIds := range volumeIds {
+		volIDsMap[*volIds] = *volIds
+	}
+	for _, vol := range resp.Items {
+		_, ok := volIDsMap[*vol.Id]
+		if !ok {
+			continue
+		}
+
+		if o.deleted(vol) {
+			continue
+		}
+		// TODO: [PWX-26616] Check if SDK itself returns list of volumes
+		// that have labels OR use volumeGroup for filtering
+		if labels != nil && containsMap(vol.FreeformTags, labels) {
+			continue
+		}
+		if len(setIdentifier) == 0 {
+			cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
+		} else {
+			found := false
+			for tagKey, tagValue := range vol.FreeformTags {
+				if tagKey == setIdentifier {
+					cloudops.AddElementToMap(sets, vol, tagValue)
+					found = true
+					break
+				}
+			}
+			if !found {
+				cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
+			}
+		}
+	}
+	return sets, nil
+}
+
+func containsMap(mainMap map[string]string, subMap map[string]string) bool {
+	for k, v := range subMap {
+		value, ok := mainMap[k]
+		if !ok {
+			return false
+		}
+		if value != v {
+			return false
+		}
+	}
+	return true
+}
+
+func (o *oracleOps) deleted(v core.Volume) bool {
+	return v.LifecycleState == core.VolumeLifecycleStateTerminating ||
+		v.LifecycleState == core.VolumeLifecycleStateTerminated
+}
+
+// ApplyTags will apply given labels/tags on the given volume
+func (o *oracleOps) ApplyTags(volumeID string, labels map[string]string) error {
+	req := core.UpdateVolumeRequest{
+		VolumeId: common.String(volumeID),
+		UpdateVolumeDetails: core.UpdateVolumeDetails{
+			FreeformTags: labels,
+		},
+	}
+	resp, err := o.storage.UpdateVolume(context.Background(), req)
+	if err != nil {
+		logrus.Errorf("failed to apply tag to %s. response: %v", volumeID, resp)
+	}
+	return err
+}
+
+// Tags will list the existing labels/tags on the given volume
+func (o *oracleOps) Tags(volumeID string) (map[string]string, error) {
+	vols, err := o.Inspect([]*string{&volumeID})
+	if err != nil {
+		return nil, err
+	}
+	if len(vols) != 1 {
+		return nil, fmt.Errorf("incorrect number of volumes [%v] got for volume id: %v",
+			len(vols), volumeID)
+	}
+	oracleVol, ok := vols[0].(*core.Volume)
+	if !ok {
+		return nil, fmt.Errorf("Invalid oracle volume")
+	}
+	return oracleVol.FreeformTags, nil
+}
+
+// RemoveTags removes labels/tags from the given volume
+func (o *oracleOps) RemoveTags(volumeID string, labels map[string]string) error {
+	currentTags, err := o.Tags(volumeID)
+	if err != nil {
+		return nil
+	}
+	for key := range labels {
+		delete(currentTags, key)
+	}
+	return o.ApplyTags(volumeID, currentTags)
+}
