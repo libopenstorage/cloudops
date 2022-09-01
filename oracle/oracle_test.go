@@ -29,8 +29,9 @@ func TestAll(t *testing.T) {
 		t.Skipf("skipping Oracle tests as environment is not set...\n")
 	}
 
-	compartmentID, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s_%s", envPrefix, envCompartmentID))
-	availabilityDomain, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s_%s", envPrefix, envAvailabilityDomain))
+
+	compartmentID, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s", envCompartmentID))
+	availabilityDomain, _ := cloudops.GetEnvValueStrict(fmt.Sprintf("%s", envAvailabilityDomain))
 	oracleVol := &core.Volume{
 		SizeInGBs:          common.Int64(newDiskSizeInGB),
 		CompartmentId:      common.String(compartmentID),
