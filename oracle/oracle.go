@@ -729,3 +729,60 @@ func (o *oracleOps) GetDeviceID(vol interface{}) (string, error) {
 	return "", fmt.Errorf("invalid type: %v given to GetDeviceID", vol)
 
 }
+
+func (o *oracleOps) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
+
+	pools, err := o.containerEngine.ListNodePools(context.Background(),
+		containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, ClusterId: &o.clusterID})
+	if err != nil {
+		return err
+	}
+
+	var nodePoolId *string
+
+	switch len(pools.Items) {
+	case 0:
+		return errors.New("No node pool found ")
+	case 1:
+		nodePoolId = pools.Items[0].Id
+	default:
+		for _, pool := range pools.Items {
+			poolResp, err := o.containerEngine.GetNodePool(context.Background(), containerengine.GetNodePoolRequest{NodePoolId: pool.Id})
+			if err != nil {
+				return err
+			}
+			if ok := nodePoolContainsNode(poolResp.Nodes, instanceID); ok {
+				logrus.Println("Instance is in pool ", *pool.Name)
+				nodePoolId = pool.Id
+				break
+			}
+		}
+	}
+
+	nodeDeleteReq := containerengine.DeleteNodeRequest{
+		NodePoolId:      nodePoolId,
+		NodeId:          &instanceID,
+		IsDecrementSize: common.Bool(false),
+	}
+	nodeDeleteResp, err := o.containerEngine.DeleteNode(context.Background(), nodeDeleteReq)
+
+	if err != nil {
+		return err
+	}
+
+	err = o.waitTillWorkStatusIsSucceeded(nodeDeleteResp.OpcRequestId, nodeDeleteResp.OpcWorkRequestId, timeout)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func nodePoolContainsNode(s []containerengine.Node, e string) bool {
+	for _, v := range s {
+		if *v.Id == e {
+			return true
+		}
+	}
+	return false
+}
