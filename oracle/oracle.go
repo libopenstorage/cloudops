@@ -738,13 +738,13 @@ func (o *oracleOps) DeleteInstance(instanceID string, zone string, timeout time.
 		return err
 	}
 
-	var nodePoolId *string
+	var nodePoolID *string
 
 	switch len(pools.Items) {
 	case 0:
 		return errors.New("No node pool found ")
 	case 1:
-		nodePoolId = pools.Items[0].Id
+		nodePoolID = pools.Items[0].Id
 	default:
 		for _, pool := range pools.Items {
 			poolResp, err := o.containerEngine.GetNodePool(context.Background(), containerengine.GetNodePoolRequest{NodePoolId: pool.Id})
@@ -753,14 +753,14 @@ func (o *oracleOps) DeleteInstance(instanceID string, zone string, timeout time.
 			}
 			if ok := nodePoolContainsNode(poolResp.Nodes, instanceID); ok {
 				logrus.Println("Instance is in pool ", *pool.Name)
-				nodePoolId = pool.Id
+				nodePoolID = pool.Id
 				break
 			}
 		}
 	}
 
 	nodeDeleteReq := containerengine.DeleteNodeRequest{
-		NodePoolId:      nodePoolId,
+		NodePoolId:      nodePoolID,
 		NodeId:          &instanceID,
 		IsDecrementSize: common.Bool(false),
 	}
