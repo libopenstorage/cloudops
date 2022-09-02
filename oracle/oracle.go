@@ -786,3 +786,30 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 	}
 	return false
 }
+
+func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error) {
+	logrus.Println("Expand volume to size ", newSizeInGiB)
+
+	req := core.UpdateVolumeRequest{
+		VolumeId: &volumeID,
+		UpdateVolumeDetails: core.UpdateVolumeDetails{
+			SizeInGBs: common.Int64(int64(newSizeInGiB)),
+		},
+	}
+
+	updateVolResp, err := o.storage.UpdateVolume(context.Background(), req)
+	if err != nil {
+		return 0, err
+	}
+
+	oracleVol, err := o.waitVolumeStatus(*updateVolResp.Id, core.VolumeLifecycleStateAvailable)
+	if err != nil {
+		return 0, err
+	}
+	volume, ok := oracleVol.(*core.Volume)
+	if !ok {
+		return 0, errors.New("Marshelling failed for Oracle volume")
+	}
+
+	return uint64(*volume.SizeInGBs), nil
+}
