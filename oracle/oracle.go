@@ -788,6 +788,7 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 }
 
 func (o *oracleOps) SetClusterVersion(version string, timeout time.Duration) error {
+	logrus.Println("Setting Cluster version to", version)
 	req := containerengine.UpdateClusterRequest{
 		ClusterId: &o.clusterID,
 		UpdateClusterDetails: containerengine.UpdateClusterDetails{
@@ -804,9 +805,9 @@ func (o *oracleOps) SetClusterVersion(version string, timeout time.Duration) err
 }
 
 func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version string, timeout time.Duration) error {
-
+	logrus.Println("Setting Instance group version to", version)
 	//get nodepool ID from name
-	var instanceGroupId *string
+	var instanceGroupID *string
 	nodePoolsReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupName, ClusterId: &o.clusterID}
 	nodePools, err := o.containerEngine.ListNodePools(context.Background(), nodePoolsReq)
 	if err != nil {
@@ -814,13 +815,13 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 	}
 
 	if len(nodePools.Items) == 0 {
-		return errors.New("No node pool found with name " + instanceGroupName)
+		return errors.New("No node pool found with name" + instanceGroupName)
 	}
-	instanceGroupId = nodePools.Items[0].Id
+	instanceGroupID = nodePools.Items[0].Id
 
 	//update kubernetes version of nodepool
 	resp, err := o.containerEngine.UpdateNodePool(context.Background(), containerengine.UpdateNodePoolRequest{
-		NodePoolId: instanceGroupId,
+		NodePoolId: instanceGroupID,
 		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
 			KubernetesVersion: &version,
 		},
@@ -851,7 +852,6 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 		nodePoolPlacementConfigDetails[i].AvailabilityDomain = placementConfigs.AvailabilityDomain
 		nodePoolPlacementConfigDetails[i].SubnetId = placementConfigs.SubnetId
 	}
-
 	//delete all nodes from existing node pool
 	if err := o.SetInstanceGroupSize(instanceGroupName, 0, timeout); err != nil {
 		return err
@@ -867,7 +867,7 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 			},
 		},
 	}
-
+	logrus.Println("Creating nodes with version", version)
 	updateResp, err := o.containerEngine.UpdateNodePool(context.Background(), req)
 	if err != nil {
 		return err
