@@ -859,7 +859,7 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 
 	//create same number of nodes again with updated version
 	req := containerengine.UpdateNodePoolRequest{
-		NodePoolId: instanceGroupId, //get node pool id
+		NodePoolId: instanceGroupID, //get node pool id
 		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
 			NodeConfigDetails: &containerengine.UpdateNodePoolNodeConfigDetails{
 				Size:             &totalClusterSize,
