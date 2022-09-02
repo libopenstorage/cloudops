@@ -786,3 +786,92 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 	}
 	return false
 }
+
+func (o *oracleOps) SetClusterVersion(version string, timeout time.Duration) error {
+	req := containerengine.UpdateClusterRequest{
+		ClusterId: &o.clusterID,
+		UpdateClusterDetails: containerengine.UpdateClusterDetails{
+			KubernetesVersion: &version,
+		},
+	}
+
+	resp, err := o.containerEngine.UpdateCluster(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	return o.waitTillWorkStatusIsSucceeded(resp.OpcRequestId, resp.OpcWorkRequestId, timeout)
+}
+
+func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version string, timeout time.Duration) error {
+
+	//get nodepool ID from name
+	var instanceGroupId *string
+	nodePoolsReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupName, ClusterId: &o.clusterID}
+	nodePools, err := o.containerEngine.ListNodePools(context.Background(), nodePoolsReq)
+	if err != nil {
+		return err
+	}
+
+	if len(nodePools.Items) == 0 {
+		return errors.New("No node pool found with name " + instanceGroupName)
+	}
+	instanceGroupId = nodePools.Items[0].Id
+
+	//update kubernetes version of nodepool
+	resp, err := o.containerEngine.UpdateNodePool(context.Background(), containerengine.UpdateNodePoolRequest{
+		NodePoolId: instanceGroupId,
+		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
+			KubernetesVersion: &version,
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	err = o.waitTillWorkStatusIsSucceeded(resp.OpcRequestId, resp.OpcWorkRequestId, timeout)
+	if err != nil {
+		return err
+	}
+
+	//get existing total node count of instanceGroup
+	existingClusterSize, err := o.GetInstanceGroupSize(instanceGroupName)
+	if err != nil {
+		return err
+	}
+
+	numberOfZones := len(nodePools.Items[0].NodeConfigDetails.PlacementConfigs)
+	totalClusterSize := int(existingClusterSize)
+
+	//get all zones to be updated
+	nodePoolPlacementConfigDetails := make([]containerengine.NodePoolPlacementConfigDetails, numberOfZones)
+
+	for i, placementConfigs := range nodePools.Items[0].NodeConfigDetails.PlacementConfigs {
+		nodePoolPlacementConfigDetails[i].AvailabilityDomain = placementConfigs.AvailabilityDomain
+		nodePoolPlacementConfigDetails[i].SubnetId = placementConfigs.SubnetId
+	}
+
+	//delete all nodes from existing node pool
+	if err := o.SetInstanceGroupSize(instanceGroupName, 0, timeout); err != nil {
+		return err
+	}
+
+	//create same number of nodes again with updated version
+	req := containerengine.UpdateNodePoolRequest{
+		NodePoolId: instanceGroupId, //get node pool id
+		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
+			NodeConfigDetails: &containerengine.UpdateNodePoolNodeConfigDetails{
+				Size:             &totalClusterSize,
+				PlacementConfigs: nodePoolPlacementConfigDetails,
+			},
+		},
+	}
+
+	updateResp, err := o.containerEngine.UpdateNodePool(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	return o.waitTillWorkStatusIsSucceeded(updateResp.OpcRequestId, updateResp.OpcWorkRequestId, timeout)
+}
