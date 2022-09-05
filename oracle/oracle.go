@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -788,7 +789,18 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 }
 
 func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error) {
-	logrus.Println("Expand volume to size ", newSizeInGiB)
+	logrus.Debug("Expand volume to size ", newSizeInGiB)
+
+	volume, err := o.storage.GetVolume(context.Background(), core.GetVolumeRequest{VolumeId: &volumeID})
+	if err != nil {
+		return 0, err
+	}
+
+	currentsize := uint64(*volume.SizeInGBs)
+
+	if (currentsize > newSizeInGiB) || (currentsize == newSizeInGiB) {
+		return currentsize, errors.New("Can not change Volume size from " + strconv.Itoa(int(currentsize)) + " GiB to " + strconv.Itoa(int(newSizeInGiB)) + " GiB")
+	}
 
 	req := core.UpdateVolumeRequest{
 		VolumeId: &volumeID,
@@ -806,10 +818,10 @@ func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error)
 	if err != nil {
 		return 0, err
 	}
-	volume, ok := oracleVol.(*core.Volume)
+	updatedVol, ok := oracleVol.(*core.Volume)
 	if !ok {
 		return 0, errors.New("Marshelling failed for Oracle volume")
 	}
 
-	return uint64(*volume.SizeInGBs), nil
+	return uint64(*updatedVol.SizeInGBs), nil
 }
