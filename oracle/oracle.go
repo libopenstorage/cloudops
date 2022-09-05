@@ -789,7 +789,7 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 }
 
 func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error) {
-	logrus.Debug("Expand volume to size ", newSizeInGiB)
+	logrus.Debug("Expand volume to size ", newSizeInGiB, " GiB")
 
 	volume, err := o.storage.GetVolume(context.Background(), core.GetVolumeRequest{VolumeId: &volumeID})
 	if err != nil {
