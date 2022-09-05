@@ -836,10 +836,29 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 		return err
 	}
 
+	//Any changes made to worker node properties will only apply to new worker nodes.
+	//We cannot change the properties of existing worker nodes.
+	//To apply changes on existing worker nodes, first, scale the node pool to 0 .
+	//Then scale up to original nodepool size with upgraded version
+	//https://docs.oracle.com/en-us/iaas/Content/knownissues.htm#contengworkernodepropertiesoutofsync
+
+	updateResp, err := o.scaleDownToZeroThenScaleUp(instanceGroupName, *instanceGroupID, nodePools, timeout)
+	if err != nil {
+		return err
+	}
+
+	return o.waitTillWorkStatusIsSucceeded(updateResp.OpcRequestId, updateResp.OpcWorkRequestId, timeout)
+}
+
+func (o *oracleOps) scaleDownToZeroThenScaleUp(instanceGroupName, instanceGroupID string,
+	nodePools containerengine.ListNodePoolsResponse, timeout time.Duration) (containerengine.UpdateNodePoolResponse, error) {
+
+	emptyResponse := containerengine.UpdateNodePoolResponse{}
+
 	//get existing total node count of instanceGroup
 	existingClusterSize, err := o.GetInstanceGroupSize(instanceGroupName)
 	if err != nil {
-		return err
+		return emptyResponse, err
 	}
 
 	numberOfZones := len(nodePools.Items[0].NodeConfigDetails.PlacementConfigs)
@@ -854,12 +873,12 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 	}
 	//delete all nodes from existing node pool
 	if err := o.SetInstanceGroupSize(instanceGroupName, 0, timeout); err != nil {
-		return err
+		return emptyResponse, err
 	}
 
 	//create same number of nodes again with updated version
 	req := containerengine.UpdateNodePoolRequest{
-		NodePoolId: instanceGroupID, //get node pool id
+		NodePoolId: &instanceGroupID, //get node pool id
 		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
 			NodeConfigDetails: &containerengine.UpdateNodePoolNodeConfigDetails{
 				Size:             &totalClusterSize,
@@ -867,11 +886,10 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 			},
 		},
 	}
-	logrus.Println("Creating nodes with version", version)
 	updateResp, err := o.containerEngine.UpdateNodePool(context.Background(), req)
 	if err != nil {
-		return err
+		return emptyResponse, err
 	}
 
-	return o.waitTillWorkStatusIsSucceeded(updateResp.OpcRequestId, updateResp.OpcWorkRequestId, timeout)
+	return updateResp, nil
 }
