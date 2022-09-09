@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -785,6 +786,45 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 		}
 	}
 	return false
+}
+
+
+func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error) {
+	logrus.Debug("Expand volume to size ", newSizeInGiB, " GiB")
+
+	volume, err := o.storage.GetVolume(context.Background(), core.GetVolumeRequest{VolumeId: &volumeID})
+	if err != nil {
+		return 0, err
+	}
+
+	currentsize := uint64(*volume.SizeInGBs)
+
+	if (currentsize > newSizeInGiB) || (currentsize == newSizeInGiB) {
+		return currentsize, errors.New("Can not change Volume size from " + strconv.Itoa(int(currentsize)) + " GiB to " + strconv.Itoa(int(newSizeInGiB)) + " GiB")
+	}
+
+	req := core.UpdateVolumeRequest{
+		VolumeId: &volumeID,
+		UpdateVolumeDetails: core.UpdateVolumeDetails{
+			SizeInGBs: common.Int64(int64(newSizeInGiB)),
+		},
+	}
+
+	updateVolResp, err := o.storage.UpdateVolume(context.Background(), req)
+	if err != nil {
+		return 0, err
+	}
+
+	oracleVol, err := o.waitVolumeStatus(*updateVolResp.Id, core.VolumeLifecycleStateAvailable)
+	if err != nil {
+		return 0, err
+	}
+	updatedVol, ok := oracleVol.(*core.Volume)
+	if !ok {
+		return 0, errors.New("Marshelling failed for Oracle volume")
+	}
+
+	return uint64(*updatedVol.SizeInGBs), nil
 }
 
 func (o *oracleOps) SetClusterVersion(version string, timeout time.Duration) error {
