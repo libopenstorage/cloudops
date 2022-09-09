@@ -788,6 +788,7 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 	return false
 }
 
+
 func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error) {
 	logrus.Debug("Expand volume to size ", newSizeInGiB, " GiB")
 
@@ -824,4 +825,111 @@ func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error)
 	}
 
 	return uint64(*updatedVol.SizeInGBs), nil
+}
+
+func (o *oracleOps) SetClusterVersion(version string, timeout time.Duration) error {
+	logrus.Println("Setting Cluster version to", version)
+	req := containerengine.UpdateClusterRequest{
+		ClusterId: &o.clusterID,
+		UpdateClusterDetails: containerengine.UpdateClusterDetails{
+			KubernetesVersion: &version,
+		},
+	}
+
+	resp, err := o.containerEngine.UpdateCluster(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	return o.waitTillWorkStatusIsSucceeded(resp.OpcRequestId, resp.OpcWorkRequestId, timeout)
+}
+
+func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version string, timeout time.Duration) error {
+	logrus.Println("Setting Instance group version to", version)
+	//get nodepool ID from name
+	var instanceGroupID *string
+	nodePoolsReq := containerengine.ListNodePoolsRequest{CompartmentId: &o.compartmentID, Name: &instanceGroupName, ClusterId: &o.clusterID}
+	nodePools, err := o.containerEngine.ListNodePools(context.Background(), nodePoolsReq)
+	if err != nil {
+		return err
+	}
+
+	if len(nodePools.Items) == 0 {
+		return errors.New("No node pool found with name" + instanceGroupName)
+	}
+	instanceGroupID = nodePools.Items[0].Id
+
+	//update kubernetes version of nodepool
+	resp, err := o.containerEngine.UpdateNodePool(context.Background(), containerengine.UpdateNodePoolRequest{
+		NodePoolId: instanceGroupID,
+		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
+			KubernetesVersion: &version,
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	err = o.waitTillWorkStatusIsSucceeded(resp.OpcRequestId, resp.OpcWorkRequestId, timeout)
+	if err != nil {
+		return err
+	}
+
+	//Any changes made to worker node properties will only apply to new worker nodes.
+	//We cannot change the properties of existing worker nodes.
+	//To apply changes on existing worker nodes, first, scale the node pool to 0 .
+	//Then scale up to original nodepool size with upgraded version
+	//https://docs.oracle.com/en-us/iaas/Content/knownissues.htm#contengworkernodepropertiesoutofsync
+
+	updateResp, err := o.scaleDownToZeroThenScaleUp(instanceGroupName, *instanceGroupID, nodePools, timeout)
+	if err != nil {
+		return err
+	}
+
+	return o.waitTillWorkStatusIsSucceeded(updateResp.OpcRequestId, updateResp.OpcWorkRequestId, timeout)
+}
+
+func (o *oracleOps) scaleDownToZeroThenScaleUp(instanceGroupName, instanceGroupID string,
+	nodePools containerengine.ListNodePoolsResponse, timeout time.Duration) (containerengine.UpdateNodePoolResponse, error) {
+
+	emptyResponse := containerengine.UpdateNodePoolResponse{}
+
+	//get existing total node count of instanceGroup
+	existingClusterSize, err := o.GetInstanceGroupSize(instanceGroupName)
+	if err != nil {
+		return emptyResponse, err
+	}
+
+	numberOfZones := len(nodePools.Items[0].NodeConfigDetails.PlacementConfigs)
+	totalClusterSize := int(existingClusterSize)
+
+	//get all zones to be updated
+	nodePoolPlacementConfigDetails := make([]containerengine.NodePoolPlacementConfigDetails, numberOfZones)
+
+	for i, placementConfigs := range nodePools.Items[0].NodeConfigDetails.PlacementConfigs {
+		nodePoolPlacementConfigDetails[i].AvailabilityDomain = placementConfigs.AvailabilityDomain
+		nodePoolPlacementConfigDetails[i].SubnetId = placementConfigs.SubnetId
+	}
+	//delete all nodes from existing node pool
+	if err := o.SetInstanceGroupSize(instanceGroupName, 0, timeout); err != nil {
+		return emptyResponse, err
+	}
+
+	//create same number of nodes again with updated version
+	req := containerengine.UpdateNodePoolRequest{
+		NodePoolId: &instanceGroupID, //get node pool id
+		UpdateNodePoolDetails: containerengine.UpdateNodePoolDetails{
+			NodeConfigDetails: &containerengine.UpdateNodePoolNodeConfigDetails{
+				Size:             &totalClusterSize,
+				PlacementConfigs: nodePoolPlacementConfigDetails,
+			},
+		},
+	}
+	updateResp, err := o.containerEngine.UpdateNodePool(context.Background(), req)
+	if err != nil {
+		return emptyResponse, err
+	}
+
+	return updateResp, nil
 }
