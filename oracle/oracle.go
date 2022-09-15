@@ -422,6 +422,10 @@ func (o *oracleOps) Create(template interface{}, labels map[string]string) (inte
 	}
 	createVolResp, err := o.storage.CreateVolume(context.Background(), createVolReq)
 	if err != nil {
+		if strings.Contains(err.Error(), "vpusPerGB is invalid") {
+			return nil, fmt.Errorf("VPUs must be an integer that is multiple of 10 " +
+				"Please refer to oracle cloud block volume documentation for valid values")
+		}
 		return nil, err
 	}
 
