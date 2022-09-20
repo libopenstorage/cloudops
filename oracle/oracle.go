@@ -422,6 +422,10 @@ func (o *oracleOps) Create(template interface{}, labels map[string]string) (inte
 	}
 	createVolResp, err := o.storage.CreateVolume(context.Background(), createVolReq)
 	if err != nil {
+		if strings.Contains(err.Error(), "vpusPerGB is invalid") {
+			return nil, fmt.Errorf("VPUs must be an integer that is multiple of 10 " +
+				"Please refer to oracle cloud block volume documentation for valid values")
+		}
 		return nil, err
 	}
 
@@ -610,18 +614,22 @@ func (o *oracleOps) Attach(volumeID string, options map[string]string) (string, 
 			return "", err
 		}
 
+		var devicePath string
 		if attachVolResp.GetLifecycleState() != core.VolumeAttachmentLifecycleStateAttached {
-			err = o.waitVolumeAttachmentStatus(
+			devicePath, err = o.waitVolumeAttachmentStatus(
 				attachVolResp.GetId(),
 				core.VolumeAttachmentLifecycleStateAttached,
 			)
 			if err != nil {
-				return "", err
+				devicePath, err := o.DevicePath(volumeID)
+				if err != nil {
+					return "", err
+				}
+				o.volumeAttachmentMapping[volumeID] = attachVolResp.GetId()
+				return devicePath, err
 			}
-		}
-		devicePath, err := o.DevicePath(volumeID)
-		if err != nil {
-			logrus.Errorf("Error while getting device path. Error: %v", err)
+		} else {
+			devicePath = *attachVolResp.GetDevice()
 		}
 		o.volumeAttachmentMapping[volumeID] = attachVolResp.GetId()
 		return devicePath, err
@@ -629,7 +637,7 @@ func (o *oracleOps) Attach(volumeID string, options map[string]string) (string, 
 	return "", fmt.Errorf("failed to attach any of the free devices. Attempted: %v", devices)
 }
 
-func (o *oracleOps) waitVolumeAttachmentStatus(volumeAttachmentID *string, desiredStatus core.VolumeAttachmentLifecycleStateEnum) error {
+func (o *oracleOps) waitVolumeAttachmentStatus(volumeAttachmentID *string, desiredStatus core.VolumeAttachmentLifecycleStateEnum) (string, error) {
 	getVolAttachmentReq := core.GetVolumeAttachmentRequest{
 		VolumeAttachmentId: volumeAttachmentID,
 	}
@@ -639,14 +647,21 @@ func (o *oracleOps) waitVolumeAttachmentStatus(volumeAttachmentID *string, desir
 			return nil, true, err
 		}
 		if getVolAttachmentResp.GetLifecycleState() == desiredStatus {
-			return nil, false, nil
+			return getVolAttachmentResp.GetDevice(), false, nil
 		}
 
 		logrus.Debugf("volume [%s] is still in [%s] state", *getVolAttachmentResp.GetVolumeId(), getVolAttachmentResp.GetLifecycleState())
 		return nil, true, fmt.Errorf("volume [%s] is still in [%s] state", *getVolAttachmentResp.GetVolumeId(), getVolAttachmentResp.GetLifecycleState())
 	}
-	_, err := task.DoRetryWithTimeout(f, cloudops.ProviderOpsTimeout, cloudops.ProviderOpsRetryInterval)
-	return err
+	devicePathRaw, err := task.DoRetryWithTimeout(f, cloudops.ProviderOpsTimeout, cloudops.ProviderOpsRetryInterval)
+	if err != nil {
+		return "", err
+	}
+	devicePath, ok := devicePathRaw.(*string)
+	if !ok {
+		return "", fmt.Errorf("volume attachment [%s] attached successfully but could not get it's local device path", *volumeAttachmentID)
+	}
+	return *devicePath, err
 }
 
 // Detach volumeID.
@@ -690,7 +705,7 @@ func (o *oracleOps) detachInternal(volumeID, instanceID string) error {
 			volumeID, instanceID, detachVolResp, err)
 		return err
 	}
-	err = o.waitVolumeAttachmentStatus(
+	_, err = o.waitVolumeAttachmentStatus(
 		attachmentID,
 		core.VolumeAttachmentLifecycleStateDetached,
 	)
@@ -787,7 +802,6 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 	}
 	return false
 }
-
 
 func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64) (uint64, error) {
 	logrus.Debug("Expand volume to size ", newSizeInGiB, " GiB")
