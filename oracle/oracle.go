@@ -331,12 +331,14 @@ func (o *oracleOps) DeviceMappings() (map[string]string, error) {
 		return m, err
 	}
 	for _, va := range volumeAttachmentResp.Items {
-		if va.GetDevice() != nil && va.GetVolumeId() != nil {
-			devicePath = *va.GetDevice()
-			volID = *va.GetVolumeId()
-		} else {
-			logrus.Warnf("Device path or volume id for [%+v] volume attachment not found", va)
-			continue
+		if va.GetLifecycleState() == core.VolumeAttachmentLifecycleStateAttached {
+			if va.GetDevice() != nil && va.GetVolumeId() != nil {
+				devicePath = *va.GetDevice()
+				volID = *va.GetVolumeId()
+			} else {
+				logrus.Warnf("Device path or volume id for [%+v] volume attachment not found", va)
+				continue
+			}
 		}
 		m[devicePath] = volID
 	}
