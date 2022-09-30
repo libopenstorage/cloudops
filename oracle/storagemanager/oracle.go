@@ -119,3 +119,7 @@ func determineIOPSForPool(instStorage *cloudops.StoragePoolSpec, row *cloudops.S
 	}
 	return instStorage.DriveCapacityGiB * uint64(iopsPerGB)
 }
+
+func init() {
+	cloudops.RegisterStorageManager(cloudops.Oracle, NewStorageManager)
+}

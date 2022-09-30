@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/pkg/parser"
@@ -74,12 +75,12 @@ func getMatrixRows(vpu int) []cloudops.StorageDecisionMatrixRow {
 	}
 	row := getCommonRow(0)
 
-	for iops := 0; iops < int(maxIopsPerVol); iops = iops + 50 {
+	for iops := int64(0); iops < int64(maxIopsPerVol); iops = iops + 500 {
 		row.DriveType = fmt.Sprintf("%d%s", vpu, vpusSuffix)
 		row.MinIOPS = uint64(iops)
-		row.MaxIOPS = uint64(iops + 50)
-		row.MinSize = row.MinIOPS / uint64(iopsPerGB)
-		row.MaxSize = row.MaxIOPS / uint64(iopsPerGB)
+		row.MaxIOPS = uint64(iops + 500)
+		row.MinSize = uint64(math.Ceil(float64(row.MinIOPS) / float64(iopsPerGB)))
+		row.MaxSize = uint64(math.Ceil(float64(row.MaxIOPS) / float64(iopsPerGB)))
 		rows = append(rows, row)
 	}
 	return rows
