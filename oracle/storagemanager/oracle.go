@@ -13,7 +13,7 @@ type oracleStorageManager struct {
 	decisionMatrix *cloudops.StorageDecisionMatrix
 }
 
-// NewStorageManager returns a GCE specific implementation of StorageManager interface.
+// NewStorageManager returns a Oracle specific implementation of StorageManager interface.
 func NewStorageManager(decisionMatrix cloudops.StorageDecisionMatrix) (cloudops.StorageManager, error) {
 	return &oracleStorageManager{
 		StorageManager: unsupported.NewUnsupportedStorageManager(),
