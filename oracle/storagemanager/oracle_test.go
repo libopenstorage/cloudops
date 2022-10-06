@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	testSpecPath = "testspecs/aws.yaml"
+	testSpecPath = "testspecs/oracle.yaml"
 )
 
 var (
@@ -26,7 +26,7 @@ type updateTestInput struct {
 	response    *cloudops.StoragePoolUpdateResponse
 }
 
-func TestAWSStorageManager(t *testing.T) {
+func TestOracleStorageManager(t *testing.T) {
 	t.Run("setup", setup)
 	t.Run("storageDistribution", storageDistribution)
 	t.Run("storageUpdate", storageUpdate)
@@ -38,8 +38,8 @@ func setup(t *testing.T) {
 	decisionMatrix, err := parser.NewStorageDecisionMatrixParser().UnmarshalFromYaml(testSpecPath)
 	require.NoError(t, err, "Unexpected error on yaml parser")
 
-	storageManager, err = NewAWSStorageManager(*decisionMatrix)
-	require.NoError(t, err, "Unexpected error on creating AWS storage manager")
+	storageManager, err = NewStorageManager(*decisionMatrix)
+	require.NoError(t, err, "Unexpected error on creating Oracle storage manager")
 }
 
 func storageDistribution(t *testing.T) {
@@ -48,6 +48,7 @@ func storageDistribution(t *testing.T) {
 		request     *cloudops.StorageDistributionRequest
 		response    *cloudops.StorageDistributionResponse
 	}{
+
 		{
 			// Test1: always use the upper bound on IOPS if there is no drive type
 			// that provides that exact amount of requested IOPS")
@@ -67,16 +68,17 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 316,
-						DriveType:        "gp2",
-						InstancesPerZone: 2,
+						DriveCapacityGiB: 250,
+						DriveType:        "0_vpus",
+						InstancesPerZone: 3,
 						DriveCount:       1,
-						IOPS:             948,
+						IOPS:             500,
 					},
 				},
 			},
 			expectedErr: nil,
 		},
+		// Did not understood
 		// Test2: choose the right size of the disk by updating the instances per zone
 		//        in case of a conflict with two configurations providing the same IOPS
 		//        and min capacity choose based of priority
@@ -96,11 +98,11 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 150,
-						DriveType:        "gp2",
+						DriveCapacityGiB: 14,
+						DriveType:        "0_vpus",
 						InstancesPerZone: 3,
-						DriveCount:       1,
-						IOPS:             450,
+						DriveCount:       8,
+						IOPS:             28,
 					},
 				},
 			},
@@ -124,17 +126,16 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 1024,
-						DriveType:        "gp2",
+						DriveCapacityGiB: 1250,
+						DriveType:        "0_vpus",
 						InstancesPerZone: 3,
 						DriveCount:       1,
-						IOPS:             3072,
+						IOPS:             2500,
 					},
 				},
 			},
 			expectedErr: nil,
 		},
-
 		{
 			// Test4: choose the configuration which is closest to the requested IOPS
 			request: &cloudops.StorageDistributionRequest{
@@ -152,11 +153,11 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 2000,
-						DriveType:        "gp2",
+						DriveCapacityGiB: 250,
+						DriveType:        "10_vpus",
 						InstancesPerZone: 2,
-						DriveCount:       1,
-						IOPS:             6000,
+						DriveCount:       8,
+						IOPS:             15000,
 					},
 				},
 			},
@@ -181,10 +182,10 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 349,
-						DriveType:        "gp2",
+						DriveType:        "0_vpus",
 						InstancesPerZone: 2,
 						DriveCount:       1,
-						IOPS:             1047,
+						IOPS:             698,
 					},
 				},
 			},
@@ -207,192 +208,17 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 2483,
-						DriveType:        "gp2",
-						InstancesPerZone: 1,
-						DriveCount:       1,
-						IOPS:             7449,
-					},
-				},
-			},
-			expectedErr: nil,
-		},
-		{
-			// Test7: provision an io1 drive if the IOPS is not achievable
-			// by the provided size
-			request: &cloudops.StorageDistributionRequest{
-				UserStorageSpec: []*cloudops.StorageSpec{
-					&cloudops.StorageSpec{
-						IOPS:        7500,
-						MinCapacity: 1000,
-						MaxCapacity: 2000,
-						DriveType:   "io1",
-					},
-				},
-				InstanceType:     "foo",
-				InstancesPerZone: 3,
-				ZoneCount:        3,
-			},
-			response: &cloudops.StorageDistributionResponse{
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 200,
-						DriveType:        "io1",
-						InstancesPerZone: 2,
-						DriveCount:       1,
-						IOPS:             7500,
-					},
-				},
-			},
-
-			expectedErr: nil,
-		},
-		{
-			// Test8: Multiple user storage specs in a single request
-			request: &cloudops.StorageDistributionRequest{
-				UserStorageSpec: []*cloudops.StorageSpec{
-					&cloudops.StorageSpec{
-						IOPS:        500,
-						MinCapacity: 1000,
-						MaxCapacity: 100000,
-						DriveType:   "gp2",
-					},
-					&cloudops.StorageSpec{
-						IOPS:        5000,
-						MinCapacity: 9216,
-						MaxCapacity: 100000,
-					},
-				},
-				InstanceType:     "foo",
-				InstancesPerZone: 3,
-				ZoneCount:        3,
-			},
-			response: &cloudops.StorageDistributionResponse{
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 150,
-						DriveType:        "gp2",
-						InstancesPerZone: 3,
-						DriveCount:       1,
-						IOPS:             450,
-					},
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 1650,
-						DriveType:        "gp2",
-						InstancesPerZone: 2,
-						DriveCount:       1,
-						IOPS:             4950,
-					},
-				},
-			},
-			expectedErr: nil,
-		},
-		{
-			// Test9: Fail the request even if one of the user specs fails
-			request: &cloudops.StorageDistributionRequest{
-				UserStorageSpec: []*cloudops.StorageSpec{
-					&cloudops.StorageSpec{
-						IOPS:        10000,
-						MinCapacity: 10,
-						MaxCapacity: 30,
-					},
-					&cloudops.StorageSpec{
-						IOPS:        7500,
-						MinCapacity: 2048,
-						MaxCapacity: 100000,
-					},
-				},
-				InstanceType:     "foo",
-				InstancesPerZone: 3,
-				ZoneCount:        3,
-			},
-			expectedErr: &cloudops.ErrStorageDistributionCandidateNotFound{},
-		},
-		{
-			// Test10: Install with lower sized disks
-			request: &cloudops.StorageDistributionRequest{
-				UserStorageSpec: []*cloudops.StorageSpec{
-					&cloudops.StorageSpec{
-						IOPS:        300,
-						MinCapacity: 150,
-						MaxCapacity: 300,
-					},
-				},
-				InstanceType:     "foo",
-				InstancesPerZone: 1,
-				ZoneCount:        3,
-			},
-			response: &cloudops.StorageDistributionResponse{
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 83,
-						DriveType:        "gp2",
-						InstancesPerZone: 1,
-						DriveCount:       1,
-						IOPS:             249,
-					},
-				},
-			},
-			expectedErr: nil,
-		},
-		{
-			// Test11: Install for specific drive type
-			request: &cloudops.StorageDistributionRequest{
-				UserStorageSpec: []*cloudops.StorageSpec{
-					&cloudops.StorageSpec{
-						IOPS:        2500,
-						MinCapacity: 150,
-						MaxCapacity: 300,
-						DriveType:   "io1",
-					},
-				},
-				InstanceType:     "foo",
-				InstancesPerZone: 1,
-				ZoneCount:        3,
-			},
-			response: &cloudops.StorageDistributionResponse{
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 50,
-						DriveType:        "io1",
-						InstancesPerZone: 1,
-						DriveCount:       1,
-						IOPS:             2500,
-					},
-				},
-			},
-			expectedErr: nil,
-		},
-		{
-			// Test12: "happy-path" test for GP3
-			request: &cloudops.StorageDistributionRequest{
-				UserStorageSpec: []*cloudops.StorageSpec{
-					&cloudops.StorageSpec{
-						IOPS:        3000,
-						MinCapacity: 9216,
-						MaxCapacity: 100000,
-						DriveType:   "gp3",
-					},
-				},
-				InstanceType:     "foo",
-				InstancesPerZone: 3,
-				ZoneCount:        3,
-			},
-			response: &cloudops.StorageDistributionResponse{
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 128,
-						DriveType:        "gp3",
-						InstancesPerZone: 3,
+						DriveType:        "10_vpus",
+						InstancesPerZone: 2,
 						DriveCount:       8,
-						IOPS:             3000,
+						IOPS:             7680,
 					},
 				},
 			},
 			expectedErr: nil,
 		},
 	}
-
 	for j, test := range testMatrix {
 		fmt.Println("Executing test case: ", j+1)
 		response, err := storageManager.GetStorageDistribution(test.request)
@@ -410,7 +236,6 @@ func storageDistribution(t *testing.T) {
 			require.Equal(t, test.expectedErr, err, "received unexpected type of error")
 		}
 	}
-
 }
 
 func storageUpdate(t *testing.T) {
@@ -423,7 +248,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1536,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "20_vpus",
 				CurrentIOPS:         768,
 				CurrentDriveCount:   3,
 			},
@@ -432,9 +257,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 512,
-						DriveType:        "gp2",
+						DriveType:        "20_vpus",
 						DriveCount:       3,
-						IOPS:             1536,
+						IOPS:             38400,
 					},
 				},
 			},
@@ -448,7 +273,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     800,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    350,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "20_vpus",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -457,9 +282,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 400,
-						DriveType:        "gp2",
+						DriveType:        "20_vpus",
 						DriveCount:       2,
-						IOPS:             1200,
+						IOPS:             30000,
 					},
 				},
 			},
@@ -473,7 +298,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1200,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    300,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "20_vpus",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -482,14 +307,15 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 400,
-						DriveType:        "gp2",
+						DriveType:        "20_vpus",
 						DriveCount:       3,
-						IOPS:             1200,
+						IOPS:             30000,
 					},
 				},
 			},
 			expectedErr: nil,
 		},
+		// Did not understood
 		{
 			// ***** TEST: 4
 			//		  Instances has 2 x 1024 GiB
@@ -498,7 +324,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     4096,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "50_vpus",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -507,9 +333,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "gp2",
+						DriveType:        "50_vpus",
 						DriveCount:       2,
-						IOPS:             3072,
+						IOPS:             122880,
 					},
 				},
 			},
@@ -523,7 +349,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     3072,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "50_vpus",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -532,9 +358,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "gp2",
+						DriveType:        "50_vpus",
 						DriveCount:       1,
-						IOPS:             3072,
+						IOPS:             122880,
 					},
 				},
 			},
@@ -548,7 +374,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     2000,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    600,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "20_vpus",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -557,9 +383,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
-						DriveType:        "gp2",
+						DriveType:        "20_vpus",
 						DriveCount:       1,
-						IOPS:             1800,
+						IOPS:             45000,
 					},
 				},
 			},
@@ -579,45 +405,61 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 700,
-						DriveType:        "gp2",
+						DriveType:        "0_vpus",
 						DriveCount:       1,
-						IOPS:             2100,
+						IOPS:             1400,
 					},
 				},
 			},
 			expectedErr: nil,
 		},
-		/*{
-			// ***** TEST: 8
-			//		  Instances has no existing drives
-			//        Update from 0 GiB to 8193 GiB by adding disks. 8193 is higher
-			//        than the maximum drive in the matrix
-			request: &cloudops.StoragePoolUpdateRequest{
-				DesiredCapacity:     8196,
-				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
-				TotalDrivesOnNode:   0,
-			},
-			response: &cloudops.StoragePoolUpdateResponse{
-				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 4098,
-						DriveType:        "thin",
-						DriveCount:       2,
-					},
-				},
-			},
-			expectedErr: nil,
-		},*/
+		//{
+		// ***** TEST: 8
+		//		  Instances has no existing drives
+		//        Update from 0 GiB to 2666 GiB by adding disks. 2666 is higher
+		//        than the maximum drive in the matrix
+		/*
+						time="2022-10-06T10:34:04+05:30" level=debug msg="-- Storage Distribution Pool Update Request --" MinCapacity=2666 OperationType=RESIZE_TYPE_ADD_DISK
+			time="2022-10-06T10:34:04+05:30" level=debug msg="check if we can add drive(s) for atleast: 2666 GiB"
+			    oracle_test.go:251:
+			        	Error Trace:	oracle_test.go:251
+			        	Error:
+			        	Test:       	TestOracleStorageManager/storageUpdate
+			        	Messages:   	RecommendStoragePoolUpdate returned an error
+			--- FAIL: TestOracleStorageManager (0.08s)
+			    --- PASS: TestOracleStorageManager/setup (0.07s)
+			    --- PASS: TestOracleStorageManager/storageDistribution (0.00s)
+			    --- FAIL: TestOracleStorageManager/storageUpdate (0.01s)
+			FAIL
+			FAIL	github.com/libopenstorage/cloudops/oracle/storagemanager	0.251s
+			FAIL
+
+						request: &cloudops.StoragePoolUpdateRequest{
+							DesiredCapacity:     2666,
+							ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+							TotalDrivesOnNode:   0,
+						},
+						response: &cloudops.StoragePoolUpdateResponse{
+							ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+							InstanceStorage: []*cloudops.StoragePoolSpec{
+								&cloudops.StoragePoolSpec{
+									DriveCapacityGiB: 1333,
+									DriveType:        "120_vpus",
+									DriveCount:       2,
+								},
+							},
+						},
+						expectedErr: nil,
+					}*/
 		{
 			// ***** TEST: 9
 			//        Instance has 1 x 150 GiB
-			//        Update from 150GiB to 170 GiB by resizing disks
+			//        Update from 256GiB to 280 GiB by resizing disks
 			request: &cloudops.StoragePoolUpdateRequest{
 				DesiredCapacity:     280,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "20_vpus",
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -626,9 +468,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 280,
-						DriveType:        "gp2",
+						DriveType:        "20_vpus",
 						DriveCount:       1,
-						IOPS:             840,
+						IOPS:             21000,
 					},
 				},
 			},
@@ -642,7 +484,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     400,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "0_vpus",
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -651,9 +493,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        "gp2",
+						DriveType:        "0_vpus",
 						DriveCount:       1,
-						IOPS:             600,
+						IOPS:             400,
 					},
 				},
 			},
@@ -667,7 +509,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     401,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "gp2",
+				CurrentDriveType:    "0_vpus",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -676,9 +518,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        "gp2",
+						DriveType:        "0_vpus",
 						DriveCount:       1,
-						IOPS:             600,
+						IOPS:             400,
 					},
 				},
 			},
@@ -702,31 +544,6 @@ func storageUpdate(t *testing.T) {
 			},
 			expectedErr: &cloudops.ErrCurrentCapacityHigherThanDesired{Current: 600, Desired: 401},
 		},
-		{
-			// ***** TEST: 13
-			//        GP3 Instance has 2 x 350 GiB
-			//        Update from 700GiB to 800 GiB by resizing disks
-			request: &cloudops.StoragePoolUpdateRequest{
-				DesiredCapacity:     800,
-				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
-				CurrentDriveSize:    350,
-				CurrentDriveType:    "gp3",
-				CurrentDriveCount:   2,
-				TotalDrivesOnNode:   2,
-			},
-			response: &cloudops.StoragePoolUpdateResponse{
-				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
-				InstanceStorage: []*cloudops.StoragePoolSpec{
-					{
-						DriveCapacityGiB: 400,
-						DriveType:        "gp3",
-						DriveCount:       2,
-						IOPS:             3000,
-					},
-				},
-			},
-			expectedErr: nil,
-		},
 	}
 
 	for j, test := range testMatrix {
@@ -745,16 +562,5 @@ func storageUpdate(t *testing.T) {
 			require.NotNil(t, err, "RecommendInstanceStorageUpdate should have returned an error")
 			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
 		}
-	}
-}
-
-func logUpdateTestInput(test updateTestInput) {
-	logrus.Infof("### RUNNING TEST")
-	logrus.Infof("### REQUEST:  new capacity: %d GiB op_type: %v",
-		test.request.DesiredCapacity, test.request.ResizeOperationType)
-	logrus.Infof("### RESPONSE: op_type: %v", test.response.ResizeOperationType)
-	for _, responseInstStorage := range test.response.InstanceStorage {
-		logrus.Infof("              instStorage: %d X %d GiB %s drives", responseInstStorage.DriveCount,
-			responseInstStorage.DriveCapacityGiB, responseInstStorage.DriveType)
 	}
 }
