@@ -356,16 +356,16 @@ func (o *oracleOps) DevicePath(volumeID string) (string, error) {
 		return "", err
 	}
 
-	if volumeAttachmentResp.Items == nil || len(volumeAttachmentResp.Items) == 0 {
+	if volumeAttachmentResp.Items == nil ||
+		len(volumeAttachmentResp.Items) == 0 ||
+		volumeAttachmentResp.Items[0].GetInstanceId() == nil ||
+		volumeAttachmentResp.Items[0].GetLifecycleState() == core.VolumeAttachmentLifecycleStateDetached ||
+		volumeAttachmentResp.Items[0].GetLifecycleState() == core.VolumeAttachmentLifecycleStateDetaching {
 		return "", cloudops.NewStorageError(cloudops.ErrVolDetached,
 			"Volume is detached", volumeID)
 	}
 
 	volumeAttachment := volumeAttachmentResp.Items[0]
-	if volumeAttachment.GetInstanceId() == nil {
-		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
-			"Unable to determine volume instance attachment", "")
-	}
 
 	if o.instance != *volumeAttachment.GetInstanceId() {
 		return "", cloudops.NewStorageError(cloudops.ErrVolAttachedOnRemoteNode,
@@ -980,7 +980,7 @@ func (o *oracleOps) Enumerate(volumeIds []*string,
 		}
 		// TODO: [PWX-26616] Check if SDK itself returns list of volumes
 		// that have labels OR use volumeGroup for filtering
-		if labels != nil && containsMap(vol.FreeformTags, labels) {
+		if labels != nil && !containsMap(vol.FreeformTags, labels) {
 			continue
 		}
 		if len(setIdentifier) == 0 {
@@ -1020,7 +1020,7 @@ func (o *oracleOps) deleted(v core.Volume) bool {
 		v.LifecycleState == core.VolumeLifecycleStateTerminated
 }
 
-// ApplyTags will apply given labels/tags on the given volume
+// ApplyTags will overwrite the existing tags with newly provided tags
 func (o *oracleOps) ApplyTags(volumeID string, labels map[string]string) error {
 	req := core.UpdateVolumeRequest{
 		VolumeId: common.String(volumeID),
