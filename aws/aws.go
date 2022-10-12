@@ -61,7 +61,7 @@ func NewClient() (cloudops.Ops, error) {
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			logrus.Infof("Code %v", awsErr.Code())
-			}
+		}
 	}
 	if err != nil {
 		runningOnEc2 = false
@@ -517,13 +517,13 @@ var RatelimitingExponentialBackoff = wait.Backoff{
 	Duration: 2 * time.Second, // the base duration
 	Factor:   2.0,             // Duration is multiplied by factor each iteration
 	Jitter:   1.0,             // The amount of jitter applied each iteration
-	Steps:    5,              // Exit with error after this many steps
+	Steps:    5,               // Exit with error after this many steps
 }
 
 func helperWithTimeoutAndBackoff(metadata *ec2metadata.EC2Metadata, p string) (string, error) {
 	var (
 		origErr error
-		result string
+		result  string
 	)
 	conditionFn := func() (bool, error) {
 		ctx, cancelFn := context.WithTimeout(context.Background(), contextTimeout)
@@ -543,7 +543,7 @@ func helperWithTimeoutAndBackoff(metadata *ec2metadata.EC2Metadata, p string) (s
 	expErr := wait.ExponentialBackoff(RatelimitingExponentialBackoff, conditionFn)
 	if expErr == wait.ErrWaitTimeout {
 		return "", cloudops.NewStorageError(cloudops.ErrExponentialTimeout, origErr.Error(), "")
-		}
+	}
 	return result, origErr
 }
 
@@ -573,7 +573,7 @@ func (s *awsOps) FreeDevices(
 			continue
 		}
 
-		devName, err := GetMetadataWithTimeoutAndBackoff(c, "block-device-mapping/" + device)
+		devName, err := GetMetadataWithTimeoutAndBackoff(c, "block-device-mapping/"+device)
 		if err != nil {
 			return nil, err
 		}
@@ -783,6 +783,10 @@ func (s *awsOps) Create(
 	if !ok {
 		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Invalid volume template given", "")
+	}
+	if vol.VolumeType == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Drive type not specified in the storage spec", "")
 	}
 
 	req := &ec2.CreateVolumeInput{
