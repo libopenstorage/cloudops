@@ -786,7 +786,7 @@ func (s *awsOps) Create(
 	}
 	if vol.VolumeType == nil {
 		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
-			"Drive type not specified", "")
+			"Drive type not specified in the storage spec", "")
 	}
 
 	req := &ec2.CreateVolumeInput{
