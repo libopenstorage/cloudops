@@ -106,7 +106,7 @@ func (ops *vsphereOps) Name() string { return string(cloudops.Vsphere) }
 
 func (ops *vsphereOps) InstanceID() string { return ops.cfg.VMUUID }
 
-func (ops *vsphereOps) Create(opts interface{}, labels map[string]string) (interface{}, error) {
+func (ops *vsphereOps) Create(opts interface{}, labels map[string]string, options map[string]string) (interface{}, error) {
 	volumeOptions, ok := opts.(*vclib.VolumeOptions)
 	if !ok {
 		return nil, fmt.Errorf("invalid volume options specified to create: %v", opts)
@@ -316,7 +316,7 @@ func (ops *vsphereOps) Attach(diskPath string, options map[string]string) (strin
 	return path.Join(diskByIDPath, diskSCSIPrefix+diskUUID), nil
 }
 
-func (ops *vsphereOps) Detach(diskPath string) error {
+func (ops *vsphereOps) Detach(diskPath string, options map[string]string) error {
 	return ops.detachInternal(diskPath, ops.cfg.VMUUID)
 }
 
@@ -351,7 +351,7 @@ func (ops *vsphereOps) detachInternal(diskPath, instanceID string) error {
 }
 
 // Delete virtual disk at given path
-func (ops *vsphereOps) Delete(diskPath string) error {
+func (ops *vsphereOps) Delete(diskPath string, options map[string]string) error {
 	return ops.deleteInternal(diskPath, ops.cfg.VMUUID)
 }
 
@@ -406,7 +406,7 @@ func (ops *vsphereOps) FreeDevices(blockDeviceMappings []interface{}, rootDevice
 	}
 }
 
-func (ops *vsphereOps) Inspect(vmdksWithDS []*string) ([]interface{}, error) {
+func (ops *vsphereOps) Inspect(vmdksWithDS []*string, options map[string]string) ([]interface{}, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -530,6 +530,7 @@ func (ops *vsphereOps) Enumerate(volumeIds []*string,
 func (ops *vsphereOps) Expand(
 	vmdkPath string,
 	newSizeInGiB uint64,
+	options map[string]string,
 ) (uint64, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -608,28 +609,28 @@ func (ops *vsphereOps) Expand(
 }
 
 // Snapshot the volume with given volumeID
-func (ops *vsphereOps) Snapshot(volumeID string, readonly bool) (interface{}, error) {
+func (ops *vsphereOps) Snapshot(volumeID string, readonly bool, options map[string]string) (interface{}, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "Snapshot",
 	}
 }
 
 // SnapshotDelete deletes the snapshot with given ID
-func (ops *vsphereOps) SnapshotDelete(snapID string) error {
+func (ops *vsphereOps) SnapshotDelete(snapID string, options map[string]string) error {
 	return &cloudops.ErrNotSupported{
 		Operation: "SnapshotDelete",
 	}
 }
 
 // ApplyTags will apply given labels/tags on the given volume
-func (ops *vsphereOps) ApplyTags(volumeID string, labels map[string]string) error {
+func (ops *vsphereOps) ApplyTags(volumeID string, labels map[string]string, options map[string]string) error {
 	return &cloudops.ErrNotSupported{
 		Operation: "ApplyTags",
 	}
 }
 
 // RemoveTags removes labels/tags from the given volume
-func (ops *vsphereOps) RemoveTags(volumeID string, labels map[string]string) error {
+func (ops *vsphereOps) RemoveTags(volumeID string, labels map[string]string, options map[string]string) error {
 	return &cloudops.ErrNotSupported{
 		Operation: "RemoveTags",
 	}
@@ -830,21 +831,21 @@ func recommendDatastore(
 
 	var ds types.ManagedObjectReference
 	/*
-	recs are the recommendations made by vSphere. There will be multiple datastore recommendations made by vSphere
-	and it's expected for us to select one manually based on any of the parameters given to us. The below code picks
-	the best datastore based on two factors:
-	1. Rating: Valid values range from 1 (lowest confidence) to 5 (highest confidence).
-	2. Space Utilization after virtual disk placement: It's percentage value
-	If there is a higher rating recommendation with the best space utilization, we'll select that.
-	Many recommendations will be made with the same rating. In those cases we'll pick the one with lease space util.
-	What is interesting will be when a lower recommendation has very less space util than a higher rating one. In order
-	to consider those cases, let's assign a 9% value for each rating and decide which one to pick. Let's consider some examples:
-	1. Rating 5, Util 41.00 vs Rating 4, Util 30.0000 -> We'll pick the second one since it's atleast 10% less utilized
-	2. Rating 5, Util 50.000 vs Rating 3, Util 20.000 -> We'll pick the second one again for the same reason
+		recs are the recommendations made by vSphere. There will be multiple datastore recommendations made by vSphere
+		and it's expected for us to select one manually based on any of the parameters given to us. The below code picks
+		the best datastore based on two factors:
+		1. Rating: Valid values range from 1 (lowest confidence) to 5 (highest confidence).
+		2. Space Utilization after virtual disk placement: It's percentage value
+		If there is a higher rating recommendation with the best space utilization, we'll select that.
+		Many recommendations will be made with the same rating. In those cases we'll pick the one with lease space util.
+		What is interesting will be when a lower recommendation has very less space util than a higher rating one. In order
+		to consider those cases, let's assign a 9% value for each rating and decide which one to pick. Let's consider some examples:
+		1. Rating 5, Util 41.00 vs Rating 4, Util 30.0000 -> We'll pick the second one since it's atleast 10% less utilized
+		2. Rating 5, Util 50.000 vs Rating 3, Util 20.000 -> We'll pick the second one again for the same reason
 	*/
 	minSpaceUtilization := float32(200)
 	const (
-		maxRating = int32(5)
+		maxRating            = int32(5)
 		normalizationPercent = float32(9)
 	)
 	for i, r := range recs {
@@ -852,10 +853,10 @@ func recommendDatastore(
 		for _, a := range r.Action {
 			action := a.(*types.StoragePlacementAction)
 			logrus.Infof("vsphere recommendation action %v", action)
-			normalizedUtilization := (float32(maxRating - r.Rating) * normalizationPercent) + action.SpaceUtilAfter
+			normalizedUtilization := (float32(maxRating-r.Rating) * normalizationPercent) + action.SpaceUtilAfter
 			if normalizedUtilization < minSpaceUtilization {
-				 minSpaceUtilization = normalizedUtilization
-				 ds = action.Destination
+				minSpaceUtilization = normalizedUtilization
+				ds = action.Destination
 			}
 		}
 	}
