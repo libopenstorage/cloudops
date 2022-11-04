@@ -280,6 +280,26 @@ func (o *oracleOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, 
 	}, nil
 }
 
+func (o *oracleOps) GetInstance(displayName string) (interface{}, error) {
+	listInstanceReq := core.ListInstancesRequest{
+		DisplayName:   common.String(displayName),
+		CompartmentId: common.String(o.compartmentID),
+	}
+
+	listInstanceResp, err := o.compute.ListInstances(context.Background(), listInstanceReq)
+	if err != nil {
+		return nil, err
+	}
+	if len(listInstanceResp.Items) == 0 {
+		return nil, fmt.Errorf("no oracle instance found with display name: %s", displayName)
+	}
+	// Currently, torpedo uses this API to fetch details of the instance created 
+	// by OKE. OKE ensures that all the worker nodes created, have unique display
+	// names. In future, if we require to use this API to get details of vanilla
+	// compute instances, then we can modify below array indexing.
+	return listInstanceResp.Items[0], nil
+}
+
 func (o *oracleOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
 	getNodePoolReq := containerengine.GetNodePoolRequest{
 		NodePoolId: &o.poolID,
@@ -775,6 +795,10 @@ func (o *oracleOps) DeleteInstance(instanceID string, zone string, timeout time.
 				break
 			}
 		}
+	}
+
+	if nodePoolID == nil {
+		return fmt.Errorf("node pool containing instance [%s] not found", instanceID)
 	}
 
 	nodeDeleteReq := containerengine.DeleteNodeRequest{
