@@ -181,7 +181,7 @@ func compute(t *testing.T, driver cloudops.Ops) {
 }
 
 func create(t *testing.T, driver cloudops.Ops, template interface{}) interface{} {
-	d, err := driver.Create(template, nil)
+	d, err := driver.Create(template, nil, nil)
 	require.NoError(t, err, "failed to create disk")
 	require.NotNil(t, d, "got nil disk from create api")
 
@@ -196,7 +196,7 @@ func id(t *testing.T, driver cloudops.Ops, disk interface{}) string {
 }
 
 func snapshot(t *testing.T, driver cloudops.Ops, diskName string) {
-	snap, err := driver.Snapshot(diskName, true)
+	snap, err := driver.Snapshot(diskName, true, nil)
 	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
@@ -208,12 +208,12 @@ func snapshot(t *testing.T, driver cloudops.Ops, diskName string) {
 	require.NoError(t, err, "failed to get snapshot ID")
 	require.NotEmpty(t, snapID, "got empty snapshot name/ID")
 
-	err = driver.SnapshotDelete(snapID)
+	err = driver.SnapshotDelete(snapID, nil)
 	require.NoError(t, err, "failed to delete snapshot")
 }
 
 func tags(t *testing.T, driver cloudops.Ops, diskName string) {
-	err := driver.ApplyTags(diskName, diskLabels)
+	err := driver.ApplyTags(diskName, diskLabels, nil)
 	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
@@ -224,14 +224,14 @@ func tags(t *testing.T, driver cloudops.Ops, diskName string) {
 	require.NoError(t, err, "failed to get tags for disk")
 	require.Len(t, tags, 3, "invalid number of labels found on disk")
 
-	err = driver.RemoveTags(diskName, diskLabels)
+	err = driver.RemoveTags(diskName, diskLabels, nil)
 	require.NoError(t, err, "failed to remove tags from disk")
 
 	tags, err = driver.Tags(diskName)
 	require.NoError(t, err, "failed to get tags for disk")
 	require.Len(t, tags, 0, "invalid number of labels found on disk")
 
-	err = driver.ApplyTags(diskName, diskLabels)
+	err = driver.ApplyTags(diskName, diskLabels, nil)
 	require.NoError(t, err, "failed to apply tags to disk")
 }
 
@@ -257,7 +257,7 @@ func enumerate(t *testing.T, driver cloudops.Ops, diskName string) {
 }
 
 func inspect(t *testing.T, driver cloudops.Ops, diskName string) {
-	disks, err := driver.Inspect([]*string{&diskName})
+	disks, err := driver.Inspect([]*string{&diskName}, nil)
 	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
@@ -267,7 +267,7 @@ func inspect(t *testing.T, driver cloudops.Ops, diskName string) {
 }
 
 func expand(t *testing.T, driver cloudops.Ops, diskName string, sizeCheck SizeCheck) {
-	newSize, err := driver.Expand(diskName, targetDiskSizeInGiB)
+	newSize, err := driver.Expand(diskName, targetDiskSizeInGiB, nil)
 	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return
 	}
@@ -275,7 +275,7 @@ func expand(t *testing.T, driver cloudops.Ops, diskName string, sizeCheck SizeCh
 	require.NoError(t, err, "unexpected error on expand")
 	require.Equal(t, newSize, uint64(targetDiskSizeInGiB), "unexpected size returned on expand")
 
-	disks, err := driver.Inspect([]*string{&diskName})
+	disks, err := driver.Inspect([]*string{&diskName}, nil)
 	if _, typeOk := err.(*cloudops.ErrNotSupported); typeOk {
 		return // cannot check if cloud provider doesn't support inspect
 	}
@@ -337,12 +337,12 @@ func devicePath(t *testing.T, driver cloudops.Ops, diskName string) {
 }
 
 func teardown(t *testing.T, driver cloudops.Ops, diskID string) {
-	err := driver.Detach(diskID)
+	err := driver.Detach(diskID, nil)
 	require.NoError(t, err, "disk detach returned error")
 
 	time.Sleep(3 * time.Second)
 
-	err = driver.Delete(diskID)
+	err = driver.Delete(diskID, nil)
 	require.NoError(t, err, "failed to delete disk")
 }
 
