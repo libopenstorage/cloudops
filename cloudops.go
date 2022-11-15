@@ -2,13 +2,32 @@
 
 package cloudops
 
-import "time"
+import (
+	v1 "k8s.io/api/core/v1"
+	"time"
+)
 
 const (
 	// SetIdentifierNone is a default identifier to group all disks from a
 	// particular set
 	SetIdentifierNone = "None"
+	// PxZoneLabelKey key to get the zone
+	PxZoneLabelKey = "topology.portworx.io/zone"
+	// PxZoneLabelKeyDeprecated key to get the zone
+	PxZoneLabelKeyDeprecated = "px/zone"
+	// PxRegionLabelKey key to get the region
+	PxRegionLabelKey = "topology.portworx.io/region"
+	// PxRegionLabelKeyDeprecated key to get the region
+	PxRegionLabelKeyDeprecated = "px/region"
+	// GeographyDefault default geography
+	GeographyDefault = "default"
 )
+
+// ZoneLabelsPriority is the order in which the different zone labels are looked at to determine the zone information
+var ZoneLabelsPriority = []string{PxZoneLabelKey, PxZoneLabelKeyDeprecated, v1.LabelTopologyZone, v1.LabelZoneFailureDomain}
+
+// RegionLabelsPriority is the order in which the different zone labels are looked at to determine the zone information
+var RegionLabelsPriority = []string{PxRegionLabelKey, PxRegionLabelKeyDeprecated, v1.LabelTopologyRegion, v1.LabelZoneRegion}
 
 // ProviderType is an enum indicating the different cloud provider supported by cloudops
 type ProviderType string
@@ -181,4 +200,25 @@ type Ops interface {
 	Storage
 	// Compute operations in the cloud
 	Compute
+}
+
+// GetZoneFromLabels returns the zone based on list of recognized zone labels
+func GetZoneFromLabels(nodeLabels map[string]string) string {
+	return getGeo(ZoneLabelsPriority, nodeLabels)
+}
+
+// GetRegionFromLabels returns the region based on list of recognized region labels
+func GetRegionFromLabels(nodeLabels map[string]string) string {
+	return getGeo(RegionLabelsPriority, nodeLabels)
+}
+
+func getGeo(labelKeys []string, nodeLabels map[string]string) string {
+	if nodeLabels != nil {
+		for _, labelKey := range labelKeys {
+			if val, exists := nodeLabels[labelKey]; exists {
+				return val
+			}
+		}
+	}
+	return GeographyDefault
 }
