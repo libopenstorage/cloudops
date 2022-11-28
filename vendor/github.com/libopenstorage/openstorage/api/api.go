@@ -80,21 +80,32 @@ const (
 	// SpecMatchSrcVolProvision defaults to false. Applicable to cloudbackup restores only.
 	// If set to "true", cloudbackup restore volume gets provisioned on same pools as
 	// backup, allowing for inplace restore after.
-	SpecMatchSrcVolProvision = "match_src_vol_provision"
-	SpecNodiscard            = "nodiscard"
-	StoragePolicy            = "storagepolicy"
-	SpecCowOnDemand          = "cow_ondemand"
-	SpecDirectIo             = "direct_io"
-	SpecScanPolicyTrigger    = "scan_policy_trigger"
-	SpecScanPolicyAction     = "scan_policy_action"
-	SpecProxyWrite           = "proxy_write"
-	SpecFastpath             = "fastpath"
-	SpecSharedv4ServiceType  = "sharedv4_svc_type"
-	SpecSharedv4ServiceName  = "sharedv4_svc_name"
-	SpecBackendType          = "backend"
-	SpecBackendPureBlock     = "pure_block"
-	SpecBackendPureFile      = "pure_file"
-	SpecPureFileExportRules  = "pure_export_rules"
+	SpecMatchSrcVolProvision                = "match_src_vol_provision"
+	SpecNodiscard                           = "nodiscard"
+	StoragePolicy                           = "storagepolicy"
+	SpecCowOnDemand                         = "cow_ondemand"
+	SpecDirectIo                            = "direct_io"
+	SpecScanPolicyTrigger                   = "scan_policy_trigger"
+	SpecScanPolicyAction                    = "scan_policy_action"
+	SpecProxyWrite                          = "proxy_write"
+	SpecFastpath                            = "fastpath"
+	SpecSharedv4ServiceType                 = "sharedv4_svc_type"
+	SpecSharedv4ServiceName                 = "sharedv4_svc_name"
+	SpecSharedv4FailoverStrategy            = "sharedv4_failover_strategy"
+	SpecSharedv4FailoverStrategyNormal      = "normal"
+	SpecSharedv4FailoverStrategyAggressive  = "aggressive"
+	SpecSharedv4FailoverStrategyUnspecified = ""
+	SpecSharedv4ExternalAccess              = "sharedv4_external_access"
+	SpecAutoFstrim                          = "auto_fstrim"
+	SpecBackendVolName                      = "pure_vol_name"
+	SpecBackendType                         = "backend"
+	SpecBackendPureBlock                    = "pure_block"
+	SpecBackendPureFile                     = "pure_file"
+	SpecPureFileExportRules                 = "pure_export_rules"
+	SpecIoThrottleRdIOPS                    = "io_throttle_rd_iops"
+	SpecIoThrottleWrIOPS                    = "io_throttle_wr_iops"
+	SpecIoThrottleRdBW                      = "io_throttle_rd_bw"
+	SpecIoThrottleWrBW                      = "io_throttle_wr_bw"
 )
 
 // OptionKey specifies a set of recognized query params.
@@ -156,6 +167,8 @@ const (
 	OptCredProxy = "CredProxy"
 	// OptCredIAMPolicy if "true", indicates IAM creds to be used
 	OptCredIAMPolicy = "CredIAMPolicy"
+	// OptRemoteCredUUID is the UUID of the remote cluster credential
+	OptRemoteCredUUID = "RemoteCredUUID"
 	// OptCloudBackupID is the backID in the cloud
 	OptCloudBackupID = "CloudBackID"
 	// OptCloudBackupIgnoreCreds ignores credentials for incr backups
@@ -247,6 +260,8 @@ type Node struct {
 	HWType HardwareType
 	// Determine if the node is secure with authentication and authorization
 	SecurityStatus StorageNode_SecurityStatus
+	// SchedulerTopology topology information of the node in scheduler context
+	SchedulerTopology *SchedulerTopology
 }
 
 // FluentDConfig describes ip and port of a fluentdhost.
@@ -292,6 +307,14 @@ type CredCreateRequest struct {
 type CredCreateResponse struct {
 	// UUID of the credential that was just created
 	UUID string
+}
+
+// CredUpdateRequest is the input for CredsUpdate command
+type CredUpdateRequest struct {
+	// Name or the UUID of the credential being updated
+	Name string
+	// InputParams is map describing cloud provide
+	InputParams map[string]string
 }
 
 // StatPoint represents the basic structure of a single Stat reported
@@ -405,8 +428,16 @@ type CloudBackupGenericRequest struct {
 	// MetadataFilter indicates backups whose metadata has these kv pairs
 	MetadataFilter map[string]string
 	// CloudBackupID must be specified if one needs to enumerate known single
-	// backup( format is clusteruuidORBucketName/srcVolId-SnapId(-incr)
+	// backup (format is clusteruuidORBucketName/srcVolId-SnapId(-incr). If
+	// this is specified, everything else in the command is ignored
 	CloudBackupID string
+	// MissingSrcVol set to true enumerates cloudbackups for which srcVol is not
+	// present in the cluster. Either the source volume is deleted or the
+	// cloudbackup belongs to other cluster.( with older version this
+	// information may be missing, and in such a case these will list as
+	// missing cluster info field in enumeration). Specifying SrcVolumeID and
+	// this flag at the same time is an error
+	MissingSrcVolumes bool
 }
 
 type CloudBackupInfo struct {
@@ -423,6 +454,11 @@ type CloudBackupInfo struct {
 	Metadata map[string]string
 	// Status indicates the status of the backup
 	Status string
+	// ClusterType indicates if the cloudbackup was uploaded by this
+	// cluster. Could be unknown with older version cloudbackups
+	ClusterType SdkCloudBackupClusterType_Value
+	// Namespace to which this cloudbackup belongs to
+	Namespace string
 }
 
 type CloudBackupEnumerateRequest struct {
@@ -946,6 +982,7 @@ func (s *Node) ToStorageNode() *StorageNode {
 		Hostname:          s.Hostname,
 		HWType:            s.HWType,
 		SecurityStatus:    s.SecurityStatus,
+		SchedulerTopology: s.SchedulerTopology,
 	}
 
 	node.Disks = make(map[string]*StorageResource)
@@ -1049,6 +1086,8 @@ func (b *CloudBackupInfo) ToSdkCloudBackupInfo() *SdkCloudBackupInfo {
 		SrcVolumeId:   b.SrcVolumeID,
 		SrcVolumeName: b.SrcVolumeName,
 		Metadata:      b.Metadata,
+		ClusterType:   b.ClusterType,
+		Namespace:     b.Namespace,
 	}
 
 	info.Timestamp, _ = ptypes.TimestampProto(b.Timestamp)
@@ -1314,4 +1353,12 @@ func ParseProxyEndpoint(proxyEndpoint string) (ProxyProtocol, string) {
 func (s *ProxySpec) IsPureBackend() bool {
 	return s.ProxyProtocol == ProxyProtocol_PROXY_PROTOCOL_PURE_BLOCK ||
 		s.ProxyProtocol == ProxyProtocol_PROXY_PROTOCOL_PURE_FILE
+}
+
+func (s *ProxySpec) IsPureImport() bool {
+	if !s.IsPureBackend() {
+		return false
+	}
+
+	return (s.PureBlockSpec != nil && s.PureBlockSpec.FullVolName != "") || (s.PureFileSpec != nil && s.PureFileSpec.FullVolName != "")
 }

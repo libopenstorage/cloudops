@@ -3,31 +3,30 @@ module github.com/libopenstorage/cloudops
 go 1.13
 
 require (
-	cloud.google.com/go v0.65.0
+	cloud.google.com/go/compute v1.6.1
 	github.com/Azure/azure-sdk-for-go v43.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.13
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.5
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20220329045155-d2a8118ac5c7
 	github.com/aws/aws-sdk-go v1.40.39
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
-	github.com/golang/mock v1.4.4
-	github.com/google/uuid v1.1.2
-	github.com/hashicorp/go-version v1.2.1
-	github.com/libopenstorage/openstorage v8.0.1-0.20210603043922-faf638fed3e5+incompatible
+	github.com/golang/mock v1.6.0
+	github.com/google/uuid v1.3.0
+	github.com/hashicorp/go-version v1.6.0
+	github.com/libopenstorage/openstorage v9.4.20+incompatible
 	github.com/libopenstorage/secrets v0.0.0-20210908194121-a1d19aa9713a
 	github.com/oracle/oci-go-sdk/v65 v65.13.1
 	github.com/pborman/uuid v1.2.0
-	github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d
-	github.com/prometheus/client_golang v1.9.0
-	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.0
+	github.com/portworx/sched-ops v1.20.4-rc1.0.20221128225328-393a71866e72
+	github.com/prometheus/client_golang v1.12.2
+	github.com/sirupsen/logrus v1.9.0
+	github.com/stretchr/testify v1.8.0
 	github.com/vmware/govmomi v0.22.2
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
-	google.golang.org/api v0.30.0
+	google.golang.org/api v0.81.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apimachinery v0.20.4
+	k8s.io/apimachinery v0.25.1
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 )
