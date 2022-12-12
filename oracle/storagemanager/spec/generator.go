@@ -10,7 +10,7 @@ import (
 
 const (
 	oracleYamlPath = "oracle.yaml"
-	vpusSuffix     = "_vpus"
+	vpusPrefix     = "pv-"
 )
 
 func main() {
@@ -76,7 +76,7 @@ func getMatrixRows(vpu int) []cloudops.StorageDecisionMatrixRow {
 	row := getCommonRow(0)
 
 	for iops := int64(0); iops < int64(maxIopsPerVol); iops = iops + 500 {
-		row.DriveType = fmt.Sprintf("%d%s", vpu, vpusSuffix)
+		row.DriveType = fmt.Sprintf("%s%d", vpusPrefix, vpu)
 		row.MinIOPS = uint64(iops)
 		row.MaxIOPS = uint64(iops + 500)
 		row.MinSize = uint64(math.Ceil(float64(row.MinIOPS) / float64(iopsPerGB)))
