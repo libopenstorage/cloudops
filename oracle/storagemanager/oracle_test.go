@@ -69,7 +69,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 250,
-						DriveType:        "0_vpus",
+						DriveType:        "pv-0",
 						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             500,
@@ -99,7 +99,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 14,
-						DriveType:        "0_vpus",
+						DriveType:        "pv-0",
 						InstancesPerZone: 3,
 						DriveCount:       8,
 						IOPS:             28,
@@ -127,7 +127,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1250,
-						DriveType:        "0_vpus",
+						DriveType:        "pv-0",
 						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             2500,
@@ -154,7 +154,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 250,
-						DriveType:        "10_vpus",
+						DriveType:        "pv-10",
 						InstancesPerZone: 2,
 						DriveCount:       8,
 						IOPS:             15000,
@@ -182,7 +182,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 349,
-						DriveType:        "0_vpus",
+						DriveType:        "pv-0",
 						InstancesPerZone: 2,
 						DriveCount:       1,
 						IOPS:             698,
@@ -209,7 +209,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 128,
-						DriveType:        "10_vpus",
+						DriveType:        "pv-10",
 						InstancesPerZone: 2,
 						DriveCount:       8,
 						IOPS:             7680,
@@ -248,7 +248,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1536,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    "20_vpus",
+				CurrentDriveType:    "pv-20",
 				CurrentIOPS:         768,
 				CurrentDriveCount:   3,
 			},
@@ -257,7 +257,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 512,
-						DriveType:        "20_vpus",
+						DriveType:        "pv-20",
 						DriveCount:       3,
 						IOPS:             38400,
 					},
@@ -273,7 +273,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     800,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    350,
-				CurrentDriveType:    "20_vpus",
+				CurrentDriveType:    "pv-20",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -282,7 +282,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 400,
-						DriveType:        "20_vpus",
+						DriveType:        "pv-20",
 						DriveCount:       2,
 						IOPS:             30000,
 					},
@@ -298,7 +298,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1200,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    300,
-				CurrentDriveType:    "20_vpus",
+				CurrentDriveType:    "pv-20",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -307,7 +307,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 400,
-						DriveType:        "20_vpus",
+						DriveType:        "pv-20",
 						DriveCount:       3,
 						IOPS:             30000,
 					},
@@ -324,7 +324,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     4096,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    "50_vpus",
+				CurrentDriveType:    "pv-50",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -333,7 +333,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "50_vpus",
+						DriveType:        "pv-50",
 						DriveCount:       2,
 						IOPS:             122880,
 					},
@@ -349,7 +349,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     3072,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    "50_vpus",
+				CurrentDriveType:    "pv-50",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -358,7 +358,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "50_vpus",
+						DriveType:        "pv-50",
 						DriveCount:       1,
 						IOPS:             122880,
 					},
@@ -374,7 +374,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     2000,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    600,
-				CurrentDriveType:    "20_vpus",
+				CurrentDriveType:    "pv-20",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -383,7 +383,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
-						DriveType:        "20_vpus",
+						DriveType:        "pv-20",
 						DriveCount:       1,
 						IOPS:             45000,
 					},
@@ -405,7 +405,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 700,
-						DriveType:        "0_vpus",
+						DriveType:        "pv-0",
 						DriveCount:       1,
 						IOPS:             1400,
 					},
@@ -459,7 +459,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     280,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    "20_vpus",
+				CurrentDriveType:    "pv-20",
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -468,7 +468,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 280,
-						DriveType:        "20_vpus",
+						DriveType:        "pv-20",
 						DriveCount:       1,
 						IOPS:             21000,
 					},
@@ -484,7 +484,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     400,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "0_vpus",
+				CurrentDriveType:    "pv-0",
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -493,7 +493,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        "0_vpus",
+						DriveType:        "pv-0",
 						DriveCount:       1,
 						IOPS:             400,
 					},
@@ -509,7 +509,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     401,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "0_vpus",
+				CurrentDriveType:    "pv-0",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -518,7 +518,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        "0_vpus",
+						DriveType:        "pv-0",
 						DriveCount:       1,
 						IOPS:             400,
 					},
@@ -534,7 +534,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     401,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "0_vpus",
+				CurrentDriveType:    "pv-0",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
