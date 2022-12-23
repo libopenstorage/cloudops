@@ -474,7 +474,13 @@ func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
 			virtualDevice := device.GetVirtualDevice()
 			backing, ok := virtualDevice.Backing.(*types.VirtualDiskFlatVer2BackingInfo)
 			if ok {
-				devicePath, err := ops.DevicePath(backing.FileName)
+				diskUUID, err := vmObj.Datacenter.GetVirtualDiskPage83Data(ctx, backing.FileName)
+				if err != nil {
+					vmName,_ := vmObj.ObjectName(ctx)
+					return nil, fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", backing.FileName, vmName, err)
+				}
+
+				devicePath, err := path.Join(diskByIDPath, diskSCSIPrefix+diskUUID), nil
 				if err == nil && len(devicePath) != 0 { // TODO can ignore errors?
 					m[devicePath] = backing.FileName
 				}
