@@ -19,6 +19,17 @@ func main() {
 	matrixRows := []cloudops.StorageDecisionMatrixRow{}
 	for vpu := 0; vpu <= 120; vpu = vpu + 10 {
 		matrixRows = append(matrixRows, getMatrixRows(vpu)...)
+		row := getCommonRow(0)
+		iopsPerGB, maxIopsPerVol, err := getIOPSdetails(vpu)
+		if err != nil {
+			panic(err)
+		}
+		row.DriveType = fmt.Sprintf("%d%s", vpu, vpusSuffix)
+		row.MinIOPS = uint64(maxIopsPerVol)
+		row.MaxIOPS = uint64(maxIopsPerVol)
+		row.MinSize = uint64(math.Ceil(float64(row.MaxIOPS) / float64(iopsPerGB)))
+		row.MaxSize = uint64(32768)
+		matrixRows = append(matrixRows, row)
 	}
 	matrix := cloudops.StorageDecisionMatrix{Rows: matrixRows}
 	if err := parser.NewStorageDecisionMatrixParser().MarshalToYaml(&matrix, oracleYamlPath); err != nil {
@@ -29,9 +40,8 @@ func main() {
 
 }
 
-func getMatrixRows(vpu int) []cloudops.StorageDecisionMatrixRow {
+func getIOPSdetails(vpu int) (int64, int64, error) {
 	var iopsPerGB, maxIopsPerVol int64
-	rows := []cloudops.StorageDecisionMatrixRow{}
 	switch vpu {
 	case 0:
 		iopsPerGB = 2
@@ -72,6 +82,17 @@ func getMatrixRows(vpu int) []cloudops.StorageDecisionMatrixRow {
 	case 120:
 		iopsPerGB = 225
 		maxIopsPerVol = 300000
+	default:
+		return 0, 0, fmt.Errorf("invalid vpu value [%d]", vpu)
+	}
+	return iopsPerGB, maxIopsPerVol, nil
+}
+
+func getMatrixRows(vpu int) []cloudops.StorageDecisionMatrixRow {
+	rows := []cloudops.StorageDecisionMatrixRow{}
+	iopsPerGB, maxIopsPerVol, err := getIOPSdetails(vpu)
+	if err != nil {
+		panic(err)
 	}
 	row := getCommonRow(0)
 

@@ -66,6 +66,17 @@ rows:
   priority: 0
   thin_provisioning: false
   drive_type: 0_vpus
+- min_iops: 3000
+  max_iops: 3000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1500
+  max_size: 32768
+  priority: 0
+  thin_provisioning: false
+  drive_type: 0_vpus
 - min_iops: 0
   max_iops: 500
   instance_type: '*'
@@ -613,6 +624,17 @@ rows:
   region: '*'
   min_size: 409
   max_size: 417
+  priority: 0
+  thin_provisioning: false
+  drive_type: 10_vpus
+- min_iops: 25000
+  max_iops: 25000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 417
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 10_vpus
@@ -1713,6 +1735,17 @@ rows:
   region: '*'
   min_size: 660
   max_size: 667
+  priority: 0
+  thin_provisioning: false
+  drive_type: 20_vpus
+- min_iops: 50000
+  max_iops: 50000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 667
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 20_vpus
@@ -3363,6 +3396,17 @@ rows:
   region: '*'
   min_size: 828
   max_size: 834
+  priority: 0
+  thin_provisioning: false
+  drive_type: 30_vpus
+- min_iops: 75000
+  max_iops: 75000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 834
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 30_vpus
@@ -5563,6 +5607,17 @@ rows:
   region: '*'
   min_size: 948
   max_size: 953
+  priority: 0
+  thin_provisioning: false
+  drive_type: 40_vpus
+- min_iops: 100000
+  max_iops: 100000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 953
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 40_vpus
@@ -8313,6 +8368,17 @@ rows:
   region: '*'
   min_size: 1038
   max_size: 1042
+  priority: 0
+  thin_provisioning: false
+  drive_type: 50_vpus
+- min_iops: 125000
+  max_iops: 125000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1042
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 50_vpus
@@ -11613,6 +11679,17 @@ rows:
   region: '*'
   min_size: 1108
   max_size: 1112
+  priority: 0
+  thin_provisioning: false
+  drive_type: 60_vpus
+- min_iops: 150000
+  max_iops: 150000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1112
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 60_vpus
@@ -15463,6 +15540,17 @@ rows:
   region: '*'
   min_size: 1164
   max_size: 1167
+  priority: 0
+  thin_provisioning: false
+  drive_type: 70_vpus
+- min_iops: 175000
+  max_iops: 175000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1167
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 70_vpus
@@ -19863,6 +19951,17 @@ rows:
   region: '*'
   min_size: 1210
   max_size: 1213
+  priority: 0
+  thin_provisioning: false
+  drive_type: 80_vpus
+- min_iops: 200000
+  max_iops: 200000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1213
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 80_vpus
@@ -24813,6 +24912,17 @@ rows:
   region: '*'
   min_size: 1248
   max_size: 1250
+  priority: 0
+  thin_provisioning: false
+  drive_type: 90_vpus
+- min_iops: 225000
+  max_iops: 225000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1250
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 90_vpus
@@ -30313,6 +30423,17 @@ rows:
   region: '*'
   min_size: 1280
   max_size: 1283
+  priority: 0
+  thin_provisioning: false
+  drive_type: 100_vpus
+- min_iops: 250000
+  max_iops: 250000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1283
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 100_vpus
@@ -36363,6 +36484,17 @@ rows:
   region: '*'
   min_size: 1308
   max_size: 1310
+  priority: 0
+  thin_provisioning: false
+  drive_type: 110_vpus
+- min_iops: 275000
+  max_iops: 275000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1310
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 110_vpus
@@ -42963,6 +43095,17 @@ rows:
   region: '*'
   min_size: 1332
   max_size: 1334
+  priority: 0
+  thin_provisioning: false
+  drive_type: 120_vpus
+- min_iops: 300000
+  max_iops: 300000
+  instance_type: '*'
+  instance_max_drives: 8
+  instance_min_drives: 1
+  region: '*'
+  min_size: 1334
+  max_size: 32768
   priority: 0
   thin_provisioning: false
   drive_type: 120_vpus
