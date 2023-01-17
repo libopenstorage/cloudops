@@ -126,11 +126,11 @@ func storageDistribution(t *testing.T) {
 			response: &cloudops.StorageDistributionResponse{
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
-						DriveCapacityGiB: 1250,
+						DriveCapacityGiB: 1500,
 						DriveType:        "pv-0",
 						InstancesPerZone: 3,
 						DriveCount:       1,
-						IOPS:             2500,
+						IOPS:             3000,
 					},
 				},
 			},
