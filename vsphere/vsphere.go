@@ -476,7 +476,7 @@ func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
 			if ok {
 				diskUUID, err := vmObj.Datacenter.GetVirtualDiskPage83Data(ctx, backing.FileName)
 				if err != nil {
-					vmName,_ := vmObj.ObjectName(ctx)
+					vmName, _ := vmObj.ObjectName(ctx)
 					return nil, fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", backing.FileName, vmName, err)
 				}
 
@@ -530,6 +530,12 @@ func (ops *vsphereOps) Enumerate(volumeIds []*string,
 ) (map[string][]interface{}, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "Enumerate",
+	}
+}
+
+func (ops *vsphereOps) IsVolumesReadyToExpand(volumeIDs []string) (bool, error) {
+	return true, &cloudops.ErrNotSupported{
+		Operation: "IsVolumesReadyToExpand",
 	}
 }
 

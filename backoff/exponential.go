@@ -436,6 +436,12 @@ func (e *exponentialBackoff) DevicePath(volumeID string) (string, error) {
 	return devicePath, origErr
 }
 
+func (e *exponentialBackoff) IsVolumesReadyToExpand(volumeIDs []string) (bool, error) {
+	return true, &cloudops.ErrNotSupported{
+		Operation: "IsVolumesReadyToExpand",
+	}
+}
+
 func (e *exponentialBackoff) Expand(volumeID string, targetSize uint64, options map[string]string) (uint64, error) {
 	var (
 		actualSize uint64
