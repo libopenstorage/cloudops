@@ -293,7 +293,7 @@ func (o *oracleOps) GetInstance(displayName string) (interface{}, error) {
 	if len(listInstanceResp.Items) == 0 {
 		return nil, fmt.Errorf("no oracle instance found with display name: %s", displayName)
 	}
-	// Currently, torpedo uses this API to fetch details of the instance created 
+	// Currently, torpedo uses this API to fetch details of the instance created
 	// by OKE. OKE ensures that all the worker nodes created, have unique display
 	// names. In future, if we require to use this API to get details of vanilla
 	// compute instances, then we can modify below array indexing.
@@ -829,6 +829,9 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 	return false
 }
 
+func (o *oracleOps) IsVolumeReadyToExpand(volumeID string) (bool, error) {
+	return true, nil
+}
 func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64, options map[string]string) (uint64, error) {
 	logrus.Debug("Expand volume to size ", newSizeInGiB, " GiB")
 

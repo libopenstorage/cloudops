@@ -99,6 +99,11 @@ func (u *unsupportedStorage) Attach(volumeID string, options map[string]string) 
 		Operation: "Attach",
 	}
 }
+
+func (u *unsupportedStorage) IsVolumeReadyToExpand(volumeID string) (bool, error) {
+	return true, nil
+}
+
 func (u *unsupportedStorage) Expand(volumeID string, newSizeInGiB uint64, options map[string]string) (uint64, error) {
 	return 0, &cloudops.ErrNotSupported{
 		Operation: "Expand",
