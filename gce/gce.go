@@ -669,6 +669,7 @@ func (s *gceOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 		Operation: "gceOps:IsVolumesReadyToExpand",
 	}
 }
+
 func (s *gceOps) Expand(
 	volumeID string,
 	newSizeInGiB uint64,

@@ -440,7 +440,6 @@ func (e *exponentialBackoff) IsVolumesReadyToExpand(volumeIDs []*string) (bool, 
 	return e.cloudOps.IsVolumesReadyToExpand(volumeIDs)
 }
 
-
 func (e *exponentialBackoff) Expand(volumeID string, targetSize uint64, options map[string]string) (uint64, error) {
 	var (
 		actualSize uint64
