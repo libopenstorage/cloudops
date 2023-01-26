@@ -129,8 +129,8 @@ type Storage interface {
 	// Attach volumeID, accepts attachoOptions as opaque data
 	// Return attach path.
 	Attach(volumeID string, options map[string]string) (string, error)
-	// IsVolumeReadyToExpand pre-checks if the volume is in a state that can be modified. Should be called
-	// before issue an expand request to the cloud provider
+	// IsVolumeReadyToExpand pre-checks if a pool of volumes are in a state that can
+	// be modified. Should be called before sending an expand request to the cloud provider.
 	IsVolumesReadyToExpand(volumeIDs []*string) (bool, error)
 	// Expand expands the provided device from the existing size to the new size
 	// It returns the new size of the device. It is a blocking API where it will
