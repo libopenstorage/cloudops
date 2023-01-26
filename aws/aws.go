@@ -34,6 +34,7 @@ const (
 	awsDevicePrefixWithH = "/dev/hd"
 	awsDevicePrefixNvme  = "/dev/nvme"
 	contextTimeout       = 30 * time.Second
+	awsErrorModificationNotFound = "InvalidVolumeModification.NotFound"
 )
 
 type awsOps struct {
@@ -942,37 +943,37 @@ func (s *awsOps) detachInternal(volumeID, instanceName string, options map[strin
 	return err
 }
 
-func (s *awsOps) getVolumeModificationState(volumeID string) (string, error) {
-	modificationStateRequest := &ec2.DescribeVolumesModificationsInput{
-		VolumeIds: []*string{&volumeID},
-	}
-	describeOutput, err := s.ec2.DescribeVolumesModifications(modificationStateRequest)
-	if err != nil {
-		return "", err
-	}
-	volumeModifications := describeOutput.VolumesModifications
-	if len(volumeModifications) == 0 {
-		return "", nil
-	}
-
-	volumeModification := volumeModifications[len(volumeModifications)-1]
-	state := *volumeModification.ModificationState
-	return state, nil
+func isErrorModificationNotFound(err error) bool {
+	return strings.HasPrefix(err.Error(), awsErrorModificationNotFound)
 }
 
-func (s *awsOps) IsVolumesReadyToExpand(volumeIDs []string) (bool, error) {
-	for i := 0; i < len(volumeIDs); i++ {
-		state, err := s.getVolumeModificationState(volumeIDs[i])
-		if err != nil {
-			return false, fmt.Errorf("unable to get modification state: #{err}. ")
-		}
-		// Empty string indicates there was no volume change
-		if state == "" {
+func (s *awsOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+	modificationStateRequest := &ec2.DescribeVolumesModificationsInput{
+		VolumeIds: volumeIDs,
+	}
+	describeOutput, err := s.ec2.DescribeVolumesModifications(modificationStateRequest)
+	states := describeOutput.VolumesModifications
+	if err != nil {
+		// modification state not found, this indicates no change has occurred before.
+		if isErrorModificationNotFound(err) {
 			return true, nil
 		}
+		return false, fmt.Errorf("unable to get volumes' modification states: %v", err)
+	}
+
+	var state string
+	for i := 0; i < len(states); i++ {
+		if states[i] == nil || states[i].ModificationState == nil {
+			logrus.Infof("volume modification state is nil for volume id: %s", state, *volumeIDs[i])
+			continue
+		}
+
+		state = *states[i].ModificationState
+		logrus.Infof("retrived volume modification state: %s for volume id: %s", state, *volumeIDs[i])
 		if state == ec2.VolumeModificationStateModifying ||
 			state == ec2.VolumeModificationStateOptimizing {
-			return false, fmt.Errorf("the last modification has not fully completed. ")
+			return false, fmt.Errorf("aws has not fully completed the last modification: " +
+				"volume %s is in %s state. please retry later", *volumeIDs[i], state)
 		}
 	}
 	return true, nil

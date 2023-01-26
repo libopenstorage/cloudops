@@ -664,9 +664,9 @@ func (s *gceOps) GetDeviceID(disk interface{}) (string, error) {
 	}
 }
 
-func (s *gceOps) IsVolumesReadyToExpand(volumeIDs []string) (bool, error) {
+func (s *gceOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	return true, &cloudops.ErrNotSupported{
-		Operation: "IsVolumesReadyToExpand",
+		Operation: "gceOps:IsVolumesReadyToExpand",
 	}
 }
 func (s *gceOps) Expand(
