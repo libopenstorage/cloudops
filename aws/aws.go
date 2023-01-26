@@ -964,7 +964,7 @@ func (s *awsOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	var state string
 	for i := 0; i < len(states); i++ {
 		if states[i] == nil || states[i].ModificationState == nil {
-			logrus.Infof("volume modification state is nil for volume id: %s", state, *volumeIDs[i])
+			logrus.Infof("volume modification state is nil for volume id: %s", *volumeIDs[i])
 			continue
 		}
 
