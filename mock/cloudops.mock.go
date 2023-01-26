@@ -359,7 +359,7 @@ func (mr *MockOpsMockRecorder) InstanceID() *gomock.Call {
 }
 
 // IsVolumesReadyToExpand mocks base method.
-func (m *MockOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+func (m *MockOps) IsVolumesReadyToExpand(arg0 []*string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsVolumesReadyToExpand", arg0)
 	ret0, _ := ret[0].(bool)
