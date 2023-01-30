@@ -100,7 +100,7 @@ func (u *unsupportedStorage) Attach(volumeID string, options map[string]string) 
 	}
 }
 
-func (u *unsupportedStorage) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+func (u *unsupportedStorage) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	return true, &cloudops.ErrNotSupported{
 		Operation: "unsupportedStorage:IsVolumesReadyToExpand",
 	}

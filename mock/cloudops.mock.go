@@ -359,7 +359,7 @@ func (mr *MockOpsMockRecorder) InstanceID() *gomock.Call {
 }
 
 // IsVolumesReadyToExpand mocks base method.
-func (m *MockOps) IsVolumesReadyToExpand(arg0 []*string) (bool, error) {
+func (m *MockOps) AreVolumesReadyToExpand(arg0 []*string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsVolumesReadyToExpand", arg0)
 	ret0, _ := ret[0].(bool)
@@ -370,7 +370,7 @@ func (m *MockOps) IsVolumesReadyToExpand(arg0 []*string) (bool, error) {
 // IsVolumesReadyToExpand indicates an expected call of IsVolumesReadyToExpand.
 func (mr *MockOpsMockRecorder) IsVolumesReadyToExpand(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsVolumesReadyToExpand", reflect.TypeOf((*MockOps)(nil).IsVolumesReadyToExpand), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsVolumesReadyToExpand", reflect.TypeOf((*MockOps)(nil).AreVolumesReadyToExpand), arg0)
 }
 
 // Name mocks base method.
