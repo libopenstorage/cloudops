@@ -947,24 +947,24 @@ func isErrorModificationNotFound(err error) bool {
 	return strings.HasPrefix(err.Error(), awsErrorModificationNotFound)
 }
 
-func (s *awsOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	modificationStateRequest := &ec2.DescribeVolumesModificationsInput{
 		VolumeIds: volumeIDs,
 	}
 	describeOutput, err := s.ec2.DescribeVolumesModifications(modificationStateRequest)
-	states := describeOutput.VolumesModifications
 	if err != nil {
 		// modification state not found, this indicates no change has occurred before.
 		if isErrorModificationNotFound(err) {
 			return true, nil
 		}
-		return false, fmt.Errorf("unable to get volumes' modification states: %v", err)
+		return false, fmt.Errorf("unable to get modification states for aws volumes: %v", err)
 	}
+	states := describeOutput.VolumesModifications
 
 	var state string
 	for i := 0; i < len(states); i++ {
 		if states[i] == nil || states[i].ModificationState == nil {
-			logrus.Infof("volume modification state is nil for volume id: %s", *volumeIDs[i])
+			logrus.Debugf("volume modification state is nil for volume id: %s", *volumeIDs[i])
 			continue
 		}
 

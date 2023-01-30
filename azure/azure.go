@@ -580,7 +580,7 @@ func (a *azureOps) DeleteFrom(diskName, _ string) error {
 	return a.Delete(diskName, nil)
 }
 
-func (a *azureOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+func (a *azureOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	return true, &cloudops.ErrNotSupported{
 		Operation: "azureOps.IsVolumesReadyToExpand",
 	}
