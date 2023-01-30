@@ -34,6 +34,7 @@ const (
 	awsDevicePrefixWithH = "/dev/hd"
 	awsDevicePrefixNvme  = "/dev/nvme"
 	contextTimeout       = 30 * time.Second
+	awsErrorModificationNotFound = "InvalidVolumeModification.NotFound"
 )
 
 type awsOps struct {
@@ -940,6 +941,42 @@ func (s *awsOps) detachInternal(volumeID, instanceName string, options map[strin
 		time.Minute,
 	)
 	return err
+}
+
+func isErrorModificationNotFound(err error) bool {
+	return strings.HasPrefix(err.Error(), awsErrorModificationNotFound)
+}
+
+func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+	modificationStateRequest := &ec2.DescribeVolumesModificationsInput{
+		VolumeIds: volumeIDs,
+	}
+	describeOutput, err := s.ec2.DescribeVolumesModifications(modificationStateRequest)
+	if err != nil {
+		// modification state not found, this indicates no change has occurred before.
+		if isErrorModificationNotFound(err) {
+			return true, nil
+		}
+		return false, fmt.Errorf("unable to get modification states for aws volumes: %v", err)
+	}
+	states := describeOutput.VolumesModifications
+
+	var state string
+	for i := 0; i < len(states); i++ {
+		if states[i] == nil || states[i].ModificationState == nil {
+			logrus.Debugf("volume modification state is nil for volume id: %s", *volumeIDs[i])
+			continue
+		}
+
+		state = *states[i].ModificationState
+		logrus.Infof("retrived volume modification state: %s for volume id: %s", state, *volumeIDs[i])
+		if state == ec2.VolumeModificationStateModifying ||
+			state == ec2.VolumeModificationStateOptimizing {
+			return false, fmt.Errorf("aws has not fully completed the last modification: " +
+				"volume %s is in %s state. please retry later", *volumeIDs[i], state)
+		}
+	}
+	return true, nil
 }
 
 func (s *awsOps) Expand(
