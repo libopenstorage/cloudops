@@ -533,7 +533,7 @@ func (ops *vsphereOps) Enumerate(volumeIds []*string,
 	}
 }
 
-func (ops *vsphereOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+func (ops *vsphereOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	return true, &cloudops.ErrNotSupported{
 		Operation: "vsphereOps:IsVolumesReadyToExpand",
 	}

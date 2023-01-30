@@ -829,7 +829,7 @@ func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 	return false
 }
 
-func (o *oracleOps) IsVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
+func (o *oracleOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	return true, &cloudops.ErrNotSupported{
 		Operation: "oracleOps:IsVolumesReadyToExpand",
 	}
