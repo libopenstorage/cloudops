@@ -957,7 +957,10 @@ func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 		if isErrorModificationNotFound(err) {
 			return true, nil
 		}
-		return false, fmt.Errorf("unable to get modification states for aws volumes: %v", err)
+		return false, &cloudops.ErrCloudProviderRequestFailure{
+			Request: "DescribeVolumesModifications",
+			Message: err.Error(),
+		}
 	}
 	states := describeOutput.VolumesModifications
 
