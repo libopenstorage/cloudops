@@ -957,6 +957,8 @@ func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 		if isErrorModificationNotFound(err) {
 			return true, nil
 		}
+		// in the case of getting unclassified request failure, result of this checker may be bypassed
+		// to not block volume resize operation.
 		return false, &cloudops.ErrCloudProviderRequestFailure{
 			Request: "DescribeVolumesModifications",
 			Message: err.Error(),
