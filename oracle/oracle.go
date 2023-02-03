@@ -439,6 +439,7 @@ func (o *oracleOps) Create(template interface{}, labels map[string]string, optio
 			SizeInGBs:          vol.SizeInGBs,
 			VpusPerGB:          vol.VpusPerGB,
 			DisplayName:        vol.DisplayName,
+			KmsKeyId:           vol.KmsKeyId,
 			FreeformTags:       labels,
 		},
 	}
