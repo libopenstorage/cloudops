@@ -371,7 +371,7 @@ func (a *azureOps) Create(
 	options map[string]string,
 ) (interface{}, error) {
 	d, ok := template.(*compute.Disk)
-	if !ok {
+	if !ok || d.DiskProperties == nil || d.DiskProperties.DiskSizeGB == nil {
 		return nil, cloudops.NewStorageError(
 			cloudops.ErrVolInval,
 			"Invalid volume template given",
