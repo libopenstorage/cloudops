@@ -2,7 +2,7 @@ sudo: required
 dist: xenial
 language: go
 go:
-  - 1.17.x
+  - 1.18.x
 cache:
   directories:
     - $GOPATH/pkg/mod
@@ -11,6 +11,7 @@ before_install:
 script:
   - |
     # TODO add pretest here too once it's fixed
+    go mod vendor
     make && make test
 notifications:
   email:
