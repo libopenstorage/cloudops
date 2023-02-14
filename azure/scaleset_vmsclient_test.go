@@ -1,16 +1,18 @@
 package azure
 
 import (
+	"github.com/Azure/go-autorest/autorest/to"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
+	// "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
+	// "github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRetrieveDataDisks(t *testing.T) {
-	var nilDiskSlice []compute.DataDisk
-	testDisks := []compute.DataDisk{
+	var nilDiskSlice []*armcompute.DataDisk
+	testDisks := []*armcompute.DataDisk{
 		{
 			Name: to.StringPtr("disk1"),
 		},
@@ -21,58 +23,58 @@ func TestRetrieveDataDisks(t *testing.T) {
 
 	testCases := []struct {
 		name        string
-		input       compute.VirtualMachineScaleSetVM
-		expectedRes []compute.DataDisk
+		input       armcompute.VirtualMachineScaleSetVM
+		expectedRes []*armcompute.DataDisk
 	}{
 		{
 			name:  "nil vm properties",
-			input: compute.VirtualMachineScaleSetVM{},
-			expectedRes: []compute.DataDisk{},
+			input: armcompute.VirtualMachineScaleSetVM{},
+			expectedRes: []*armcompute.DataDisk{},
 		},
 		{
 			name: "nil storage profile",
-			input: compute.VirtualMachineScaleSetVM{
-				VirtualMachineScaleSetVMProperties: &compute.VirtualMachineScaleSetVMProperties{},
+			input: armcompute.VirtualMachineScaleSetVM{
+				Properties: &armcompute.VirtualMachineScaleSetVMProperties{},
 			},
-			expectedRes: []compute.DataDisk{},
+			expectedRes: []*armcompute.DataDisk{},
 		},
 		{
 			name: "nil data disks reference",
-			input: compute.VirtualMachineScaleSetVM{
-				VirtualMachineScaleSetVMProperties: &compute.VirtualMachineScaleSetVMProperties{
-					StorageProfile: &compute.StorageProfile{},
+			input: armcompute.VirtualMachineScaleSetVM{
+				Properties: &armcompute.VirtualMachineScaleSetVMProperties{
+					StorageProfile: &armcompute.StorageProfile{},
 				},
 			},
-			expectedRes: []compute.DataDisk{},
+			expectedRes: []*armcompute.DataDisk{},
 		},
 		{
 			name: "nil data disks slice",
-			input: compute.VirtualMachineScaleSetVM{
-				VirtualMachineScaleSetVMProperties: &compute.VirtualMachineScaleSetVMProperties{
-					StorageProfile: &compute.StorageProfile{
-						DataDisks: &nilDiskSlice,
+			input: armcompute.VirtualMachineScaleSetVM{
+				Properties: &armcompute.VirtualMachineScaleSetVMProperties{
+					StorageProfile: &armcompute.StorageProfile{
+						DataDisks: nilDiskSlice,
 					},
 				},
 			},
-			expectedRes: []compute.DataDisk{},
+			expectedRes: []*armcompute.DataDisk{},
 		},
 		{
 			name: "empty data disks slice",
-			input: compute.VirtualMachineScaleSetVM{
-				VirtualMachineScaleSetVMProperties: &compute.VirtualMachineScaleSetVMProperties{
-					StorageProfile: &compute.StorageProfile{
-						DataDisks: &([]compute.DataDisk{}),
+			input: armcompute.VirtualMachineScaleSetVM{
+				Properties: &armcompute.VirtualMachineScaleSetVMProperties{
+					StorageProfile: &armcompute.StorageProfile{
+						DataDisks: []*armcompute.DataDisk{},
 					},
 				},
 			},
-			expectedRes: []compute.DataDisk{},
+			expectedRes: []*armcompute.DataDisk{},
 		},
 		{
 			name: "test data disks",
-			input: compute.VirtualMachineScaleSetVM{
-				VirtualMachineScaleSetVMProperties: &compute.VirtualMachineScaleSetVMProperties{
-					StorageProfile: &compute.StorageProfile{
-						DataDisks: &testDisks,
+			input: armcompute.VirtualMachineScaleSetVM{
+				Properties: &armcompute.VirtualMachineScaleSetVMProperties{
+					StorageProfile: &armcompute.StorageProfile{
+						DataDisks: testDisks,
 					},
 				},
 			},

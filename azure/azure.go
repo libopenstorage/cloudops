@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Azure/go-autorest/autorest"
+
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2019-02-01/containerservice"
-	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -34,6 +36,9 @@ const (
 	envManagedClusterName = "AZURE_MANAGED_CLUSTER_NAME"
 	envAgentPoolName      = "AZURE_AGENT_POOL_NAME"
 	envUserAgent          = "AZURE_HTTP_USER_AGENT"
+	envAzureClientID			  = "AZURE_CLIENT_ID"
+	envAzureClientSecret		  = "AZURE_CLIENT_SECRET"
+	envAzureTenentID			  = "AZURE_TENANT_ID"
 	metadataAPIEndpoint   = "http://169.254.169.254/metadata/instance/compute"
 	metadataAPIVersion    = "2019-03-11"
 	scaleSetNameKey       = "vmScaleSetName"
@@ -65,10 +70,10 @@ type azureOps struct {
 	resourceGroupName  string
 	managedClusterName string
 	agentPoolName      string
-	disksClient        *compute.DisksClient
+	disksClient        *armcompute.DisksClient
 	vmsClient          vmsClient
-	snapshotsClient    *compute.SnapshotsClient
-	agentPoolsClient   *containerservice.AgentPoolsClient
+	snapshotsClient    *armcompute.SnapshotsClient
+	agentPoolsClient   *armcontainerservice.AgentPoolsClient
 }
 
 // Config contains everything needed to create an Azure client.
@@ -204,13 +209,33 @@ func NewEnvClient() (cloudops.Ops, error) {
 	return NewClient(config)
 }
 
-// NewClient creates new client from specified config.
-func NewClient(config Config) (cloudops.Ops, error) {
-	authorizer, err := auth.NewAuthorizerFromEnvironment()
+// NewCredentialFromEnv creates a credential object for client authentication from env
+func NewCredentialFromEnv() (*azidentity.ClientSecretCredential, error) {
+	clientID, err := cloudops.GetEnvValueStrict(envAzureClientID)
+	if err != nil {
+		return nil, err
+	}
+	clientSecret, err := cloudops.GetEnvValueStrict(envAzureClientSecret)
+	if err != nil {
+		return nil, err
+	}
+	tenentID, err := cloudops.GetEnvValueStrict(envAzureTenentID)
 	if err != nil {
 		return nil, err
 	}
 
+	return azidentity.NewClientSecretCredential(tenentID, clientID, clientSecret, nil)
+}
+
+// NewClient creates new client from specified config.
+func NewClient(config Config) (cloudops.Ops, error) {
+	// authorizer, err := auth.NewAuthorizerFromEnvironment()
+	credential, err := NewCredentialFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: remove
 	baseURI, err := azureBaseURI(config.CloudEnvironment)
 	if err != nil {
 		return nil, err
@@ -220,22 +245,25 @@ func NewClient(config Config) (cloudops.Ops, error) {
 		config.UserAgent = userAgentExtension
 	}
 
-	disksClient := compute.NewDisksClientWithBaseURI(baseURI, config.SubscriptionID)
-	disksClient.Authorizer = authorizer
-	disksClient.PollingDelay = clientPollingDelay
-	disksClient.AddToUserAgent(config.UserAgent)
+	disksClient, _ := armcompute.NewDisksClient(config.SubscriptionID, credential, nil)
+	// disksClient := armcompute.NewDisksClientWithBaseURI(baseURI, config.SubscriptionID)
+	// disksClient.Authorizer = authorizer
+	// disksClient.PollingDelay = clientPollingDelay
+	// disksClient.AddToUserAgent(config.UserAgent)
 
-	vmsClient := newVMsClient(config, baseURI, authorizer)
+	vmsClient := newVMsClient(config, baseURI, credential)
 
-	snapshotsClient := compute.NewSnapshotsClientWithBaseURI(baseURI, config.SubscriptionID)
-	snapshotsClient.Authorizer = authorizer
-	snapshotsClient.PollingDelay = clientPollingDelay
-	snapshotsClient.AddToUserAgent(config.UserAgent)
+	snapshotsClient, _ := armcompute.NewSnapshotsClient(config.SubscriptionID, credential, nil)
+	// snapshotsClient := armcompute.NewSnapshotsClientWithBaseURI(baseURI, config.SubscriptionID)
+	//snapshotsClient.Authorizer = authorizer
+	//snapshotsClient.PollingDelay = clientPollingDelay
+	//snapshotsClient.AddToUserAgent(config.UserAgent)
 
-	agentPoolsClient := containerservice.NewAgentPoolsClientWithBaseURI(baseURI, config.SubscriptionID)
-	agentPoolsClient.Authorizer = authorizer
-	agentPoolsClient.PollingDelay = clientPollingDelay
-	agentPoolsClient.AddToUserAgent(config.UserAgent)
+	agentPoolsClient, _ := armcontainerservice.NewAgentPoolsClient(config.SubscriptionID, credential, nil)
+	//agentPoolsClient := armcontainerservice.NewAgentPoolsClientWithBaseURI(baseURI, config.SubscriptionID)
+	//agentPoolsClient.Authorizer = authorizer
+	//agentPoolsClient.PollingDelay = clientPollingDelay
+	//agentPoolsClient.AddToUserAgent(config.UserAgent)
 
 	return backoff.NewExponentialBackoffOps(
 		&azureOps{
@@ -244,10 +272,10 @@ func NewClient(config Config) (cloudops.Ops, error) {
 			resourceGroupName:  config.ResourceGroupName,
 			managedClusterName: config.ManagedClusterName,
 			agentPoolName:      config.AgentPoolName,
-			disksClient:        &disksClient,
+			disksClient:        disksClient,
 			vmsClient:          vmsClient,
-			snapshotsClient:    &snapshotsClient,
-			agentPoolsClient:   &agentPoolsClient,
+			snapshotsClient:    snapshotsClient,
+			agentPoolsClient:   agentPoolsClient,
 		},
 		isExponentialError,
 		backoff.DefaultExponentialBackoff,
@@ -278,29 +306,38 @@ func (a *azureOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, e
 func (a *azureOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
 
 	ctx := context.Background()
-	agentPool, err := a.agentPoolsClient.Get(ctx, a.resourceGroupName, a.managedClusterName, a.agentPoolName)
+	resp, err := a.agentPoolsClient.Get(ctx, a.resourceGroupName, a.managedClusterName, a.agentPoolName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get node pool details for [%s] of cluster [%v] in [%v] resource group."+
 			"Error: [%v] ", a.agentPoolName, a.managedClusterName, a.resourceGroupName, err)
 	}
 
-	zones := []string{}
-	if agentPool.AvailabilityZones == nil {
+	agentPool := resp.AgentPool
+	var zonePointers []*string
+	var zones []string
+	if agentPool.Properties.AvailabilityZones == nil {
 		// If no availability zone mentioned
 		// treat all instances to be in same zone
-		zones = append(zones, "")
+		zonePointers = append(zonePointers, nil)
 	} else {
-		zones = *agentPool.AvailabilityZones
+		zonePointers = agentPool.Properties.AvailabilityZones
 	}
 
 	var MaxCount, MinCount int64
-	if agentPool.MaxCount != nil {
-		MaxCount = int64(*agentPool.MaxCount)
+	if agentPool.Properties.MaxCount != nil {
+		MaxCount = int64(*agentPool.Properties.MaxCount)
 	}
-	if agentPool.MinCount != nil {
-		MinCount = int64(*agentPool.MinCount)
+	if agentPool.Properties.MinCount != nil {
+		MinCount = int64(*agentPool.Properties.MinCount)
 	}
 
+	for i, pointer := range zonePointers {
+		if pointer == nil {
+			zones[i] = ""
+		} else {
+			zones[i] = *pointer
+		}
+	}
 	retval := &cloudops.InstanceGroupInfo{
 		CloudResourceInfo: cloudops.CloudResourceInfo{
 			ID:   *agentPool.ID,
@@ -317,15 +354,15 @@ func (a *azureOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops
 func (a *azureOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
 
 	ctx := context.Background()
-	agentPool, err := a.agentPoolsClient.Get(ctx, a.resourceGroupName, a.managedClusterName, instanceGroupID)
+	agentPool, err := a.agentPoolsClient.Get(ctx, a.resourceGroupName, a.managedClusterName, instanceGroupID, nil)
 	if err != nil {
 		return 0, err
 	}
-	if agentPool.Count == nil {
+	if agentPool.Properties.Count == nil {
 		return 0, fmt.Errorf("got empty agent pool size for [%v] of cluster [%v] in [%v] resource group",
 			instanceGroupID, a.managedClusterName, a.resourceGroupName)
 	}
-	return int64(*agentPool.Count), nil
+	return int64(*agentPool.Properties.Count), nil
 }
 
 // SetInstanceGroupSize sets desired node count per availability zone
@@ -345,23 +382,26 @@ func (a *azureOps) SetInstanceGroupSize(instanceGroupID string,
 	}
 
 	instanceGroupSize := int32(count)
-	agentPoolProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
+	osType := armcontainerservice.OSTypeLinux
+	agentPoolProperties := armcontainerservice.ManagedClusterAgentPoolProfileProperties{
 		Count:  &instanceGroupSize,
-		OsType: containerservice.Linux,
+		OSType: &osType,
 	}
 
-	agentPool := containerservice.AgentPool{
-		ManagedClusterAgentPoolProfileProperties: &agentPoolProperties,
+	agentPool := armcontainerservice.AgentPool{
+		Properties: &agentPoolProperties,
 	}
-	future, err := a.agentPoolsClient.CreateOrUpdate(ctx, a.resourceGroupName,
+	poller, err := a.agentPoolsClient.BeginCreateOrUpdate(ctx, a.resourceGroupName,
 		a.managedClusterName,
 		instanceGroupID,
-		agentPool)
+		agentPool,
+		nil)
 	if err != nil {
 		return fmt.Errorf("Failed to set size for node group [%v] of managed cluster [%v]."+
 			"Error:[%v]", instanceGroupID, a.managedClusterName, err)
 	}
-	err = future.WaitForCompletionRef(ctx, a.agentPoolsClient.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
+	// err = future.WaitForCompletionRef(ctx, a.agentPoolsClient.Client)
 	return err
 }
 
@@ -370,8 +410,8 @@ func (a *azureOps) Create(
 	labels map[string]string,
 	options map[string]string,
 ) (interface{}, error) {
-	d, ok := template.(*compute.Disk)
-	if !ok || d.DiskProperties == nil || d.DiskProperties.DiskSizeGB == nil {
+	d, ok := template.(*armcompute.Disk)
+	if !ok || d.Properties == nil || d.Properties.DiskSizeGB == nil {
 		return nil, cloudops.NewStorageError(
 			cloudops.ErrVolInval,
 			"Invalid volume template given",
@@ -384,6 +424,7 @@ func (a *azureOps) Create(
 		context.Background(),
 		a.resourceGroupName,
 		*d.Name,
+		nil,
 	)
 	if err == nil {
 		return "", fmt.Errorf("disk with id %v already exists", *d.Name)
@@ -398,45 +439,45 @@ func (a *azureOps) Create(
 	}
 
 	ctx := context.Background()
-	future, err := a.disksClient.CreateOrUpdate(
+	createOption := armcompute.DiskCreateOptionEmpty
+	poller, err := a.disksClient.BeginCreateOrUpdate(
 		ctx,
 		a.resourceGroupName,
 		*d.Name,
-		compute.Disk{
+		armcompute.Disk{
 			Location: d.Location,
 			Type:     d.Type,
 			Zones:    d.Zones,
 			Tags:     formatTags(labels),
-			Sku:      d.Sku,
-			DiskProperties: &compute.DiskProperties{
-				CreationData: &compute.CreationData{
-					CreateOption: compute.Empty,
+			SKU:      d.SKU,
+			Properties: &armcompute.DiskProperties{
+				CreationData: &armcompute.CreationData{
+					CreateOption: &createOption,
 				},
-				DiskSizeGB:                   d.DiskProperties.DiskSizeGB,
-				DiskIOPSReadWrite:            d.DiskProperties.DiskIOPSReadWrite,
-				DiskMBpsReadWrite:            d.DiskProperties.DiskMBpsReadWrite,
-				EncryptionSettingsCollection: d.DiskProperties.EncryptionSettingsCollection,
-				Encryption:                   d.DiskProperties.Encryption,
+				DiskSizeGB:                   d.Properties.DiskSizeGB,
+				DiskIOPSReadWrite:            d.Properties.DiskIOPSReadWrite,
+				DiskMBpsReadWrite:            d.Properties.DiskMBpsReadWrite,
+				EncryptionSettingsCollection: d.Properties.EncryptionSettingsCollection,
+				Encryption:                   d.Properties.Encryption,
 			},
 		},
+		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	resp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	dd, err := future.Result(*a.disksClient)
-	return &dd, err
+	return &resp.Disk, err
 }
 
 func (a *azureOps) GetDeviceID(disk interface{}) (string, error) {
-	if d, ok := disk.(*compute.Disk); ok {
+	if d, ok := disk.(*armcompute.Disk); ok {
 		return *d.Name, nil
-	} else if s, ok := disk.(*compute.Snapshot); ok {
+	} else if s, ok := disk.(*armcompute.Snapshot); ok {
 		return *s.Name, nil
 	}
 	return "", cloudops.NewStorageError(
@@ -467,14 +508,15 @@ func (a *azureOps) Attach(diskName string, options map[string]string) (string, e
 			"%v disks attached to the VM instance", len(dataDisks))
 	}
 
+	createOption := armcompute.DiskCreateOptionTypesAttach
 	newDataDisks := append(
 		dataDisks,
-		compute.DataDisk{
+		&armcompute.DataDisk{
 			Lun:          &nextLun,
 			Name:         to.StringPtr(diskName),
-			DiskSizeGB:   disk.DiskSizeGB,
-			CreateOption: compute.DiskCreateOptionTypesAttach,
-			ManagedDisk: &compute.ManagedDiskParameters{
+			DiskSizeGB:   disk.Properties.DiskSizeGB,
+			CreateOption: &createOption,
+			ManagedDisk: &armcompute.ManagedDiskParameters{
 				ID: disk.ID,
 			},
 		},
@@ -518,6 +560,7 @@ func (a *azureOps) detachInternal(diskName, instance string) error {
 		context.Background(),
 		a.resourceGroupName,
 		diskName,
+		nil,
 	)
 	if derr, ok := err.(autorest.DetailedError); ok {
 		if code, ok := derr.StatusCode.(int); !ok {
@@ -545,7 +588,7 @@ func (a *azureOps) detachInternal(diskName, instance string) error {
 		return err
 	}
 
-	newDataDisks := make([]compute.DataDisk, 0)
+	newDataDisks := make([]*armcompute.DataDisk, 0)
 	for _, d := range dataDisks {
 		if strings.ToLower(*d.ManagedDisk.ID) == diskToDetach {
 			continue
@@ -562,18 +605,19 @@ func (a *azureOps) detachInternal(diskName, instance string) error {
 
 func (a *azureOps) Delete(diskName string, options map[string]string) error {
 	ctx := context.Background()
-	future, err := a.disksClient.Delete(ctx, a.resourceGroupName, diskName)
+	poller, err := a.disksClient.BeginDelete(ctx, a.resourceGroupName, diskName, nil)
 	if err != nil {
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
+	// err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
 	if err != nil {
 		return err
 	}
-
-	_, err = future.Result(*a.disksClient)
-	return err
+	return nil
+	// _, err = future.Result(*a.disksClient)
+	// return err
 }
 
 func (a *azureOps) DeleteFrom(diskName, _ string) error {
@@ -595,48 +639,52 @@ func (a *azureOps) Expand(
 		context.Background(),
 		a.resourceGroupName,
 		diskName,
+		nil,
 	)
 	if err != nil {
 		return 0, err
 	}
 
-	if disk.DiskProperties == nil || disk.DiskProperties.DiskSizeGB == nil {
+	if disk.Properties == nil || disk.Properties.DiskSizeGB == nil {
 		return 0, fmt.Errorf("disk properties of (%v) is nil", diskName)
 	}
 
-	if *disk.DiskProperties.DiskSizeGB >= int32(newSizeInGiB) {
-		return uint64(*disk.DiskProperties.DiskSizeGB), cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
+	if *disk.Properties.DiskSizeGB >= int32(newSizeInGiB) {
+		return uint64(*disk.Properties.DiskSizeGB), cloudops.NewStorageError(cloudops.ErrDiskGreaterOrEqualToExpandSize,
 			fmt.Sprintf("disk is already has a size: %d greater than or equal "+
-				"requested size: %d", *disk.DiskProperties.DiskSizeGB, newSizeInGiB), "")
+				"requested size: %d", *disk.Properties.DiskSizeGB, newSizeInGiB), "")
 	}
-	oldSizeInGiB := uint64(*disk.DiskProperties.DiskSizeGB)
+	oldSizeInGiB := uint64(*disk.Properties.DiskSizeGB)
 	// Azure resizes in chunks of GiB even if the disk properties variable is DiskSizeGB
 	newSizeInGiBInt32 := int32(newSizeInGiB)
-	disk.DiskProperties.DiskSizeGB = &newSizeInGiBInt32
+	disk.Properties.DiskSizeGB = &newSizeInGiBInt32
 
 	ctx := context.Background()
-	future, err := a.disksClient.CreateOrUpdate(
+	poller, err := a.disksClient.BeginCreateOrUpdate(
 		ctx,
 		a.resourceGroupName,
 		diskName,
-		disk,
+		disk.Disk,
+		nil,
 	)
 	if err != nil {
 		return oldSizeInGiB, err
 	}
-	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	// err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	resp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
 		return oldSizeInGiB, err
 	}
 
-	dd, err := future.Result(*a.disksClient)
-	if err != nil {
-		return oldSizeInGiB, err
-	}
-	if dd.DiskProperties == nil || dd.DiskProperties.DiskSizeGB == nil {
+	dd := resp.Disk
+	// dd, err := future.Result(*a.disksClient)
+	// if err != nil {
+	// 	return oldSizeInGiB, err
+	// }
+	if dd.Properties == nil || dd.Properties.DiskSizeGB == nil {
 		return oldSizeInGiB, fmt.Errorf("disk properties of (%v) is nil after performing resize", diskName)
 	}
-	return uint64(*dd.DiskProperties.DiskSizeGB), err
+	return uint64(*dd.Properties.DiskSizeGB), err
 }
 
 func (a *azureOps) Describe() (interface{}, error) {
@@ -663,6 +711,7 @@ func (a *azureOps) Inspect(diskNames []*string, options map[string]string) ([]in
 			context.Background(),
 			a.resourceGroupName,
 			*diskName,
+			nil,
 		)
 		if derr, ok := err.(autorest.DetailedError); ok {
 			code, ok := derr.StatusCode.(int)
@@ -764,11 +813,12 @@ func (a *azureOps) DevicePath(diskName string) (string, error) {
 // checkDiskAttachmentStatus returns the disk without any error if it is already
 // attached to the Ops instance. It will return errors if the disk is not attached
 // or attached on remote node.
-func (a *azureOps) checkDiskAttachmentStatus(diskName string) (*compute.Disk, error) {
+func (a *azureOps) checkDiskAttachmentStatus(diskName string) (*armcompute.Disk, error) {
 	disk, err := a.disksClient.Get(
 		context.Background(),
 		a.resourceGroupName,
 		diskName,
+		nil,
 	)
 	if derr, ok := err.(autorest.DetailedError); ok {
 		code, ok := derr.StatusCode.(int)
@@ -785,21 +835,21 @@ func (a *azureOps) checkDiskAttachmentStatus(diskName string) (*compute.Disk, er
 	}
 
 	if disk.ManagedBy == nil || len(*disk.ManagedBy) == 0 {
-		return &disk, cloudops.NewStorageError(
+		return &disk.Disk, cloudops.NewStorageError(
 			cloudops.ErrVolDetached,
 			fmt.Sprintf("disk %s is detached", diskName),
 			a.instance,
 		)
 	}
 	if !strings.HasSuffix(*disk.ManagedBy, a.vmsClient.name(a.instance)) {
-		return &disk, cloudops.NewStorageError(
+		return &disk.Disk, cloudops.NewStorageError(
 			cloudops.ErrVolAttachedOnRemoteNode,
 			fmt.Sprintf("disk %s is attached on remote node %s", diskName, *disk.ManagedBy),
 			a.instance,
 		)
 	}
 
-	return &disk, nil
+	return &disk.Disk, nil
 }
 
 func (a *azureOps) devicePath(diskName string) (string, error) {
@@ -836,53 +886,59 @@ func (a *azureOps) Snapshot(diskName string, readonly bool, options map[string]s
 		return nil, fmt.Errorf("read-write snapshots are not supported in Azure")
 	}
 
-	disk, err := a.disksClient.Get(context.Background(), a.resourceGroupName, diskName)
+	disk, err := a.disksClient.Get(context.Background(), a.resourceGroupName, diskName, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	ctx := context.Background()
-	future, err := a.snapshotsClient.CreateOrUpdate(
+	option := armcompute.DiskCreateOptionCopy
+	poller, err := a.snapshotsClient.BeginCreateOrUpdate(
 		ctx,
 		a.resourceGroupName,
 		fmt.Sprint("snap-", time.Now().Format(snapNameFormat)),
-		compute.Snapshot{
+		armcompute.Snapshot{
 			Location: disk.Location,
-			SnapshotProperties: &compute.SnapshotProperties{
-				CreationData: &compute.CreationData{
-					CreateOption:     compute.Copy,
+			Properties: &armcompute.SnapshotProperties{
+				CreationData: &armcompute.CreationData{
+					CreateOption:    &option,
 					SourceResourceID: disk.ID,
 				},
 			},
 		},
+		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	err = future.WaitForCompletionRef(ctx, a.snapshotsClient.Client)
+	// err = future.WaitForCompletionRef(ctx, a.snapshotsClient.Client)
+	resp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	snap, err := future.Result(*a.snapshotsClient)
+	// snap, err := future.Result(*a.snapshotsClient)
+	snap := resp.Snapshot
 	return &snap, err
 }
 
 func (a *azureOps) SnapshotDelete(snapName string, options map[string]string) error {
 	ctx := context.Background()
-	future, err := a.snapshotsClient.Delete(ctx, a.resourceGroupName, snapName)
+	poller, err := a.snapshotsClient.BeginDelete(ctx, a.resourceGroupName, snapName, nil)
 	if err != nil {
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, a.snapshotsClient.Client)
+	// err = future.WaitForCompletionRef(ctx, a.snapshotsClient.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
+
 	if err != nil {
 		return err
 	}
-
-	_, err = future.Result(*a.snapshotsClient)
-	return err
+	return nil
+	// _, err = future.Result(*a.snapshotsClient)
+	// return err
 }
 
 func (a *azureOps) ApplyTags(diskName string, labels map[string]string, options map[string]string) error {
@@ -894,6 +950,7 @@ func (a *azureOps) ApplyTags(diskName string, labels map[string]string, options 
 		context.Background(),
 		a.resourceGroupName,
 		diskName,
+		nil,
 	)
 	if err != nil {
 		return err
@@ -908,25 +965,29 @@ func (a *azureOps) ApplyTags(diskName string, labels map[string]string, options 
 	}
 
 	ctx := context.Background()
-	future, err := a.disksClient.Update(
+	poller, err := a.disksClient.BeginUpdate(
 		ctx,
 		a.resourceGroupName,
 		diskName,
-		compute.DiskUpdate{
+		armcompute.DiskUpdate{
 			Tags: disk.Tags,
 		},
+		nil,
 	)
 	if err != nil {
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	// err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
+
 	if err != nil {
 		return err
 	}
+	return nil
 
-	_, err = future.Result(*a.disksClient)
-	return err
+//	_, err = future.Result(*a.disksClient)
+//	return err
 }
 
 func (a *azureOps) RemoveTags(diskName string, labels map[string]string, options map[string]string) error {
@@ -938,6 +999,7 @@ func (a *azureOps) RemoveTags(diskName string, labels map[string]string, options
 		context.Background(),
 		a.resourceGroupName,
 		diskName,
+		nil,
 	)
 	if err != nil {
 		return err
@@ -952,29 +1014,32 @@ func (a *azureOps) RemoveTags(diskName string, labels map[string]string, options
 	}
 
 	ctx := context.Background()
-	future, err := a.disksClient.Update(
+	poller, err := a.disksClient.BeginUpdate(
 		ctx,
 		a.resourceGroupName,
 		diskName,
-		compute.DiskUpdate{
+		armcompute.DiskUpdate{
 			Tags: disk.Tags,
 		},
+		nil,
 	)
 	if err != nil {
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	// err = future.WaitForCompletionRef(ctx, a.disksClient.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
 	if err != nil {
 		return err
 	}
+	return nil
 
-	_, err = future.Result(*a.disksClient)
-	return err
+//	_, err = future.Result(*a.disksClient)
+//	return err
 }
 
 func (a *azureOps) Tags(diskName string) (map[string]string, error) {
-	disk, err := a.disksClient.Get(context.Background(), a.resourceGroupName, diskName)
+	disk, err := a.disksClient.Get(context.Background(), a.resourceGroupName, diskName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -990,27 +1055,39 @@ func (a *azureOps) Tags(diskName string) (map[string]string, error) {
 	return tags, nil
 }
 
-func (a *azureOps) getDisks(labels map[string]string) (map[string]*compute.Disk, error) {
-	response := make(map[string]*compute.Disk)
+func (a *azureOps) getDisks(labels map[string]string) (map[string]*armcompute.Disk, error) {
+	response := make(map[string]*armcompute.Disk)
 
-	it, err := a.disksClient.ListByResourceGroupComplete(
-		context.Background(),
+	// it, err := a.disksClient.ListByResourceGroupComplete(
+	pager := a.disksClient.NewListByResourceGroupPager(
+		// context.Background(),
 		a.resourceGroupName,
+		nil,
 	)
-	if err != nil {
-		return nil, err
-	}
-	for ; it.NotDone(); err = it.Next() {
+	for pager.More() {
+		nextDisk, err := pager.NextPage(context.Background())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to advance page: %v", err)
 		}
-
-		disk := it.Value()
-		if labelsMatch(&disk, labels) {
-			response[*it.Value().Name] = &disk
+		for _, rg := range nextDisk.Value {
+			if labelsMatch(rg, labels) {
+				response[*rg.Name] = rg
+			}
 		}
 	}
-
+//	if err != nil {
+//		return nil, err
+//	}
+//	for ; it.NotDone(); err = it.Next() {
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		disk := it.Value()
+//		if labelsMatch(&disk, labels) {
+//			response[*it.Value().Name] = &disk
+//		}
+//	}
 	return response, nil
 }
 
@@ -1062,7 +1139,7 @@ func (a *azureOps) waitForDetach(diskName, instance string) error {
 	return err
 }
 
-func labelsMatch(disk *compute.Disk, labels map[string]string) bool {
+func labelsMatch(disk *armcompute.Disk, labels map[string]string) bool {
 	for key, expected := range labels {
 		if actual, exists := disk.Tags[key]; exists {
 			// Nil values are not allowed in tags, just safety check
@@ -1087,7 +1164,7 @@ func formatTags(labels map[string]string) map[string]*string {
 	return tags
 }
 
-func nextAvailableLun(dataDisks []compute.DataDisk) int32 {
+func nextAvailableLun(dataDisks []*armcompute.DataDisk) int32 {
 	usedLuns := make(map[int32]struct{})
 	for _, d := range dataDisks {
 		if d.Lun != nil {

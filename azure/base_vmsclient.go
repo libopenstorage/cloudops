@@ -3,28 +3,40 @@ package azure
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
-	"github.com/Azure/go-autorest/autorest"
+	// "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
+	// "github.com/Azure/go-autorest/autorest"
 )
 
 type baseVMsClient struct {
 	resourceGroupName string
-	client            *compute.VirtualMachinesClient
+	client            *armcompute.VirtualMachinesClient
 }
 
 func newBaseVMsClient(
 	config Config,
 	baseURI string,
-	authorizer autorest.Authorizer,
+	credential azcore.TokenCredential,
 ) vmsClient {
-	vmsClient := compute.NewVirtualMachinesClientWithBaseURI(baseURI, config.SubscriptionID)
-	vmsClient.Authorizer = authorizer
-	vmsClient.PollingDelay = clientPollingDelay
-	vmsClient.AddToUserAgent(config.UserAgent)
+	//options := arm.ClientOptions {
+	//	ClientOptions: azcore.ClientOptions {
+	//		Cloud: cloud.AzureChina,
+	//	},
+	//}
+	vmsClient, err := armcompute.NewVirtualMachinesClient(config.SubscriptionID, credential, nil)
+	if err != nil {
+
+	}
+	// vmsClient, err := armcompute.NewVirtualMachinesClient(config.SubscriptionID, credential, &options)
+	// vmsClient.Authorizer = authorizer
+	// vmsClient.PollingDelay = clientPollingDelay
+	// vmsClient.AddToUserAgent(config.UserAgent)
+
 	return &baseVMsClient{
 		resourceGroupName: config.ResourceGroupName,
-		client:            &vmsClient,
+		client:            vmsClient,
 	}
 }
 
@@ -38,45 +50,45 @@ func (b *baseVMsClient) describe(
 	return b.describeInstance(instanceName)
 }
 
-func (b *baseVMsClient) getDataDisks(
-	instanceName string,
-) ([]compute.DataDisk, error) {
+func (b *baseVMsClient) getDataDisks(instanceName string, ) ([]*armcompute.DataDisk, error) {
 	vm, err := b.describeInstance(instanceName)
 	if err != nil {
 		return nil, err
 	}
 
-	if vm.StorageProfile == nil || vm.StorageProfile.DataDisks == nil {
+	if vm.Properties.StorageProfile == nil ||
+		vm.Properties.StorageProfile.DataDisks == nil {
 		return nil, fmt.Errorf("vm storage profile is invalid")
 	}
 
-	return *vm.StorageProfile.DataDisks, nil
+	return vm.Properties.StorageProfile.DataDisks, nil
 }
 
 func (b *baseVMsClient) updateDataDisks(
 	instanceName string,
-	dataDisks []compute.DataDisk,
+	dataDisks []*armcompute.DataDisk,
 ) error {
-	updatedVM := compute.VirtualMachineUpdate{
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &dataDisks,
+	updatedVM := armcompute.VirtualMachineUpdate{
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks: dataDisks,
 			},
 		},
 	}
 
-	ctx := context.Background()
-	future, err := b.client.Update(
-		ctx,
+	poller, err := b.client.BeginUpdate(
+		context.TODO(),
 		b.resourceGroupName,
 		instanceName,
 		updatedVM,
-	)
+		nil,
+		)
+
 	if err != nil {
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, b.client.Client)
+	_, err = poller.PollUntilDone(context.Background(), nil)
 	if err != nil {
 		return err
 	}
@@ -85,11 +97,18 @@ func (b *baseVMsClient) updateDataDisks(
 
 func (b *baseVMsClient) describeInstance(
 	instanceName string,
-) (compute.VirtualMachine, error) {
-	return b.client.Get(
+) (*armcompute.VirtualMachine, error) {
+	viewType := armcompute.InstanceViewTypesInstanceView
+	resp, err := b.client.Get(
 		context.Background(),
 		b.resourceGroupName,
 		instanceName,
-		compute.InstanceView,
+		&armcompute.VirtualMachinesClientGetOptions{
+			Expand: &viewType,
+		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualMachine, nil
 }

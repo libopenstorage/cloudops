@@ -2,11 +2,11 @@ package azure_test
 
 import (
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/go-autorest/autorest/to"
 	"os"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/azure"
 	"github.com/libopenstorage/cloudops/test"
@@ -34,16 +34,17 @@ func initAzure(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 	size := int32(newDiskSizeInGB)
 	name := diskName
 
-	template := &compute.Disk{
+	premiumLRS := armcompute.DiskStorageAccountTypesPremiumLRS
+	template := &armcompute.Disk{
 		Name:     &name,
 		Location: &region,
-		DiskProperties: &compute.DiskProperties{
+		Properties: &armcompute.DiskProperties{
 			DiskSizeGB:        &size,
 			DiskIOPSReadWrite: to.Int64Ptr(1350),
 			DiskMBpsReadWrite: to.Int64Ptr(550),
 		},
-		Sku: &compute.DiskSku{
-			Name: compute.PremiumLRS,
+		SKU: &armcompute.DiskSKU{
+			Name: &premiumLRS,
 		},
 	}
 
@@ -62,12 +63,12 @@ func TestAll(t *testing.T) {
 }
 
 func sizeCheck(template interface{}, targetSize uint64) bool {
-	disk, ok := template.(*compute.Disk)
+	disk, ok := template.(*armcompute.Disk)
 	if !ok {
 		return false
 	}
-	if disk.DiskProperties == nil || disk.DiskProperties.DiskSizeGB == nil {
+	if disk.Properties == nil || disk.Properties.DiskSizeGB == nil {
 		return false
 	}
-	return targetSize == uint64(*disk.DiskProperties.DiskSizeGB)
+	return targetSize == uint64(*disk.Properties.DiskSizeGB)
 }

@@ -2,30 +2,34 @@ package azure
 
 import (
 	"context"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
-	"github.com/Azure/go-autorest/autorest"
+	// "github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	// "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
+	// "github.com/Azure/go-autorest/autorest"
 )
 
 type scaleSetVMsClient struct {
 	scaleSetName      string
 	resourceGroupName string
-	client            *compute.VirtualMachineScaleSetVMsClient
+	client            *armcompute.VirtualMachineScaleSetVMsClient
 }
 
 func newScaleSetVMsClient(
 	config Config,
 	baseURI string,
-	authorizer autorest.Authorizer,
+	credential azcore.TokenCredential,
 ) vmsClient {
-	vmsClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(baseURI, config.SubscriptionID)
-	vmsClient.Authorizer = authorizer
-	vmsClient.PollingDelay = clientPollingDelay
-	vmsClient.AddToUserAgent(config.UserAgent)
+	// vmsClient := compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(baseURI, config.SubscriptionID)
+	vmsClient, _ := armcompute.NewVirtualMachineScaleSetVMsClient(config.SubscriptionID, credential, nil)
+
+	// vmsClient.PollingDelay = clientPollingDelay
+	// vmsClient.AddToUserAgent(config.UserAgent)
 	return &scaleSetVMsClient{
 		scaleSetName:      config.ScaleSetName,
 		resourceGroupName: config.ResourceGroupName,
-		client:            &vmsClient,
+		client:            vmsClient,
 	}
 }
 
@@ -41,43 +45,54 @@ func (s *scaleSetVMsClient) describe(
 
 func (s *scaleSetVMsClient) getDataDisks(
 	instanceID string,
-) ([]compute.DataDisk, error) {
+) ([]*armcompute.DataDisk, error) {
 	vm, err := s.describeInstance(instanceID)
 	if err != nil {
 		return nil, err
 	}
 
-	return retrieveDataDisks(vm), nil
+	return retrieveDataDisks(*vm), nil
 }
 
 func (s *scaleSetVMsClient) updateDataDisks(
 	instanceID string,
-	dataDisks []compute.DataDisk,
+	dataDisks []*armcompute.DataDisk,
 ) error {
 	vm, err := s.describeInstance(instanceID)
 	if err != nil {
 		return err
 	}
 
-	vm.VirtualMachineScaleSetVMProperties = &compute.VirtualMachineScaleSetVMProperties{
-		StorageProfile: &compute.StorageProfile{
-			DataDisks: &dataDisks,
+	vm.Properties = &armcompute.VirtualMachineScaleSetVMProperties{
+		StorageProfile: &armcompute.StorageProfile{
+			DataDisks: dataDisks,
 		},
 	}
 
 	ctx := context.Background()
-	future, err := s.client.Update(
+
+	poller, err := s.client.BeginUpdate(
 		ctx,
 		s.resourceGroupName,
 		s.scaleSetName,
 		instanceID,
-		vm,
+		*vm,
+		nil,
 	)
+
+	//future, err := s.client.Update(
+	//	ctx,
+	//	s.resourceGroupName,
+	//	s.scaleSetName,
+	//	instanceID,
+	//	vm,
+	//)
 	if err != nil {
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, s.client.Client)
+	// err = future.WaitForCompletionRef(ctx, s.client.Client)
+	_, err = poller.PollUntilDone(context.Background(), nil)
 	if err != nil {
 		return err
 	}
@@ -86,23 +101,29 @@ func (s *scaleSetVMsClient) updateDataDisks(
 
 func (s *scaleSetVMsClient) describeInstance(
 	instanceID string,
-) (compute.VirtualMachineScaleSetVM, error) {
-	return s.client.Get(
+) (*armcompute.VirtualMachineScaleSetVM, error) {
+	viewType := armcompute.InstanceViewTypesInstanceView
+	resp, err := s.client.Get(
 		context.Background(),
 		s.resourceGroupName,
 		s.scaleSetName,
 		instanceID,
-		compute.InstanceView,
+		&armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: &viewType,
+		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualMachineScaleSetVM, nil
 }
 
-func retrieveDataDisks(vm compute.VirtualMachineScaleSetVM) []compute.DataDisk {
-	if vm.VirtualMachineScaleSetVMProperties == nil ||
-		vm.VirtualMachineScaleSetVMProperties.StorageProfile == nil ||
-		vm.VirtualMachineScaleSetVMProperties.StorageProfile.DataDisks == nil ||
-		*vm.VirtualMachineScaleSetVMProperties.StorageProfile.DataDisks == nil {
-		return []compute.DataDisk{}
+func retrieveDataDisks(vm armcompute.VirtualMachineScaleSetVM) []*armcompute.DataDisk {
+	if vm.Properties == nil ||
+		vm.Properties.StorageProfile == nil ||
+		vm.Properties.StorageProfile.DataDisks == nil {
+		return []*armcompute.DataDisk{}
 	}
 
-	return *vm.StorageProfile.DataDisks
+	return vm.Properties.StorageProfile.DataDisks
 }
