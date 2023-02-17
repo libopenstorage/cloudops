@@ -43,7 +43,7 @@ func initAzure(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 			DiskMBpsReadWrite: to.Int64Ptr(550),
 		},
 		Sku: &compute.DiskSku{
-			Name: compute.PremiumLRS,
+			Name: compute.DiskStorageAccountTypesPremiumLRS,
 		},
 	}
 

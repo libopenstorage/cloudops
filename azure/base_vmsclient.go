@@ -90,6 +90,6 @@ func (b *baseVMsClient) describeInstance(
 		context.Background(),
 		b.resourceGroupName,
 		instanceName,
-		compute.InstanceView,
+		compute.InstanceViewTypesInstanceView,
 	)
 }

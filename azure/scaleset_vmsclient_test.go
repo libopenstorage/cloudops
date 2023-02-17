@@ -3,7 +3,7 @@ package azure
 import (
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/stretchr/testify/require"
 )
@@ -25,8 +25,8 @@ func TestRetrieveDataDisks(t *testing.T) {
 		expectedRes []compute.DataDisk
 	}{
 		{
-			name:  "nil vm properties",
-			input: compute.VirtualMachineScaleSetVM{},
+			name:        "nil vm properties",
+			input:       compute.VirtualMachineScaleSetVM{},
 			expectedRes: []compute.DataDisk{},
 		},
 		{
