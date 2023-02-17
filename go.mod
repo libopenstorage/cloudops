@@ -4,14 +4,16 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.65.0
-	github.com/Azure/azure-sdk-for-go v43.0.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.13
+	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.28
+	github.com/Azure/go-autorest/autorest/adal v0.9.22 // indirect
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.5
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20220329045155-d2a8118ac5c7
 	github.com/aws/aws-sdk-go v1.40.39
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
+	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang/mock v1.4.4
 	github.com/google/uuid v1.1.2
 	github.com/hashicorp/go-version v1.2.1
@@ -24,6 +26,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vmware/govmomi v0.22.2
+	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	google.golang.org/api v0.30.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -33,7 +36,6 @@ require (
 )
 
 replace (
-	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v40.2.0+incompatible
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.0+incompatible
 	github.com/kubernetes-incubator/external-storage => github.com/libopenstorage/external-storage v5.1.1-0.20190919185747-9394ee8dd536+incompatible
 	github.com/prometheus/prometheus v2.9.2+incompatible => github.com/prometheus/prometheus v1.8.2-0.20190424153033-d3245f150225
