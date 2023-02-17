@@ -347,7 +347,7 @@ func (a *azureOps) SetInstanceGroupSize(instanceGroupID string,
 	instanceGroupSize := int32(count)
 	agentPoolProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
 		Count:  &instanceGroupSize,
-		OsType: containerservice.Linux,
+		OsType: containerservice.OSTypeLinux,
 	}
 
 	agentPool := containerservice.AgentPool{
@@ -410,7 +410,7 @@ func (a *azureOps) Create(
 			Sku:      d.Sku,
 			DiskProperties: &compute.DiskProperties{
 				CreationData: &compute.CreationData{
-					CreateOption: compute.Empty,
+					CreateOption: compute.DiskCreateOptionEmpty,
 				},
 				DiskSizeGB:                   d.DiskProperties.DiskSizeGB,
 				DiskIOPSReadWrite:            d.DiskProperties.DiskIOPSReadWrite,
@@ -850,7 +850,7 @@ func (a *azureOps) Snapshot(diskName string, readonly bool, options map[string]s
 			Location: disk.Location,
 			SnapshotProperties: &compute.SnapshotProperties{
 				CreationData: &compute.CreationData{
-					CreateOption:     compute.Copy,
+					CreateOption:     compute.DiskCreateOptionCopy,
 					SourceResourceID: disk.ID,
 				},
 			},
