@@ -336,8 +336,13 @@ func (i *ibmOps) DeleteInstance(instanceID string, zone string, timeout time.Dur
 		Cluster: i.inst.clusterName,
 		Name:    instanceID,
 	}
+	resp, err := i.ibmClusterClient.Ingresses().GetIngressInstanceList(i.inst.clusterName, false)
+	if err != nil {
+		logrus.Errorf("got error getting instances, err %v", err)
+	}
 
-	err := i.ibmClusterClient.Ingresses().DeleteIngressInstance(req)
+	logrus.Infof("Instances details : %+v", resp)
+	err = i.ibmClusterClient.Ingresses().DeleteIngressInstance(req)
 	if err != nil {
 		logrus.Errorf("got error while deleting instance, err %v", err)
 		return err
