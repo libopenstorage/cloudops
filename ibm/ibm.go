@@ -21,6 +21,7 @@ const (
 	labelWorkerPoolName         = "ibm-cloud.kubernetes.io/worker-pool-name"
 	labelWorkerPoolID           = "ibm-cloud.kubernetes.io/worker-pool-id"
 	labelWorkerID               = "ibm-cloud.kubernetes.io/worker-id"
+	labelInstanceID             = "ibm-cloud.kubernetes.io/instance-id"
 	vpcProviderName             = "vpc-gen2"
 	iksClusterInfoConfigMapName = "cluster-info"
 	clusterIDconfigMapField     = "cluster-config.json"
@@ -332,6 +333,12 @@ func (i *ibmOps) waitForInstanceGroupResize(instanceGroupID string,
 func (i *ibmOps) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
 
 	logrus.Infof("Cluster name: %s, Instance ID: %s", i.inst.clusterName, instanceID)
+	labels, err := core.Instance().GetLabelsOnNode(instanceID)
+	if err != nil {
+		return err
+	}
+	instanceID = labels[labelInstanceID]
+	logrus.Infof("Got instance id %s", instanceID)
 	req := v2.InstanceDeleteConfig{
 		Cluster: i.inst.clusterName,
 		Name:    instanceID,
