@@ -9,11 +9,11 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.5
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/IBM-Cloud/bluemix-go v0.0.0-20220329045155-d2a8118ac5c7
+	github.com/IBM-Cloud/bluemix-go v0.0.0-20230120122421-afb48116b8f1
 	github.com/aws/aws-sdk-go v1.40.39
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
 	github.com/golang/mock v1.4.4
-	github.com/google/uuid v1.1.2
+	github.com/google/uuid v1.2.0
 	github.com/hashicorp/go-version v1.2.1
 	github.com/libopenstorage/openstorage v8.0.1-0.20210603043922-faf638fed3e5+incompatible
 	github.com/libopenstorage/secrets v0.0.0-20210908194121-a1d19aa9713a
@@ -22,7 +22,7 @@ require (
 	github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d
 	github.com/prometheus/client_golang v1.9.0
 	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.0
 	github.com/vmware/govmomi v0.22.2
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	google.golang.org/api v0.30.0

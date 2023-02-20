@@ -3,6 +3,7 @@ package ibm
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	bluemix "github.com/IBM-Cloud/bluemix-go"
@@ -325,5 +326,22 @@ func (i *ibmOps) waitForInstanceGroupResize(instanceGroupID string,
 			return err
 		}
 	}
+	return nil
+}
+
+func (i *ibmOps) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
+
+	logrus.Infof("Cluster name: %s, Instance ID: %s", i.inst.clusterName, instanceID)
+	req := v2.InstanceDeleteConfig{
+		Cluster: i.inst.clusterName,
+		Name:    instanceID,
+	}
+
+	err := i.ibmClusterClient.Ingresses().DeleteIngressInstance(req)
+	if err != nil {
+		logrus.Errorf("got error while deleting instance, err %v", err)
+		return err
+	}
+
 	return nil
 }
