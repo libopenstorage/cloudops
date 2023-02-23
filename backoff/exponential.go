@@ -32,7 +32,7 @@ func NewExponentialBackoffOps(
 	errorCheck ExponentialBackoffErrorCheck,
 	backoff wait.Backoff,
 ) cloudops.Ops {
-	return exponentialBackoff{
+	return &exponentialBackoff{
 		cloudOps:           cloudOps,
 		isExponentialError: errorCheck,
 		backoff:            backoff}
