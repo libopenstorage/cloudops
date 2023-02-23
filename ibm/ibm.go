@@ -34,8 +34,7 @@ type ClusterConfig struct {
 	ClusterID string `json:"cluster_id"`
 }
 type ibmOps struct {
-	cloudops.Compute
-	cloudops.Storage
+	cloudops.Ops
 	ibmClusterClient v2.ContainerServiceAPI
 	inst             *instance
 }
@@ -85,8 +84,7 @@ func NewClient() (cloudops.Ops, error) {
 
 	return backoff.NewExponentialBackoffOps(
 		&ibmOps{
-			Compute:          unsupported.NewUnsupportedOps(),
-			Storage:          unsupported.NewUnsupportedStorage(),
+			Ops:              unsupported.NewUnsupportedOps(),
 			ibmClusterClient: ibmClusterClient,
 			inst:             i,
 		},

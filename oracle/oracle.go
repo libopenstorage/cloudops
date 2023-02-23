@@ -53,8 +53,7 @@ const (
 )
 
 type oracleOps struct {
-	cloudops.Compute
-	cloudops.Storage
+	cloudops.Ops
 	instance                string
 	region                  string
 	availabilityDomain      string
