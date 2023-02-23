@@ -132,6 +132,8 @@ type Storage interface {
 	// IsVolumeReadyToExpand pre-checks if a pool of volumes are in a state that can
 	// be modified. Should be called before sending an expand request to the cloud provider.
 	AreVolumesReadyToExpand(volumeIDs []*string) (bool, error)
+	// SupportOnlineResize
+	SupportOnlineResize(diskName string, newSizeGB int32) string
 	// Expand expands the provided device from the existing size to the new size
 	// It returns the new size of the device. It is a blocking API where it will
 	// only return once the requested size is validated with the cloud provider or

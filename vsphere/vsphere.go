@@ -33,7 +33,7 @@ const (
 )
 
 type vsphereOps struct {
-	cloudops.Compute
+	cloudops.Ops
 	vm     *vclib.VirtualMachine
 	conn   *vclib.VSphereConnection
 	cfg    *VSphereConfig
@@ -91,11 +91,11 @@ func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 
 	return backoff.NewExponentialBackoffOps(
 		&vsphereOps{
-			Compute: unsupported.NewUnsupportedCompute(),
-			cfg:     cfg,
-			vm:      vmObj,
-			conn:    vSphereConn,
-			dsLock:  configMap,
+			Ops:    unsupported.NewUnsupportedOps(),
+			cfg:    cfg,
+			vm:     vmObj,
+			conn:   vSphereConn,
+			dsLock: configMap,
 		},
 		isExponentialError,
 		exponentialBackoff,

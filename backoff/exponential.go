@@ -32,7 +32,10 @@ func NewExponentialBackoffOps(
 	errorCheck ExponentialBackoffErrorCheck,
 	backoff wait.Backoff,
 ) cloudops.Ops {
-	return &exponentialBackoff{cloudOps, errorCheck, backoff}
+	return exponentialBackoff{
+		cloudOps:           cloudOps,
+		isExponentialError: errorCheck,
+		backoff:            backoff}
 }
 
 // DefaultExponentialBackoff is the default backoff strategy that is used for doing
@@ -560,4 +563,7 @@ func (e *exponentialBackoff) handleError(origErr error, msg string) (bool, error
 		return true, origErr
 	}
 	return true, nil
+}
+func (e *exponentialBackoff) SupportOnlineResize(diskName string, newSizeGB int32) string {
+	return e.cloudOps.SupportOnlineResize(diskName, newSizeGB)
 }

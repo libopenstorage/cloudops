@@ -6,42 +6,43 @@ import (
 	"github.com/libopenstorage/cloudops"
 )
 
-type unsupportedCompute struct {
+type unsupportedOps struct {
+	cloudops.Ops
 }
 
-// NewUnsupportedCompute return wrapper for cloudOps where all methods are not supported
-func NewUnsupportedCompute() cloudops.Compute {
-	return &unsupportedCompute{}
+// NewUnsupportedOps return wrapper for cloudOps where all methods are not supported
+func NewUnsupportedOps() cloudops.Ops {
+	return &unsupportedOps{}
 }
 
-func (u *unsupportedCompute) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
+func (u *unsupportedOps) DeleteInstance(instanceID string, zone string, timeout time.Duration) error {
 	return &cloudops.ErrNotSupported{
 		Operation: "DeleteInstance",
 	}
 }
-func (u *unsupportedCompute) InstanceID() string {
+func (u *unsupportedOps) InstanceID() string {
 	return "Unsupported"
 }
 
-func (u *unsupportedCompute) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
+func (u *unsupportedOps) InspectInstance(instanceID string) (*cloudops.InstanceInfo, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "InspectInstance",
 	}
 }
 
-func (u *unsupportedCompute) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
+func (u *unsupportedOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.InstanceGroupInfo, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "InspectInstanceGroupForInstance",
 	}
 }
 
-func (u *unsupportedCompute) GetInstance(displayName string) (interface{}, error) {
+func (u *unsupportedOps) GetInstance(displayName string) (interface{}, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "GetInstance",
 	}
 }
 
-func (u *unsupportedCompute) SetInstanceGroupSize(instanceGroupID string,
+func (u *unsupportedOps) SetInstanceGroupSize(instanceGroupID string,
 	count int64,
 	timeout time.Duration) error {
 	return &cloudops.ErrNotSupported{
@@ -49,25 +50,25 @@ func (u *unsupportedCompute) SetInstanceGroupSize(instanceGroupID string,
 	}
 }
 
-func (u *unsupportedCompute) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
+func (u *unsupportedOps) GetInstanceGroupSize(instanceGroupID string) (int64, error) {
 	return 0, &cloudops.ErrNotSupported{
 		Operation: "GetInstanceGroupSize",
 	}
 }
 
-func (u *unsupportedCompute) GetClusterSizeForInstance(instanceID string) (int64, error) {
+func (u *unsupportedOps) GetClusterSizeForInstance(instanceID string) (int64, error) {
 	return int64(0), &cloudops.ErrNotSupported{
 		Operation: "GetClusterSizeForInstance",
 	}
 }
 
-func (u *unsupportedCompute) SetClusterVersion(version string, timeout time.Duration) error {
+func (u *unsupportedOps) SetClusterVersion(version string, timeout time.Duration) error {
 	return &cloudops.ErrNotSupported{
 		Operation: "SetClusterVersion",
 	}
 }
 
-func (u *unsupportedCompute) SetInstanceGroupVersion(instanceGroupID string,
+func (u *unsupportedOps) SetInstanceGroupVersion(instanceGroupID string,
 	version string,
 	timeout time.Duration) error {
 	return &cloudops.ErrNotSupported{
@@ -76,6 +77,7 @@ func (u *unsupportedCompute) SetInstanceGroupVersion(instanceGroupID string,
 }
 
 type unsupportedStorage struct {
+	cloudops.Storage
 }
 
 // NewUnsupportedStorage return wrapper for cloudOps where all methods are not supported

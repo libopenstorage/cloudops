@@ -32,6 +32,10 @@ func (b *baseVMsClient) name(instanceName string) string {
 	return instanceName
 }
 
+func (b *baseVMsClient) getClient() compute.VirtualMachinesClient {
+	return *b.client
+}
+
 func (b *baseVMsClient) describe(
 	instanceName string,
 ) (interface{}, error) {

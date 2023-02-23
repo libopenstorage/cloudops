@@ -85,7 +85,7 @@ func NewClient() (cloudops.Ops, error) {
 
 	return backoff.NewExponentialBackoffOps(
 		&ibmOps{
-			Compute:          unsupported.NewUnsupportedCompute(),
+			Compute:          unsupported.NewUnsupportedOps(),
 			Storage:          unsupported.NewUnsupportedStorage(),
 			ibmClusterClient: ibmClusterClient,
 			inst:             i,

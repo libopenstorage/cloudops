@@ -29,16 +29,16 @@ import (
 )
 
 const (
-	awsDevicePrefix      = "/dev/sd"
-	awsDevicePrefixWithX = "/dev/xvd"
-	awsDevicePrefixWithH = "/dev/hd"
-	awsDevicePrefixNvme  = "/dev/nvme"
-	contextTimeout       = 30 * time.Second
+	awsDevicePrefix              = "/dev/sd"
+	awsDevicePrefixWithX         = "/dev/xvd"
+	awsDevicePrefixWithH         = "/dev/hd"
+	awsDevicePrefixNvme          = "/dev/nvme"
+	contextTimeout               = 30 * time.Second
 	awsErrorModificationNotFound = "InvalidVolumeModification.NotFound"
 )
 
 type awsOps struct {
-	cloudops.Compute
+	cloudops.Ops
 	instanceType string
 	instance     string
 	zone         string
@@ -103,7 +103,7 @@ func NewClient() (cloudops.Ops, error) {
 
 	return backoff.NewExponentialBackoffOps(
 		&awsOps{
-			Compute:      unsupported.NewUnsupportedCompute(),
+			Ops:          unsupported.NewUnsupportedOps(),
 			instance:     instanceID,
 			instanceType: instanceType,
 			ec2:          ec2,
@@ -977,7 +977,7 @@ func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 		logrus.Infof("retrived volume modification state: %s for volume id: %s", state, *volumeIDs[i])
 		if state == ec2.VolumeModificationStateModifying ||
 			state == ec2.VolumeModificationStateOptimizing {
-			return false, fmt.Errorf("aws has not fully completed the last modification: " +
+			return false, fmt.Errorf("aws has not fully completed the last modification: "+
 				"volume %s is in %s state. please retry later", *volumeIDs[i], state)
 		}
 	}

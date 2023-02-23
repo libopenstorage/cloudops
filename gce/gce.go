@@ -48,7 +48,7 @@ const (
 )
 
 type gceOps struct {
-	cloudops.Compute
+	cloudops.Ops
 	inst             *instance
 	computeService   *compute.Service
 	containerService *container.Service
@@ -106,7 +106,7 @@ func NewClient() (cloudops.Ops, error) {
 
 	return backoff.NewExponentialBackoffOps(
 		&gceOps{
-			Compute:          unsupported.NewUnsupportedCompute(),
+			Ops:              unsupported.NewUnsupportedOps(),
 			inst:             i,
 			computeService:   computeService,
 			containerService: containerService,

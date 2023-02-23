@@ -60,7 +60,7 @@ var (
 )
 
 type azureOps struct {
-	cloudops.Compute
+	cloudops.Ops
 	instance           string
 	resourceGroupName  string
 	managedClusterName string
@@ -239,7 +239,7 @@ func NewClient(config Config) (cloudops.Ops, error) {
 
 	return backoff.NewExponentialBackoffOps(
 		&azureOps{
-			Compute:            unsupported.NewUnsupportedCompute(),
+			Ops:                unsupported.NewUnsupportedOps(),
 			instance:           config.InstanceID,
 			resourceGroupName:  config.ResourceGroupName,
 			managedClusterName: config.ManagedClusterName,
@@ -584,6 +584,39 @@ func (a *azureOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	return true, &cloudops.ErrNotSupported{
 		Operation: "azureOps.IsVolumesReadyToExpand",
 	}
+}
+
+func (a *azureOps) SupportOnlineResize(diskName string, newSizeGB int32) string {
+	disk, err := a.disksClient.Get(
+		context.Background(),
+		a.resourceGroupName,
+		diskName,
+	)
+	if err != nil {
+		return err.Error()
+	}
+
+	// check if the disk is a data disk
+	if disk.DiskProperties.OsType != "" {
+		return "non data disk does not support online resize"
+	}
+	// https://learn.microsoft.com/en-us/azure/virtual-machines/linux/expand-disks?tabs=ubuntu
+	if disk.DiskProperties.ShareInfo != nil {
+		return "shared disk does not support online resize"
+	}
+	// disk type can't be Ultra disks or Premium SSD v2
+	if *disk.Sku.Tier == "Premium" && disk.Sku.Name == compute.DiskStorageAccountTypesPremiumLRS {
+		return "disk type premium ssd v2 does not support online resize"
+	}
+	if disk.Sku.Name != "" && disk.Sku.Name == "UltraSSD_LRS" {
+		return "disk type Ultra SSD type does not support online resize"
+	}
+	// if target size > 4GB, original size can't be less than 4GB
+	if newSizeGB > 4*1024 && *disk.DiskSizeGB <= 4 {
+		return "online resize is not possible when expanding to over 4GB from less than 4GB"
+	}
+
+	return ""
 }
 
 func (a *azureOps) Expand(
