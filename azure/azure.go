@@ -586,7 +586,7 @@ func (a *azureOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	}
 }
 
-func (a *azureOps) SupportOnlineResize(diskName string, newSizeGB int32) string {
+func (a *azureOps) SupportOnlineResize(diskName string, newSizeGB uint64) string {
 	disk, err := a.disksClient.Get(
 		context.Background(),
 		a.resourceGroupName,
