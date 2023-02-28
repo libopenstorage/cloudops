@@ -586,6 +586,8 @@ func (a *azureOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	}
 }
 
+// SupportOnlineResize implements requirements specified in this document:
+// https://learn.microsoft.com/en-us/azure/virtual-machines/windows/expand-os-disk#expand-without-downtime
 func (a *azureOps) SupportOnlineResize(diskName string, newSizeGB uint64) string {
 	disk, err := a.disksClient.Get(
 		context.Background(),
@@ -617,6 +619,7 @@ func (a *azureOps) SupportOnlineResize(diskName string, newSizeGB uint64) string
 	if disk.Sku.Name == compute.DiskStorageAccountTypesUltraSSDLRS {
 		return "disk type Ultra SSD type does not support online resize"
 	}
+
 	// if target size > 4GB, original size can't be less than 4GB
 	if newSizeGB > 4*1024 && *disk.DiskSizeGB <= 4*1024 {
 		return "online resize is not possible when expanding to over 4TiB from less than 4TiB"
