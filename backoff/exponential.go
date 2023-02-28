@@ -19,7 +19,7 @@ type ExponentialBackoffErrorCheck func(err error) bool
 //
 // ExponentialBackoff repeats a condition check with exponential backoff.
 //
-// It checks the condition up to Steps times, increasing the wait by multiplying
+// It checks the condition up to Steps times, inreasing the wait by multiplying
 // the previous duration by Factor.
 //
 // If Jitter is greater than zero, a random amount of each duration is added
@@ -564,6 +564,6 @@ func (e *exponentialBackoff) handleError(origErr error, msg string) (bool, error
 	}
 	return true, nil
 }
-func (e *exponentialBackoff) SupportOnlineResize(diskName string, newSizeGB int32) string {
+func (e *exponentialBackoff) SupportOnlineResize(diskName string, newSizeGB uint64) string {
 	return e.cloudOps.SupportOnlineResize(diskName, newSizeGB)
 }
