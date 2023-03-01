@@ -564,6 +564,6 @@ func (e *exponentialBackoff) handleError(origErr error, msg string) (bool, error
 	}
 	return true, nil
 }
-func (e *exponentialBackoff) SupportOnlineResize(diskName string, newSizeGB uint64) string {
-	return e.cloudOps.SupportOnlineResize(diskName, newSizeGB)
+func (e *exponentialBackoff) SupportOnlineResize(disks []*string, newSizeGB uint64) string {
+	return e.cloudOps.SupportOnlineResize(disks, newSizeGB)
 }

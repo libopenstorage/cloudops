@@ -586,45 +586,71 @@ func (a *azureOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	}
 }
 
+//	func (a *azureOps) getSupportedVMSkus() {
+//		vmSizesClient := compute.NewVirtualMachineSizesClient("<your-subscription-id>")
+//		authorizer, err := auth.NewAuthorizerFromEnvironment()
+//		if err != nil {
+//			panic(err)
+//		}
+//		vmSizesClient.Authorizer = authorizer
+//
+//		// define the location and capabilities to check for
+//		location := "desiredRegion"
+//		capabilities := []string{"EphemeralOSDiskSupported", "PremiumIO", "HyperVGenerations"}
+//
+//		// get the virtual machine sizes for the specified location
+//		vmSizes, err := vmSizesClient.List(context.Background(), location)
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		// iterate through the virtual machine sizes and check for the desired capabilities
+//		for _, vmSize := range vmSizes.Value {
+//			for _, capability := range *vmSize.Capabilities {
+//				if (capability.Name.LocalizedValue == "EphemeralOSDiskSupported" && capability.Value == "True") ||
+//					(capability.Name.LocalizedValue == "PremiumIO" && capability.Value == "True") ||
+//					(capability.Name.LocalizedValue == "HyperVGenerations" && capability.Value == "V2") {
+//					fmt.Println(*vmSize.Name)
+//				}
+//			}
+//		}
+//	}
+//
 // SupportOnlineResize implements requirements specified in this document:
 // https://learn.microsoft.com/en-us/azure/virtual-machines/windows/expand-os-disk#expand-without-downtime
-func (a *azureOps) SupportOnlineResize(diskName string, newSizeGB uint64) string {
-	disk, err := a.disksClient.Get(
-		context.Background(),
-		a.resourceGroupName,
-		diskName,
-	)
-	if err != nil {
-		return err.Error()
-	}
+func (a *azureOps) SupportOnlineResize(disks []*string, newSizeGB uint64) string {
+	disksInfo, _ := a.Inspect(disks, nil)
+	for _, d := range disksInfo {
+		disk := d.(compute.Disk)
+		diskName := *disk.Name
+		// check if the disk is a data disk
+		if disk.DiskProperties.OsType != "" {
+			return "non data disk " + diskName + " does not support online resize"
+		}
+		// https://learn.microsoft.com/en-us/azure/virtual-machines/linux/expand-disks?tabs=ubuntu
+		if disk.DiskProperties.ShareInfo != nil {
+			return "shared disk " + diskName + " does not support online resize"
+		}
 
-	// check if the disk is a data disk
-	if disk.DiskProperties.OsType != "" {
-		return "non data disk does not support online resize"
-	}
-	// https://learn.microsoft.com/en-us/azure/virtual-machines/linux/expand-disks?tabs=ubuntu
-	if disk.DiskProperties.ShareInfo != nil {
-		return "shared disk does not support online resize"
-	}
+		// disk type can't be Ultra disks or Premium SSD v2
+		// premium ssd v2 type is not currently available in the sdk version we use
+		// https://github.com/hashicorp/go-azure-sdk/blob/8c5aed068a057da463327aba286338af98a4358e/resource-manager/compute/2022-03-02/disks/constants.go#L231
+		// premium v2 is only available in US east and West Europe, for which reason portworx does not support it at the moment @piyush
+		// https://learn.microsoft.com/en-us/azure/virtual-machines/disks-deploy-premium-v2?tabs=azure-cli#regional-availability
+		if disk.Sku.Name == "PremiumV2_LRS" {
+			return "disk " + diskName + " of type premium ssd v2 does not support online resize"
+		}
 
-	// disk type can't be Ultra disks or Premium SSD v2
-	// premium ssd v2 type is not currently available in the sdk version we use
-	// https://github.com/hashicorp/go-azure-sdk/blob/8c5aed068a057da463327aba286338af98a4358e/resource-manager/compute/2022-03-02/disks/constants.go#L231
-	// premium v2 is only available in US east and West Europe, for which reason portworx does not support it at the moment @piyush
-	// https://learn.microsoft.com/en-us/azure/virtual-machines/disks-deploy-premium-v2?tabs=azure-cli#regional-availability
-	if disk.Sku.Name == "PremiumV2_LRS" {
-		return "disk type premium ssd v2 does not support online resize"
-	}
+		if disk.Sku.Name == compute.DiskStorageAccountTypesUltraSSDLRS {
+			return "disk " + diskName + " of type Ultra SSD type does not support online resize"
+		}
 
-	if disk.Sku.Name == compute.DiskStorageAccountTypesUltraSSDLRS {
-		return "disk type Ultra SSD type does not support online resize"
-	}
+		// if target size > 4GB, original size can't be less than 4GB
+		if newSizeGB > 4*1024 && *disk.DiskSizeGB <= 4*1024 {
+			return "online resize is not possible when expanding to over 4TiB from less than 4TiB"
+		}
 
-	// if target size > 4GB, original size can't be less than 4GB
-	if newSizeGB > 4*1024 && *disk.DiskSizeGB <= 4*1024 {
-		return "online resize is not possible when expanding to over 4TiB from less than 4TiB"
 	}
-
 	return ""
 }
 
