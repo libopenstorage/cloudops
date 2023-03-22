@@ -3,7 +3,6 @@ package vsphere
 import (
 	"context"
 	"fmt"
-	"github.com/portworx/sched-ops/k8s/core/configmap"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -14,6 +13,7 @@ import (
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/backoff"
 	"github.com/libopenstorage/cloudops/unsupported"
+	"github.com/libopenstorage/cloudops/store"
 	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
 	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib/diskmanagers"
 	"github.com/sirupsen/logrus"
@@ -37,7 +37,7 @@ type vsphereOps struct {
 	vm     *vclib.VirtualMachine
 	conn   *vclib.VSphereConnection
 	cfg    *VSphereConfig
-	dsLock configmap.ConfigMap
+	dsLock  store.Store
 }
 
 var (
@@ -61,7 +61,7 @@ type VirtualDisk struct {
 }
 
 // NewClient creates a new vsphere cloudops instance
-func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
+func NewClient(cfg *VSphereConfig, storeParams *store.StoreParams) (cloudops.Ops, error) {
 	vSphereConn := &vclib.VSphereConnection{
 		Username:          cfg.User,
 		Password:          cfg.Password,
@@ -83,10 +83,19 @@ func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 	logrus.Debugf("  Datacenter: %s", vmObj.Datacenter.Name())
 	logrus.Debugf("  VMUUID: %s", cfg.VMUUID)
 
-	configMap, err := configmap.New(vSphereDataStoreLock, nil, 0, 420, 5*time.Second, 10*time.Second)
-	if err != nil {
-		logrus.Errorf(err.Error())
-		return nil, err
+	var storeInstance store.Store
+	if storeParams != nil {
+		storeInstance, err = store.GetStoreWithParams(
+			storeParams.Kv,
+			storeParams.SchedulerType,
+			storeParams.InternalKvdb,
+			vSphereDataStoreLock,
+			420 * time.Second,
+			150 * time.Second)
+		if err != nil {
+			logrus.Errorf(err.Error())
+			return nil, err
+		}
 	}
 
 	return backoff.NewExponentialBackoffOps(
@@ -95,7 +104,7 @@ func NewClient(cfg *VSphereConfig) (cloudops.Ops, error) {
 			cfg:     cfg,
 			vm:      vmObj,
 			conn:    vSphereConn,
-			dsLock:  configMap,
+			dsLock:  storeInstance,
 		},
 		isExponentialError,
 		exponentialBackoff,
@@ -755,9 +764,13 @@ func (ops *vsphereOps) getDatastoreToUseInStoragePod(
 	}
 
 	spec.DeviceChange = deviceChange
-	ops.dsLock.LockWithKey(ops.cfg.VMUUID, storagePod.Name())
+	storeLock, lockErr := ops.dsLock.LockWithKey(ops.cfg.VMUUID, storagePod.Name())
 	recommendedDatastore, err := recommendDatastore(ctx, vmObj, storagePod, spec)
-	ops.dsLock.UnlockWithKey(storagePod.Name())
+	// We are doing a best effort
+	if lockErr != nil {
+		ops.dsLock.Unlock(storeLock)
+	}
+
 	if err != nil {
 		return "", err
 	}
