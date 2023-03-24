@@ -109,6 +109,9 @@ github.com/codegangsta/inject
 # github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
 ## explicit
 github.com/codeskyblue/go-sh
+# github.com/coreos/etcd v3.3.27+incompatible
+## explicit
+github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
 # github.com/coreos/go-oidc v2.2.1+incompatible
 ## explicit
 github.com/coreos/go-oidc
@@ -232,6 +235,9 @@ github.com/pborman/uuid
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
+# github.com/portworx/kvdb v0.0.0-20221027170939-f1680e5db6db
+## explicit
+github.com/portworx/kvdb
 # github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d
 ## explicit; go 1.12
 github.com/portworx/sched-ops/k8s/common
@@ -269,9 +275,13 @@ github.com/sony/gobreaker
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
+# github.com/stretchr/objx v0.2.0
+## explicit; go 1.12
+github.com/stretchr/objx
 # github.com/stretchr/testify v1.7.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 # github.com/vmware/govmomi v0.22.2 => github.com/libopenstorage/govmomi v0.22.3-0.20200619175019-4b44cc8cf4d1
 ## explicit; go 1.13

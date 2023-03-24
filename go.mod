@@ -11,6 +11,7 @@ require (
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20220329045155-d2a8118ac5c7
 	github.com/aws/aws-sdk-go v1.40.39
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
+	github.com/coreos/etcd v3.3.27+incompatible
 	github.com/golang/mock v1.4.4
 	github.com/google/uuid v1.1.2
 	github.com/hashicorp/go-version v1.2.1
@@ -18,6 +19,7 @@ require (
 	github.com/libopenstorage/secrets v0.0.0-20210908194121-a1d19aa9713a
 	github.com/oracle/oci-go-sdk/v65 v65.13.1
 	github.com/pborman/uuid v1.2.0
+	github.com/portworx/kvdb v0.0.0-20221027170939-f1680e5db6db
 	github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d
 	github.com/prometheus/client_golang v1.9.0
 	github.com/sirupsen/logrus v1.8.1
@@ -74,6 +76,7 @@ require (
 	github.com/prometheus/procfs v0.2.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/objx v0.2.0 // indirect
 	go.opencensus.io v0.22.4 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/net v0.6.0 // indirect
