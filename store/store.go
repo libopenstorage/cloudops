@@ -59,13 +59,13 @@ func (e *StoreKeyExists) Error() string {
 // Store provides a set of APIs to CloudDrive to store its metadata
 // in a persistent store
 type Store interface {
-	// Locks the cloud drive store for a node to perform operations
+	// Lock locks the cloud drive store for a node to perform operations
 	Lock(owner string) (*StoreLock, error)
-	// Unlocks the cloud drive store
+	// Unlock unlocks the cloud drive store
 	Unlock(storeLock *StoreLock) error
-	// Locks the cloud drive store with an arbitrary key
+	// LockWithKey locks the cloud drive store with an arbitrary key
 	LockWithKey(owner, key string) (*StoreLock, error)
-	// Checks if the specified key is currently locked
+	// IsKeyLocked checks if the specified key is currently locked
 	IsKeyLocked(key string) (bool, string, error)
 	// CreateKey creates the given key with the value
 	CreateKey(key string, value []byte) error
