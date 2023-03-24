@@ -20,9 +20,13 @@ type StoreParams struct {
 
 // StoreLock identifies a lock taken over CloudDrive store
 type StoreLock struct {
-	Key           string
-	owner         string
-	lockedWithKey bool // true if this lock was acquired using LockWithKey() interface
+	// Key is the name on which the lock is acquired.
+	// This is used by the callers for logging purpose. Hence public
+	Key string
+	// Name of the owner who acquired the lock
+	owner string
+	// true if this lock was acquired using LockWithKey() interface
+	lockedWithKey bool
 	internalLock  interface{}
 }
 
@@ -32,7 +36,7 @@ type StoreKeyDoesNotExist struct {
 }
 
 func (e *StoreKeyDoesNotExist) Error() string {
-	return fmt.Sprintf("key: %s does not exist", e.Key)
+	return fmt.Sprintf("key %s does not exist", e.Key)
 }
 
 // StoreKeyExists is error type when the key already exist in store
@@ -44,7 +48,7 @@ type StoreKeyExists struct {
 }
 
 func (e *StoreKeyExists) Error() string {
-	errMsg := fmt.Sprintf("key: %s already exists in store.", e.Key)
+	errMsg := fmt.Sprintf("key %s already exists in store", e.Key)
 	if len(e.Message) > 0 {
 		errMsg += " " + e.Message
 	}
