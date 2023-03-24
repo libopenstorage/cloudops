@@ -6,14 +6,13 @@ import (
 	"time"
 
 	"github.com/portworx/kvdb"
-	"github.com/sirupsen/logrus"
 )
 
 const (
-	cloudDriveKey     = "clouddrive/"
-	cloudDriveLockKey = "_lock"
-	maxWatchErrors    = 5
-	defaultLockTryDuration = 1 * time.Minute
+	cloudDriveKey           = "clouddrive/"
+	cloudDriveLockKey       = "_lock"
+	maxWatchErrors          = 5
+	defaultLockTryDuration  = 1 * time.Minute
 	defaultLockHoldDuration = 3 * time.Minute
 )
 
@@ -31,8 +30,11 @@ type kvStore struct {
 
 // NewKVStore returns a Store implementation which is a wrapper over
 // kvdb.
-func NewKVStore(kv kvdb.Kvdb) (Store, error) {
-	return NewKVStoreWithParams(kv, cloudDriveLockKey, 0, 0)
+func NewKVStore(kv kvdb.Kvdb, name string) (Store, error) {
+	if len(name) == 0 {
+		name = cloudDriveKey
+	}
+	return NewKVStoreWithParams(kv, name, 0, 0)
 }
 
 // NewKVStoreWithParams returns a Store implementation which is a wrapper over
@@ -50,7 +52,7 @@ func NewKVStoreWithParams(
 	if lockTryDuration != 0 {
 		kstore.lockTryDuration = lockTryDuration
 	} else {
-		kstore.lockTryDuration= kv.GetLockTryDuration()
+		kstore.lockTryDuration = kv.GetLockTryDuration()
 	}
 	if kstore.lockTryDuration == 0 {
 		kstore.lockTryDuration = defaultLockTryDuration

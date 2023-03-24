@@ -2,10 +2,10 @@ package store
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
-	"math"
 
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/portworx/sched-ops/k8s/core/configmap"
@@ -76,7 +76,7 @@ func NewK8sStore(clusterID string) (Store, configmap.ConfigMap, error) {
 	k8sStore, cm, err := NewK8sStoreWithParams(
 		configmap.GetName(confgMapPrefix, clusterID),
 		configmap.DefaultK8sLockTimeout,
-		configmap.DefaultK8sLockAttempts * time.Second,
+		configmap.DefaultK8sLockAttempts*time.Second,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -141,7 +141,7 @@ func (k8s *k8sStore) CreateKey(key string, value []byte) error {
 	defer func() {
 		err := k8s.cm.UnlockWithKey(sanitizedKey)
 		if err != nil {
-			logrus.Infof("unable to unlock with key %v", key)
+			logrus.Warnf("unable to unlock with key %v", key)
 		}
 	}()
 

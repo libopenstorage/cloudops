@@ -2,6 +2,7 @@ package vsphere
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -12,8 +13,8 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/backoff"
-	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/libopenstorage/cloudops/store"
+	"github.com/libopenstorage/cloudops/unsupported"
 	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
 	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib/diskmanagers"
 	"github.com/sirupsen/logrus"
@@ -30,6 +31,7 @@ import (
 
 const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
+	ErrInvalidParam      = errors.New("invalid param")
 )
 
 type vsphereOps struct {
@@ -37,7 +39,7 @@ type vsphereOps struct {
 	vm     *vclib.VirtualMachine
 	conn   *vclib.VSphereConnection
 	cfg    *VSphereConfig
-	dsLock  store.Store
+	dsLock store.Store
 }
 
 var (
@@ -62,6 +64,9 @@ type VirtualDisk struct {
 
 // NewClient creates a new vsphere cloudops instance
 func NewClient(cfg *VSphereConfig, storeParams *store.StoreParams) (cloudops.Ops, error) {
+	if storeParams == nil {
+		return nil, ErrInvalidParam
+	}
 	vSphereConn := &vclib.VSphereConnection{
 		Username:          cfg.User,
 		Password:          cfg.Password,
@@ -83,19 +88,16 @@ func NewClient(cfg *VSphereConfig, storeParams *store.StoreParams) (cloudops.Ops
 	logrus.Debugf("  Datacenter: %s", vmObj.Datacenter.Name())
 	logrus.Debugf("  VMUUID: %s", cfg.VMUUID)
 
-	var storeInstance store.Store
-	if storeParams != nil {
-		storeInstance, err = store.GetStoreWithParams(
-			storeParams.Kv,
-			storeParams.SchedulerType,
-			storeParams.InternalKvdb,
-			vSphereDataStoreLock,
-			420 * time.Second,
-			150 * time.Second)
-		if err != nil {
-			logrus.Errorf(err.Error())
-			return nil, err
-		}
+	storeInstance, err := store.GetStoreWithParams(
+		storeParams.Kv,
+		storeParams.SchedulerType,
+		storeParams.InternalKvdb,
+		vSphereDataStoreLock,
+		420*time.Second,
+		150*time.Second)
+	if err != nil {
+		logrus.Errorf(err.Error())
+		return nil, err
 	}
 
 	return backoff.NewExponentialBackoffOps(
@@ -764,10 +766,10 @@ func (ops *vsphereOps) getDatastoreToUseInStoragePod(
 	}
 
 	spec.DeviceChange = deviceChange
+	// It's best effort locking. If we didn't get a lock no harm done.
 	storeLock, lockErr := ops.dsLock.LockWithKey(ops.cfg.VMUUID, storagePod.Name())
 	recommendedDatastore, err := recommendDatastore(ctx, vmObj, storagePod, spec)
-	// We are doing a best effort
-	if lockErr != nil {
+	if lockErr == nil {
 		ops.dsLock.Unlock(storeLock)
 	}
 

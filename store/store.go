@@ -27,7 +27,8 @@ type StoreLock struct {
 	owner string
 	// true if this lock was acquired using LockWithKey() interface
 	lockedWithKey bool
-	internalLock  interface{}
+	// lock structure as returned from the KVDB interface
+	internalLock interface{}
 }
 
 // StoreKeyDoesNotExist is error type when the key does not exist
@@ -74,24 +75,24 @@ type Store interface {
 	GetKey(key string) ([]byte, error)
 	// DeleteKey deletes the given key
 	DeleteKey(key string) error
-	// EnumerateKey enumerates all keys in the store that begin with the given key
-	EnumerateKey(key string) ([]string, error)
+	// EnumerateWithKeyPrefix enumerates all keys in the store that begin with the given key
+	EnumerateWithKeyPrefix(key string) ([]string, error)
 }
 
 // GetStoreWithParams returns instance for DriveSetStore
 // kv: bootstrap kvdb
 // schedulerType: node scheduler type e.g Kubernetes
 // internalKvdb: If the cluster is configured to have internal kvdb
-// name: Name for the configmap entry.
+// name: Name for the store
 // lockTryDuration: Total time to try acquiring the lock for
-// lockTimeout: Once a lock is aquired, if it's held beyond this time, there will be panic
+// lockHoldTimeout: Once a lock is acquired, if it's held beyond this time, there will be panic
 func GetStoreWithParams(
 	kv kvdb.Kvdb,
 	schedulerType string,
 	internalKvdb bool,
 	name string,
 	lockTryDuration time.Duration,
-	lockTimeout time.Duration,
+	lockHoldTimeout time.Duration,
 ) (Store, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("name cannot be empty")
@@ -103,10 +104,10 @@ func GetStoreWithParams(
 		withParams bool
 	)
 
-	withParams = (lockTimeout > 0) || (lockTryDuration > 0)
+	withParams = (lockHoldTimeout > 0) || (lockTryDuration > 0)
 	if internalKvdb && schedulerType == Kubernetes {
 		if withParams {
-			s, _, err = NewK8sStoreWithParams(name, lockTryDuration, lockTimeout)
+			s, _, err = NewK8sStoreWithParams(name, lockTryDuration, lockHoldTimeout)
 		} else {
 			s, _, err = NewK8sStore(name)
 		}
@@ -117,9 +118,9 @@ func GetStoreWithParams(
 		// internal kvdb && kv is not nil
 		// external kvdb
 		if withParams {
-			s, err = NewKVStoreWithParams(kv, name, lockTryDuration, lockTimeout)
+			s, err = NewKVStoreWithParams(kv, name, lockTryDuration, lockHoldTimeout)
 		} else {
-			s, err = NewKVStore(kv)
+			s, err = NewKVStore(kv, name)
 		}
 	}
 	return s, err
