@@ -94,7 +94,7 @@ func NewClient(cfg *VSphereConfig, storeParams *store.StoreParams) (cloudops.Ops
 		storeParams.InternalKvdb,
 		vSphereDataStoreLock,
 		420*time.Second,
-		150*time.Second)
+		100*time.Second)
 	if err != nil {
 		logrus.Errorf(err.Error())
 		return nil, err

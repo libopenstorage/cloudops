@@ -11,7 +11,6 @@ import (
 const (
 	cloudDriveKey           = "clouddrive/"
 	cloudDriveLockKey       = "_lock"
-	maxWatchErrors          = 5
 	defaultLockTryDuration  = 1 * time.Minute
 	defaultLockHoldDuration = 3 * time.Minute
 )
@@ -23,18 +22,15 @@ var (
 
 type kvStore struct {
 	k                kvdb.Kvdb
-	keyName          string
+	lockPrefix       string
 	lockTryDuration  time.Duration
 	lockHoldDuration time.Duration
 }
 
 // NewKVStore returns a Store implementation which is a wrapper over
 // kvdb.
-func NewKVStore(kv kvdb.Kvdb, name string) (Store, error) {
-	if len(name) == 0 {
-		name = cloudDriveKey
-	}
-	return NewKVStoreWithParams(kv, name, 0, 0)
+func NewKVStore(kv kvdb.Kvdb) (Store, error) {
+	return NewKVStoreWithParams(kv, cloudDriveKey, 0, 0)
 }
 
 // NewKVStoreWithParams returns a Store implementation which is a wrapper over
@@ -48,6 +44,9 @@ func NewKVStoreWithParams(
 	kstore := kvStore{}
 	if kv == nil {
 		return nil, ErrKvdbNotInitialized
+	}
+	if len(name) == 0 {
+		return nil, fmt.Errorf("name cannot be empty")
 	}
 	if lockTryDuration != 0 {
 		kstore.lockTryDuration = lockTryDuration
@@ -68,12 +67,12 @@ func NewKVStoreWithParams(
 	}
 
 	kstore.k = kv
-	kstore.keyName = cloudDriveKey + name
+	kstore.lockPrefix = name
 	return &kstore, nil
 }
 
 func (kv *kvStore) Lock(owner string) (*StoreLock, error) {
-	return kv.lockWithKeyHelper(owner, kv.keyName)
+	return kv.lockWithKeyHelper(owner, kv.getFullLockPath(cloudDriveLockKey))
 }
 
 func (kv *kvStore) Unlock(storeLock *StoreLock) error {
@@ -84,9 +83,15 @@ func (kv *kvStore) Unlock(storeLock *StoreLock) error {
 	return kv.k.Unlock(kvp)
 }
 
+func (kv *kvStore) getFullLockPath(key string) string {
+	return kv.lockPrefix + "/" + key
+}
+
 func (kv *kvStore) LockWithKey(owner, key string) (*StoreLock, error) {
-	fullPath := kv.keyName + "/" + key
-	return kv.lockWithKeyHelper(owner, fullPath)
+	fullPath := kv.getFullLockPath(key)
+	kvPair, err := kv.lockWithKeyHelper(owner, fullPath)
+	kvPair.lockedWithKey = true
+	return kvPair, err
 }
 
 func (kv *kvStore) lockWithKeyHelper(owner, key string) (*StoreLock, error) {
@@ -98,7 +103,8 @@ func (kv *kvStore) lockWithKeyHelper(owner, key string) (*StoreLock, error) {
 }
 
 func (kv *kvStore) IsKeyLocked(key string) (bool, string, error) {
-	return kv.k.IsKeyLocked(key)
+	fullPath := kv.getFullLockPath(key)
+	return kv.k.IsKeyLocked(fullPath)
 }
 
 func (kv *kvStore) CreateKey(key string, value []byte) error {

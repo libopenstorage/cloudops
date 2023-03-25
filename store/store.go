@@ -79,7 +79,7 @@ type Store interface {
 	EnumerateWithKeyPrefix(key string) ([]string, error)
 }
 
-// GetStoreWithParams returns instance for DriveSetStore
+// GetStoreWithParams returns instance for Store
 // kv: bootstrap kvdb
 // schedulerType: node scheduler type e.g Kubernetes
 // internalKvdb: If the cluster is configured to have internal kvdb
@@ -94,10 +94,6 @@ func GetStoreWithParams(
 	lockTryDuration time.Duration,
 	lockHoldTimeout time.Duration,
 ) (Store, error) {
-	if len(name) == 0 {
-		return nil, fmt.Errorf("name cannot be empty")
-	}
-
 	var (
 		s          Store
 		err        error
@@ -112,15 +108,22 @@ func GetStoreWithParams(
 			s, _, err = NewK8sStore(name)
 		}
 	} else if internalKvdb && kv == nil {
-		return nil, fmt.Errorf("Bootstrap kvdb cannot be empty")
+		return nil, fmt.Errorf("bootstrap kvdb cannot be empty")
 	} else {
 		// Two cases:
 		// internal kvdb && kv is not nil
 		// external kvdb
-		if withParams {
+		if !internalKvdb {
+			if kvdb.Instance() == nil {
+				return nil, fmt.Errorf("kvdb is not initialized")
+			} else {
+				kv = kvdb.Instance()
+			}
+		}
+		if withParams || len(name) > 0 {
 			s, err = NewKVStoreWithParams(kv, name, lockTryDuration, lockHoldTimeout)
 		} else {
-			s, err = NewKVStore(kv, name)
+			s, err = NewKVStore(kv)
 		}
 	}
 	return s, err

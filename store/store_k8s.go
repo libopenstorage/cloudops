@@ -63,7 +63,7 @@ var (
 		Factor:   waitFactor,   // Duration is multiplied by factor each iteration
 		Steps:    waitSteps,    // Exit with error after this many steps
 	}
-	etcdErrorsToRetry = []error{rpctypes.ErrLeaderChanged}
+	errorsToRetryOn = []error{rpctypes.ErrLeaderChanged}
 )
 
 type k8sStore struct {
@@ -237,7 +237,7 @@ func (k8s *k8sStore) patchWithRetries(data map[string]string) error {
 	f := func() (bool, error) {
 		err := k8s.cm.Patch(data)
 
-		for _, retryErr := range etcdErrorsToRetry {
+		for _, retryErr := range errorsToRetryOn {
 			if err == retryErr {
 				logrus.Warnf("patch operation on config map failed with an error: %v, retrying", err)
 				return false, nil // retry
