@@ -32,6 +32,7 @@ import (
 const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
 	ErrInvalidParam      = errors.New("invalid param")
+	configProperty       = "config.hardware"
 )
 
 type vsphereOps struct {
@@ -833,6 +834,16 @@ func recommendDatastore(
 	}
 
 	resourcePoolRef := resourcePool.Reference()
+	var o mo.VirtualMachine
+	err = vmObj.Properties(ctx, vmObj.Reference(), []string{configProperty}, &o)
+	if err != nil || o.Config == nil {
+		// In case of an error defaulting to 4 CPUs and 8GB
+		spec.NumCPUs = 4
+		spec.MemoryMB = 8 * 1024
+	} else {
+		spec.NumCPUs = o.Config.Hardware.NumCPU
+		spec.MemoryMB = int64(o.Config.Hardware.MemoryMB)
+	}
 
 	sps := types.StoragePlacementSpec{
 		Type:             string(types.StoragePlacementSpecPlacementTypeCreate),
