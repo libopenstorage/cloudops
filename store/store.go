@@ -95,7 +95,7 @@ func GetStoreWithParams(
 	lockHoldTimeout time.Duration,
 ) (Store, error) {
 	if len(name) == 0 {
-		return nil, fmt.Errorf("name required to create k8s store")
+		return nil, fmt.Errorf("name required to create Store")
 	}
 	var (
 		s   Store
