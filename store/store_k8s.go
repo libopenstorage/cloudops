@@ -73,7 +73,7 @@ type k8sStore struct {
 // NewK8sStore returns a Store implementation which uses
 // k8s configmaps to store data.
 func NewK8sStore(clusterID string) (Store, configmap.ConfigMap, error) {
-	k8sStore, cm, err := NewK8sStoreWithParams(
+	k8sStore, cm, err := newK8sStoreWithParams(
 		configmap.GetName(confgMapPrefix, clusterID),
 		configmap.DefaultK8sLockTimeout,
 		configmap.DefaultK8sLockAttempts*time.Second,
@@ -84,9 +84,9 @@ func NewK8sStore(clusterID string) (Store, configmap.ConfigMap, error) {
 	return k8sStore, cm, nil
 }
 
-// NewK8sStoreWithParams returns a Store implementation which uses
+// newK8sStoreWithParams returns a Store implementation which uses
 // k8s configmaps to store data. ConfigMap properties can be customized.
-func NewK8sStoreWithParams(
+func newK8sStoreWithParams(
 	name string,
 	lockTryDuration time.Duration,
 	lockTimeout time.Duration,
@@ -217,7 +217,7 @@ func (k8s *k8sStore) DeleteKey(key string) error {
 	return k8s.cm.Update(data)
 }
 
-func (k8s *k8sStore) EnumerateKey(key string) ([]string, error) {
+func (k8s *k8sStore) EnumerateWithKeyPrefix(key string) ([]string, error) {
 	data, err := k8s.cm.Get()
 	if err != nil {
 		return nil, err

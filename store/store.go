@@ -94,22 +94,16 @@ func GetStoreWithParams(
 	lockTryDuration time.Duration,
 	lockHoldTimeout time.Duration,
 ) (Store, error) {
+	if len(name) == 0 {
+		return nil, fmt.Errorf("name required to create k8s store")
+	}
 	var (
-		s          Store
-		err        error
-		withParams bool
+		s   Store
+		err error
 	)
 
-	withParams = (lockHoldTimeout > 0) || (lockTryDuration > 0)
 	if internalKvdb && schedulerType == Kubernetes {
-		if len(name) == 0 {
-			return nil, fmt.Errorf("name required to create k8s store")
-		}
-		if withParams {
-			s, _, err = NewK8sStoreWithParams(name, lockTryDuration, lockHoldTimeout)
-		} else {
-			s, _, err = NewK8sStore(name)
-		}
+		s, _, err = newK8sStoreWithParams(name, lockTryDuration, lockHoldTimeout)
 	} else if internalKvdb && kv == nil {
 		return nil, fmt.Errorf("bootstrap kvdb cannot be empty")
 	} else {
@@ -123,11 +117,7 @@ func GetStoreWithParams(
 				kv = kvdb.Instance()
 			}
 		}
-		if withParams {
-			s, err = NewKVStoreWithParams(kv, name, lockTryDuration, lockHoldTimeout)
-		} else {
-			s, err = NewKVStore(kv)
-		}
+		s, err = newKVStoreWithParams(kv, name, lockTryDuration, lockHoldTimeout)
 	}
 	return s, err
 }

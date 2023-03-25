@@ -30,12 +30,12 @@ type kvStore struct {
 // NewKVStore returns a Store implementation which is a wrapper over
 // kvdb.
 func NewKVStore(kv kvdb.Kvdb) (Store, error) {
-	return NewKVStoreWithParams(kv, cloudDriveKey, 0, 0)
+	return newKVStoreWithParams(kv, cloudDriveKey, 0, 0)
 }
 
 // NewKVStoreWithParams returns a Store implementation which is a wrapper over
 // kvdb.
-func NewKVStoreWithParams(
+func newKVStoreWithParams(
 	kv kvdb.Kvdb,
 	name string,
 	lockTryDuration time.Duration,
