@@ -102,6 +102,9 @@ func GetStoreWithParams(
 
 	withParams = (lockHoldTimeout > 0) || (lockTryDuration > 0)
 	if internalKvdb && schedulerType == Kubernetes {
+		if len(name) == 0 {
+			return nil, fmt.Errorf("name required to create k8s store")
+		}
 		if withParams {
 			s, _, err = NewK8sStoreWithParams(name, lockTryDuration, lockHoldTimeout)
 		} else {
@@ -120,7 +123,7 @@ func GetStoreWithParams(
 				kv = kvdb.Instance()
 			}
 		}
-		if withParams || len(name) > 0 {
+		if withParams {
 			s, err = NewKVStoreWithParams(kv, name, lockTryDuration, lockHoldTimeout)
 		} else {
 			s, err = NewKVStore(kv)
