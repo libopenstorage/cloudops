@@ -31,7 +31,6 @@ import (
 
 const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
-	ErrInvalidParam      = errors.New("invalid param")
 	configProperty       = "config.hardware"
 )
 
@@ -44,6 +43,7 @@ type vsphereOps struct {
 }
 
 var (
+	ErrInvalidParam      = errors.New("invalid param")
 	exponentialBackoff = wait.Backoff{
 		Duration: 2 * time.Second, // the base duration
 		Factor:   1.2,             // Duration is multiplied by factor each iteration
@@ -64,7 +64,7 @@ type VirtualDisk struct {
 }
 
 // NewClient creates a new vsphere cloudops instance
-func NewClient(cfg *VSphereConfig, storeParams *store.StoreParams) (cloudops.Ops, error) {
+func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, error) {
 	if storeParams == nil {
 		return nil, ErrInvalidParam
 	}

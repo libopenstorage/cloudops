@@ -19,7 +19,7 @@ require (
 	github.com/libopenstorage/secrets v0.0.0-20210908194121-a1d19aa9713a
 	github.com/oracle/oci-go-sdk/v65 v65.13.1
 	github.com/pborman/uuid v1.2.0
-	github.com/portworx/kvdb v0.0.0-20221027170939-f1680e5db6db
+	github.com/portworx/kvdb v0.0.0-20230326003017-21a38cf82d4b
 	github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d
 	github.com/prometheus/client_golang v1.9.0
 	github.com/sirupsen/logrus v1.8.1

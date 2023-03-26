@@ -106,21 +106,21 @@ func newK8sStoreWithParams(
 	return &k8sStore{cm}, cm, nil
 }
 
-func (k8s *k8sStore) Lock(owner string) (*StoreLock, error) {
+func (k8s *k8sStore) Lock(owner string) (*Lock, error) {
 	if err := k8s.cm.Lock(owner); err != nil {
 		return nil, err
 	}
-	return &StoreLock{owner: owner}, nil
+	return &Lock{owner: owner}, nil
 }
 
-func (k8s *k8sStore) LockWithKey(owner, key string) (*StoreLock, error) {
+func (k8s *k8sStore) LockWithKey(owner, key string) (*Lock, error) {
 	if err := k8s.cm.LockWithKey(owner, key); err != nil {
 		return nil, err
 	}
-	return &StoreLock{Key: key, owner: owner, lockedWithKey: true}, nil
+	return &Lock{Key: key, owner: owner, lockedWithKey: true}, nil
 }
 
-func (k8s *k8sStore) Unlock(storeLock *StoreLock) error {
+func (k8s *k8sStore) Unlock(storeLock *Lock) error {
 	if storeLock.lockedWithKey {
 		return k8s.cm.UnlockWithKey(storeLock.Key)
 	}
@@ -151,7 +151,7 @@ func (k8s *k8sStore) CreateKey(key string, value []byte) error {
 	}
 
 	if _, ok := data[key]; ok {
-		return &StoreKeyExists{
+		return &KeyExists{
 			Key:     key,
 			Message: "Use PutKey API",
 		}
@@ -182,7 +182,7 @@ func (k8s *k8sStore) GetKey(key string) ([]byte, error) {
 
 	value, ok := data[key]
 	if !ok {
-		return nil, &StoreKeyDoesNotExist{
+		return nil, &KeyDoesNotExist{
 			Key: key,
 		}
 	}

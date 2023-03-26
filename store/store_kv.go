@@ -71,14 +71,14 @@ func newKVStoreWithParams(
 	return &kstore, nil
 }
 
-func (kv *kvStore) Lock(owner string) (*StoreLock, error) {
+func (kv *kvStore) Lock(owner string) (*Lock, error) {
 	return kv.lockWithKeyHelper(owner, kv.getFullLockPath(cloudDriveLockKey))
 }
 
-func (kv *kvStore) Unlock(storeLock *StoreLock) error {
+func (kv *kvStore) Unlock(storeLock *Lock) error {
 	kvp, ok := storeLock.internalLock.(*kvdb.KVPair)
 	if !ok {
-		return fmt.Errorf("Invalid StoreLock provided")
+		return fmt.Errorf("invalid store lock provided")
 	}
 	return kv.k.Unlock(kvp)
 }
@@ -87,19 +87,19 @@ func (kv *kvStore) getFullLockPath(key string) string {
 	return kv.lockPrefix + "/" + key
 }
 
-func (kv *kvStore) LockWithKey(owner, key string) (*StoreLock, error) {
+func (kv *kvStore) LockWithKey(owner, key string) (*Lock, error) {
 	fullPath := kv.getFullLockPath(key)
 	kvPair, err := kv.lockWithKeyHelper(owner, fullPath)
 	kvPair.lockedWithKey = true
 	return kvPair, err
 }
 
-func (kv *kvStore) lockWithKeyHelper(owner, key string) (*StoreLock, error) {
+func (kv *kvStore) lockWithKeyHelper(owner, key string) (*Lock, error) {
 	kvLock, err := kv.k.LockWithTimeout(key, owner, kv.lockTryDuration, kv.lockHoldDuration)
 	if err != nil {
 		return nil, err
 	}
-	return &StoreLock{Key: key, internalLock: kvLock}, nil
+	return &Lock{Key: key, internalLock: kvLock}, nil
 }
 
 func (kv *kvStore) IsKeyLocked(key string) (bool, string, error) {
@@ -131,7 +131,7 @@ func (kv *kvStore) DeleteKey(key string) error {
 	return err
 }
 
-func (kv *kvStore) EnumerateKey(key string) ([]string, error) {
+func (kv *kvStore) EnumerateWithKeyPrefix(key string) ([]string, error) {
 	output, err := kv.k.Enumerate(key)
 	if err != nil {
 		return nil, err

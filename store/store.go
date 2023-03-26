@@ -12,14 +12,18 @@ const (
 	Kubernetes = "kubernetes"
 )
 
-type StoreParams struct {
+// Params is the parameters to use for the Store object
+type Params struct {
+	// Kv is the bootstrap kvdb instance
 	Kv            kvdb.Kvdb
+	// InternalKvdb indicates if PX is using internal kvdb or not
 	InternalKvdb  bool
+	// SchedulerType indicates the platform pods are running on. e.g Kubernetes
 	SchedulerType string
 }
 
-// StoreLock identifies a lock taken over CloudDrive store
-type StoreLock struct {
+// Lock identifies a lock taken over CloudDrive store
+type Lock struct {
 	// Key is the name on which the lock is acquired.
 	// This is used by the callers for logging purpose. Hence public
 	Key string
@@ -31,24 +35,24 @@ type StoreLock struct {
 	internalLock interface{}
 }
 
-// StoreKeyDoesNotExist is error type when the key does not exist
-type StoreKeyDoesNotExist struct {
+// KeyDoesNotExist is error type when the key does not exist
+type KeyDoesNotExist struct {
 	Key string
 }
 
-func (e *StoreKeyDoesNotExist) Error() string {
+func (e *KeyDoesNotExist) Error() string {
 	return fmt.Sprintf("key %s does not exist", e.Key)
 }
 
-// StoreKeyExists is error type when the key already exist in store
-type StoreKeyExists struct {
+// KeyExists is error type when the key already exist in store
+type KeyExists struct {
 	// Key that exists
 	Key string
 	// Message is an optional message to the user
 	Message string
 }
 
-func (e *StoreKeyExists) Error() string {
+func (e *KeyExists) Error() string {
 	errMsg := fmt.Sprintf("key %s already exists in store", e.Key)
 	if len(e.Message) > 0 {
 		errMsg += " " + e.Message
@@ -60,11 +64,11 @@ func (e *StoreKeyExists) Error() string {
 // in a persistent store
 type Store interface {
 	// Lock locks the cloud drive store for a node to perform operations
-	Lock(owner string) (*StoreLock, error)
+	Lock(owner string) (*Lock, error)
 	// Unlock unlocks the cloud drive store
-	Unlock(storeLock *StoreLock) error
+	Unlock(storeLock *Lock) error
 	// LockWithKey locks the cloud drive store with an arbitrary key
-	LockWithKey(owner, key string) (*StoreLock, error)
+	LockWithKey(owner, key string) (*Lock, error)
 	// IsKeyLocked checks if the specified key is currently locked
 	IsKeyLocked(key string) (bool, string, error)
 	// CreateKey creates the given key with the value
@@ -113,9 +117,8 @@ func GetStoreWithParams(
 		if !internalKvdb {
 			if kvdb.Instance() == nil {
 				return nil, fmt.Errorf("kvdb is not initialized")
-			} else {
-				kv = kvdb.Instance()
 			}
+			kv = kvdb.Instance()
 		}
 		s, err = newKVStoreWithParams(kv, name, lockTryDuration, lockHoldTimeout)
 	}
