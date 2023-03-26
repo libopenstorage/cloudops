@@ -7,6 +7,7 @@ import (
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/test"
 	"github.com/libopenstorage/cloudops/vsphere/lib/vsphere/vclib"
+	"github.com/libopenstorage/cloudops/store"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/vmware/govmomi/object"
@@ -34,7 +35,8 @@ func initVsphere(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 	datastoreForTest, err = cloudops.GetEnvValueStrict("VSPHERE_TEST_DATASTORE")
 	require.NoError(t, err, "failed to get datastore from env variable VSPHERE_TEST_DATASTORE")
 
-	driver, err = NewClient(cfg)
+	var storeParams store.Params
+	driver, err = NewClient(cfg, &storeParams)
 	require.NoError(t, err, "failed to instantiate storage ops driver")
 
 	diskOptions := &vclib.VolumeOptions{
