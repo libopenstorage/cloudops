@@ -431,7 +431,22 @@ func (o *oracleOps) Create(template interface{}, labels map[string]string, optio
 		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Invalid volume template given", "")
 	}
-
+	if vol.SizeInGBs != nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"SizeInGBs type not specified in the storage spec", "")
+	}
+	if vol.VpusPerGB != nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"VpusPerGB type not specified in the storage spec", "")
+	}
+	if vol.DisplayName != nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"DisplayName type not specified in the storage spec", "")
+	}
+	if vol.KmsKeyId != nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"KmsKeyId type not specified in the storage spec", "")
+	}
 	createVolReq := core.CreateVolumeRequest{
 		CreateVolumeDetails: core.CreateVolumeDetails{
 			CompartmentId:      &o.compartmentID,

@@ -298,6 +298,10 @@ func (s *awsOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 			}
 
 			group := result.AutoScalingGroups[0]
+			if group == nil {
+				return nil, fmt.Errorf("nil AutoScalingGroups group")
+			}
+
 			zones := make([]string, 0)
 			for _, z := range group.AvailabilityZones {
 				zones = append(zones, *z)
@@ -796,7 +800,30 @@ func (s *awsOps) Create(
 		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Drive type not specified in the storage spec", "")
 	}
-
+	if vol.AvailabilityZone == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"AvailabilityZone not specified in the storage spec", "")
+	}
+	if vol.Encrypted == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Encrypted not specified in the storage spec", "")
+	}
+	if vol.KmsKeyId == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"KmsKeyId not specified in the storage spec", "")
+	}
+	if vol.Size == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Size not specified in the storage spec", "")
+	}
+	if vol.SnapshotId == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"SnapshotId not specified in the storage spec", "")
+	}
+	if vol.Throughput == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Throughput not specified in the storage spec", "")
+	}
 	req := &ec2.CreateVolumeInput{
 		AvailabilityZone: vol.AvailabilityZone,
 		Encrypted:        vol.Encrypted,
@@ -992,6 +1019,14 @@ func (s *awsOps) Expand(
 	vol, err := s.refreshVol(&volumeID)
 	if err != nil {
 		return 0, err
+	}
+	if vol.Size == nil {
+		return 0, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Size not specified in the storage spec", "")
+	}
+	if vol.VolumeId == nil {
+		return 0, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"VolumeId not specified in the storage spec", "")
 	}
 	currentSizeInGiB := uint64(*vol.Size)
 	if currentSizeInGiB >= newSizeInGiB {

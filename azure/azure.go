@@ -371,14 +371,41 @@ func (a *azureOps) Create(
 	options map[string]string,
 ) (interface{}, error) {
 	d, ok := template.(*compute.Disk)
-	if !ok || d.DiskProperties == nil || d.DiskProperties.DiskSizeGB == nil {
+	if !ok || d.DiskProperties == nil{
 		return nil, cloudops.NewStorageError(
 			cloudops.ErrVolInval,
 			"Invalid volume template given",
 			a.instance,
 		)
 	}
-
+	if  d.DiskProperties.DiskIOPSReadWrite == nil{
+		return nil, cloudops.NewStorageError(
+			cloudops.ErrVolInval,
+			"DiskIOPSReadWrite not specified in the storage spec",
+			a.instance,
+		)
+	}
+	if  d.DiskProperties.DiskMBpsReadWrite == nil{
+		return nil, cloudops.NewStorageError(
+			cloudops.ErrVolInval,
+			"DiskMBpsReadWrite not specified in the storage spec",
+			a.instance,
+		)
+	}
+	if  d.DiskProperties.EncryptionSettingsCollection == nil{
+		return nil, cloudops.NewStorageError(
+			cloudops.ErrVolInval,
+			"EncryptionSettingsCollection not specified in the storage spec",
+			a.instance,
+		)
+	}
+	if  d.DiskProperties.Encryption == nil{
+		return nil, cloudops.NewStorageError(
+			cloudops.ErrVolInval,
+			"Encryption not specified in the storage spec",
+			a.instance,
+		)
+	}
 	// Check if the disk already exists; return err if it does
 	_, err := a.disksClient.Get(
 		context.Background(),
