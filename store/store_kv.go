@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	cloudDriveKey           = "clouddrive/"
+	cloudDriveKey           = "clouddrive"
 	cloudDriveLockKey       = "_lock"
 	defaultLockTryDuration  = 1 * time.Minute
 	defaultLockHoldDuration = 3 * time.Minute
@@ -22,9 +22,11 @@ var (
 
 type kvStore struct {
 	k                kvdb.Kvdb
-	lockPrefix       string
+	storeName        string
 	lockTryDuration  time.Duration
 	lockHoldDuration time.Duration
+	// this boolean helps maintain backward compatability especially during upgrades
+	legacy bool
 }
 
 // NewKVStore returns a Store implementation which is a wrapper over
@@ -33,7 +35,7 @@ func NewKVStore(kv kvdb.Kvdb) (Store, error) {
 	return newKVStoreWithParams(kv, cloudDriveKey, 0, 0)
 }
 
-// NewKVStoreWithParams returns a Store implementation which is a wrapper over
+// newKVStoreWithParams returns a Store implementation which is a wrapper over
 // kvdb.
 func newKVStoreWithParams(
 	kv kvdb.Kvdb,
@@ -41,7 +43,9 @@ func newKVStoreWithParams(
 	lockTryDuration time.Duration,
 	lockHoldDuration time.Duration,
 ) (Store, error) {
-	kstore := kvStore{}
+	kstore := kvStore{
+		legacy: name == cloudDriveKey,
+	}
 	if kv == nil {
 		return nil, ErrKvdbNotInitialized
 	}
@@ -67,12 +71,12 @@ func newKVStoreWithParams(
 	}
 
 	kstore.k = kv
-	kstore.lockPrefix = name
+	kstore.storeName = name
 	return &kstore, nil
 }
 
 func (kv *kvStore) Lock(owner string) (*Lock, error) {
-	return kv.lockWithKeyHelper(owner, kv.getFullLockPath(cloudDriveLockKey))
+	return kv.lockWithKeyHelper(owner, cloudDriveLockKey)
 }
 
 func (kv *kvStore) Unlock(storeLock *Lock) error {
@@ -84,17 +88,26 @@ func (kv *kvStore) Unlock(storeLock *Lock) error {
 }
 
 func (kv *kvStore) getFullLockPath(key string) string {
-	return kv.lockPrefix + "/" + key
+	return kv.storeName + "/" + key
+}
+
+func (kv *kvStore) getFullKey(key string) string {
+	// Legacy keys are created directly under the pwx/<cluster-id> key
+	// New keys will be created under pwx/<cluster-id>/<store-name>
+	if kv.legacy {
+		return key
+	}
+	return kv.storeName + "/" + key
 }
 
 func (kv *kvStore) LockWithKey(owner, key string) (*Lock, error) {
-	fullPath := kv.getFullLockPath(key)
-	kvPair, err := kv.lockWithKeyHelper(owner, fullPath)
+	kvPair, err := kv.lockWithKeyHelper(owner, "locks/"+key)
 	kvPair.lockedWithKey = true
 	return kvPair, err
 }
 
 func (kv *kvStore) lockWithKeyHelper(owner, key string) (*Lock, error) {
+	key = kv.getFullLockPath(key)
 	kvLock, err := kv.k.LockWithTimeout(key, owner, kv.lockTryDuration, kv.lockHoldDuration)
 	if err != nil {
 		return nil, err
@@ -108,16 +121,19 @@ func (kv *kvStore) IsKeyLocked(key string) (bool, string, error) {
 }
 
 func (kv *kvStore) CreateKey(key string, value []byte) error {
+	key = kv.getFullKey(key)
 	_, err := kv.k.Create(key, string(value), 0)
 	return err
 }
 
 func (kv *kvStore) PutKey(key string, value []byte) error {
+	key = kv.getFullKey(key)
 	_, err := kv.k.Put(key, string(value), 0)
 	return err
 }
 
 func (kv *kvStore) GetKey(key string) ([]byte, error) {
+	key = kv.getFullKey(key)
 	keyData, err := kv.k.Get(key)
 	if err != nil {
 		return nil, err
@@ -127,11 +143,13 @@ func (kv *kvStore) GetKey(key string) ([]byte, error) {
 }
 
 func (kv *kvStore) DeleteKey(key string) error {
+	key = kv.getFullKey(key)
 	_, err := kv.k.Delete(key)
 	return err
 }
 
 func (kv *kvStore) EnumerateWithKeyPrefix(key string) ([]string, error) {
+	key = kv.getFullKey(key)
 	output, err := kv.k.Enumerate(key)
 	if err != nil {
 		return nil, err
