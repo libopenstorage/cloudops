@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/portworx/sched-ops/k8s/core/configmap"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/validation"
