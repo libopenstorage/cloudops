@@ -2,7 +2,6 @@ package vsphere
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -43,7 +42,6 @@ type vsphereOps struct {
 }
 
 var (
-	ErrInvalidParam      = errors.New("invalid param")
 	exponentialBackoff = wait.Backoff{
 		Duration: 2 * time.Second, // the base duration
 		Factor:   1.2,             // Duration is multiplied by factor each iteration
@@ -52,7 +50,6 @@ var (
 	}
 
 	vmdkMatcherRegex = regexp.MustCompile("\\[(.+)\\](.+)") // e.g [px-datastore-02] osd-provisioned-disks/PX-DO-NOT-DELETE-122be943-485f-4a66-b665-b592f685a3de.vmdk"
-
 )
 
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
@@ -65,9 +62,6 @@ type VirtualDisk struct {
 
 // NewClient creates a new vsphere cloudops instance
 func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, error) {
-	if storeParams == nil {
-		return nil, ErrInvalidParam
-	}
 	vSphereConn := &vclib.VSphereConnection{
 		Username:          cfg.User,
 		Password:          cfg.Password,
@@ -89,16 +83,19 @@ func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, err
 	logrus.Debugf("  Datacenter: %s", vmObj.Datacenter.Name())
 	logrus.Debugf("  VMUUID: %s", cfg.VMUUID)
 
-	storeInstance, err := store.GetStoreWithParams(
-		storeParams.Kv,
-		storeParams.SchedulerType,
-		storeParams.InternalKvdb,
-		vSphereDataStoreLock,
-		420*time.Second,
-		100*time.Second)
-	if err != nil {
-		logrus.Errorf(err.Error())
-		return nil, err
+	var storeInstance store.Store
+	if storeParams != nil {
+		storeInstance, err = store.GetStoreWithParams(
+			storeParams.Kv,
+			storeParams.SchedulerType,
+			storeParams.InternalKvdb,
+			vSphereDataStoreLock,
+			420*time.Second,
+			100*time.Second)
+		if err != nil {
+			logrus.Errorf(err.Error())
+			return nil, err
+		}
 	}
 
 	return backoff.NewExponentialBackoffOps(
@@ -767,10 +764,16 @@ func (ops *vsphereOps) getDatastoreToUseInStoragePod(
 	}
 
 	spec.DeviceChange = deviceChange
-	// It's best effort locking. If we didn't get a lock no harm done.
-	storeLock, lockErr := ops.dsLock.LockWithKey(ops.cfg.VMUUID, storagePod.Name())
+	var (
+		storeLock *store.Lock
+		lockErr error
+	)
+	if ops.dsLock != nil {
+		// It's best effort locking. If we didn't get a lock no harm done.
+		storeLock, lockErr = ops.dsLock.LockWithKey(ops.cfg.VMUUID, storagePod.Name())
+	}
 	recommendedDatastore, err := recommendDatastore(ctx, vmObj, storagePod, spec)
-	if lockErr == nil {
+	if lockErr == nil && ops.dsLock != nil {
 		ops.dsLock.Unlock(storeLock)
 	}
 
