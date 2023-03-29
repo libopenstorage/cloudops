@@ -90,6 +90,9 @@ func (kv *kvStore) getFullLockPath(key string) string {
 func (kv *kvStore) LockWithKey(owner, key string) (*Lock, error) {
 	fullPath := kv.getFullLockPath(key)
 	kvPair, err := kv.lockWithKeyHelper(owner, fullPath)
+	if err != nil {
+		return nil, err
+	}
 	kvPair.lockedWithKey = true
 	return kvPair, err
 }
