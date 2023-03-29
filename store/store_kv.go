@@ -76,7 +76,7 @@ func newKVStoreWithParams(
 }
 
 func (kv *kvStore) Lock(owner string) (*Lock, error) {
-	return kv.lockWithKeyHelper(owner, kv.storeName + "/" + cloudDriveLockKey, false)
+	return kv.lockWithKeyHelper(owner, kv.storeName+"/"+cloudDriveLockKey)
 }
 
 func (kv *kvStore) Unlock(storeLock *Lock) error {
@@ -88,7 +88,7 @@ func (kv *kvStore) Unlock(storeLock *Lock) error {
 }
 
 func (kv *kvStore) getFullLockPath(key string) string {
-	return kv.storeName + "/"+ "locks"+ "/" + key
+	return kv.storeName + "/" + "locks" + "/" + key
 }
 
 func (kv *kvStore) getFullKey(key string) string {
@@ -101,7 +101,8 @@ func (kv *kvStore) getFullKey(key string) string {
 }
 
 func (kv *kvStore) LockWithKey(owner, key string) (*Lock, error) {
-	kvPair, err := kv.lockWithKeyHelper(owner, key, true)
+	key = kv.getFullLockPath(key)
+	kvPair, err := kv.lockWithKeyHelper(owner, key)
 	if err != nil {
 		return nil, err
 	}
@@ -110,10 +111,7 @@ func (kv *kvStore) LockWithKey(owner, key string) (*Lock, error) {
 	return kvPair, err
 }
 
-func (kv *kvStore) lockWithKeyHelper(owner, key string, lockWithkey bool) (*Lock, error) {
-	if lockWithkey {
-		key = kv.getFullLockPath(key)
-	}
+func (kv *kvStore) lockWithKeyHelper(owner, key string) (*Lock, error) {
 	kvLock, err := kv.k.LockWithTimeout(key, owner, kv.lockTryDuration, kv.lockHoldDuration)
 	if err != nil {
 		return nil, err
