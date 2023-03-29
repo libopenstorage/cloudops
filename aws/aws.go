@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/opsworks"
 	sh "github.com/codeskyblue/go-sh"
 	"github.com/libopenstorage/cloudops"
@@ -29,13 +30,18 @@ import (
 )
 
 const (
-	awsDevicePrefix      = "/dev/sd"
-	awsDevicePrefixWithX = "/dev/xvd"
-	awsDevicePrefixWithH = "/dev/hd"
-	awsDevicePrefixNvme  = "/dev/nvme"
-	contextTimeout       = 30 * time.Second
+	awsDevicePrefix              = "/dev/sd"
+	awsDevicePrefixWithX         = "/dev/xvd"
+	awsDevicePrefixWithH         = "/dev/hd"
+	awsDevicePrefixNvme          = "/dev/nvme"
+	contextTimeout               = 30 * time.Second
 	awsErrorModificationNotFound = "InvalidVolumeModification.NotFound"
 )
+
+// For unit testing purpose
+type ec2Wrapper struct {
+	Client ec2iface.EC2API
+}
 
 type awsOps struct {
 	cloudops.Compute
@@ -44,7 +50,7 @@ type awsOps struct {
 	zone         string
 	region       string
 	outpostARN   string
-	ec2          *ec2.EC2
+	ec2          *ec2Wrapper
 	autoscaling  *autoscaling.AutoScaling
 	mutex        sync.Mutex
 }
@@ -83,14 +89,16 @@ func NewClient() (cloudops.Ops, error) {
 		return nil, err
 	}
 
-	ec2 := ec2.New(
-		session.New(
-			&aws.Config{
-				Region:      &region,
-				Credentials: creds,
-			},
+	ec2 := &ec2Wrapper{
+		ec2.New(
+			session.New(
+				&aws.Config{
+					Region:      &region,
+					Credentials: creds,
+				},
+			),
 		),
-	)
+	}
 
 	autoscaling := autoscaling.New(
 		session.New(
@@ -115,7 +123,6 @@ func NewClient() (cloudops.Ops, error) {
 		isExponentialError,
 		backoff.DefaultExponentialBackoff,
 	), nil
-
 }
 
 func (s *awsOps) filters(
@@ -162,7 +169,7 @@ func (s *awsOps) waitStatus(id string, desired string) error {
 
 	_, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
-			awsVols, err := s.ec2.DescribeVolumes(request)
+			awsVols, err := s.ec2.Client.DescribeVolumes(request)
 			if err != nil {
 				return nil, true, err
 			}
@@ -204,7 +211,7 @@ func (s *awsOps) waitAttachmentStatus(
 	logrus.Infof("Waiting for state transition to %q", desired)
 
 	f := func() (interface{}, bool, error) {
-		awsVols, err := s.ec2.DescribeVolumes(request)
+		awsVols, err := s.ec2.Client.DescribeVolumes(request)
 		if err != nil {
 			return nil, false, err
 		}
@@ -329,7 +336,7 @@ func (s *awsOps) ApplyTags(volumeID string, labels map[string]string, options ma
 		Tags:      s.tags(labels),
 		DryRun:    dryRun(options),
 	}
-	_, err := s.ec2.CreateTags(req)
+	_, err := s.ec2.Client.CreateTags(req)
 	return err
 }
 
@@ -339,7 +346,7 @@ func (s *awsOps) RemoveTags(volumeID string, labels map[string]string, options m
 		Tags:      s.tags(labels),
 		DryRun:    dryRun(options),
 	}
-	_, err := s.ec2.DeleteTags(req)
+	_, err := s.ec2.Client.DeleteTags(req)
 	return err
 }
 
@@ -389,7 +396,7 @@ func (s *awsOps) describe() (*ec2.Instance, error) {
 	request := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{&s.instance},
 	}
-	out, err := s.ec2.DescribeInstances(request)
+	out, err := s.ec2.Client.DescribeInstances(request)
 	if err != nil {
 		return nil, err
 	}
@@ -715,7 +722,7 @@ func (s *awsOps) Inspect(volumeIds []*string, options map[string]string) ([]inte
 		VolumeIds: volumeIds,
 		DryRun:    dryRun(options),
 	}
-	resp, err := s.ec2.DescribeVolumes(req)
+	resp, err := s.ec2.Client.DescribeVolumes(req)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +759,7 @@ func (s *awsOps) Enumerate(
 	// Enumerate all volumes that have same labels.
 	f := s.filters(labels, nil)
 	req := &ec2.DescribeVolumesInput{Filters: f, VolumeIds: volumeIds}
-	awsVols, err := s.ec2.DescribeVolumes(req)
+	awsVols, err := s.ec2.Client.DescribeVolumes(req)
 	if err != nil {
 		return nil, err
 	}
@@ -841,7 +848,7 @@ func (s *awsOps) Create(
 		req.Iops = vol.Iops
 	}
 
-	resp, err := s.ec2.CreateVolume(req)
+	resp, err := s.ec2.Client.CreateVolume(req)
 	if err != nil {
 		return nil, err
 	}
@@ -863,7 +870,7 @@ func (s *awsOps) Delete(id string, options map[string]string) error {
 		VolumeId: &id,
 		DryRun:   dryRun(options),
 	}
-	_, err := s.ec2.DeleteVolume(req)
+	_, err := s.ec2.Client.DeleteVolume(req)
 	return err
 }
 
@@ -893,7 +900,7 @@ func (s *awsOps) Attach(volumeID string, options map[string]string) (string, err
 			VolumeId:   &volumeID,
 			DryRun:     dryRun(options),
 		}
-		if _, err := s.ec2.AttachVolume(req); err != nil {
+		if _, err := s.ec2.Client.AttachVolume(req); err != nil {
 			if strings.Contains(err.Error(), "is already in use") {
 				logrus.Infof("Skipping device: %s as it's in use. Will try next free device", device)
 				continue
@@ -933,7 +940,7 @@ func (s *awsOps) detachInternal(volumeID, instanceName string, options map[strin
 		Force:      &force,
 		DryRun:     dryRun(options),
 	}
-	if _, err := s.ec2.DetachVolume(req); err != nil {
+	if _, err := s.ec2.Client.DetachVolume(req); err != nil {
 		return err
 	}
 	_, err := s.waitAttachmentStatus(volumeID,
@@ -951,7 +958,7 @@ func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 	modificationStateRequest := &ec2.DescribeVolumesModificationsInput{
 		VolumeIds: volumeIDs,
 	}
-	describeOutput, err := s.ec2.DescribeVolumesModifications(modificationStateRequest)
+	describeOutput, err := s.ec2.Client.DescribeVolumesModifications(modificationStateRequest)
 	if err != nil {
 		// modification state not found, this indicates no change has occurred before.
 		if isErrorModificationNotFound(err) {
@@ -977,7 +984,7 @@ func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 		logrus.Infof("retrived volume modification state: %s for volume id: %s", state, *volumeIDs[i])
 		if state == ec2.VolumeModificationStateModifying ||
 			state == ec2.VolumeModificationStateOptimizing {
-			return false, fmt.Errorf("aws has not fully completed the last modification: " +
+			return false, fmt.Errorf("aws has not fully completed the last modification: "+
 				"volume %s is in %s state. please retry later", *volumeIDs[i], state)
 		}
 	}
@@ -1006,7 +1013,7 @@ func (s *awsOps) Expand(
 		Size:     &newSizeInGiBInt64,
 		DryRun:   dryRun(options),
 	}
-	output, err := s.ec2.ModifyVolume(request)
+	output, err := s.ec2.Client.ModifyVolume(request)
 	if err != nil {
 		return currentSizeInGiB, fmt.Errorf("failed to modify AWS volume for %v: %v", volumeID, err)
 	}
@@ -1027,7 +1034,7 @@ func (s *awsOps) Expand(
 			VolumeIds: []*string{&volumeID},
 		}
 
-		describeOutput, err := s.ec2.DescribeVolumesModifications(request)
+		describeOutput, err := s.ec2.Client.DescribeVolumesModifications(request)
 		if err != nil {
 			return false, fmt.Errorf("error while checking status for AWS EBS volume resize: %v", err)
 		}
@@ -1058,7 +1065,7 @@ func (s *awsOps) Snapshot(
 		VolumeId: &volumeID,
 		DryRun:   dryRun(options),
 	}
-	return s.ec2.CreateSnapshot(request)
+	return s.ec2.Client.CreateSnapshot(request)
 }
 
 func (s *awsOps) SnapshotDelete(snapID string, options map[string]string) error {
@@ -1067,7 +1074,7 @@ func (s *awsOps) SnapshotDelete(snapID string, options map[string]string) error 
 		DryRun:     dryRun(options),
 	}
 
-	_, err := s.ec2.DeleteSnapshot(request)
+	_, err := s.ec2.Client.DeleteSnapshot(request)
 	return err
 }
 
@@ -1172,11 +1179,11 @@ func getInfoFromEnv() (string, string, string, error) {
 }
 
 // DescribeInstanceByID describes the given instance by instance ID
-func DescribeInstanceByID(service *ec2.EC2, id string) (*ec2.Instance, error) {
+func DescribeInstanceByID(service *ec2Wrapper, id string) (*ec2.Instance, error) {
 	request := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{&id},
 	}
-	out, err := service.DescribeInstances(request)
+	out, err := service.Client.DescribeInstances(request)
 	if err != nil {
 		return nil, err
 	}
