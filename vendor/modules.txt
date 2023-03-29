@@ -109,6 +109,9 @@ github.com/codegangsta/inject
 # github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
 ## explicit
 github.com/codeskyblue/go-sh
+# github.com/coreos/etcd v3.3.27+incompatible
+## explicit
+github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
 # github.com/coreos/go-oidc v2.2.1+incompatible
 ## explicit
 github.com/coreos/go-oidc
@@ -272,6 +275,8 @@ github.com/sony/gobreaker
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
+# github.com/stretchr/objx v0.2.0
+## explicit; go 1.12
 # github.com/stretchr/testify v1.7.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
@@ -305,9 +310,6 @@ github.com/vmware/govmomi/vim25/xml
 github.com/vmware/govmomi/vslm
 github.com/vmware/govmomi/vslm/methods
 github.com/vmware/govmomi/vslm/types
-# go.etcd.io/etcd v0.5.0-alpha.5.0.20211015134708-72d3e382e73c
-## explicit; go 1.12
-go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes
 # go.opencensus.io v0.22.4
 ## explicit; go 1.13
 go.opencensus.io
