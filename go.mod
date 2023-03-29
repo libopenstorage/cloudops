@@ -11,7 +11,6 @@ require (
 	github.com/IBM-Cloud/bluemix-go v0.0.0-20220329045155-d2a8118ac5c7
 	github.com/aws/aws-sdk-go v1.40.39
 	github.com/codeskyblue/go-sh v0.0.0-20170112005953-b097669b1569
-	github.com/coreos/etcd v3.3.27+incompatible
 	github.com/golang/mock v1.4.4
 	github.com/google/uuid v1.1.2
 	github.com/hashicorp/go-version v1.2.1
@@ -25,6 +24,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vmware/govmomi v0.22.2
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20211015134708-72d3e382e73c
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	google.golang.org/api v0.30.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -76,7 +76,6 @@ require (
 	github.com/prometheus/procfs v0.2.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	go.opencensus.io v0.22.4 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/net v0.6.0 // indirect

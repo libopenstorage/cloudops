@@ -102,6 +102,10 @@ func (kv *kvStore) getFullKey(key string) string {
 
 func (kv *kvStore) LockWithKey(owner, key string) (*Lock, error) {
 	kvPair, err := kv.lockWithKeyHelper(owner, key, true)
+	if err != nil {
+		return nil, err
+	}
+
 	kvPair.lockedWithKey = true
 	return kvPair, err
 }
