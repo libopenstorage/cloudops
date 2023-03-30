@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"math"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -73,10 +74,12 @@ type k8sStore struct {
 // NewK8sStore returns a Store implementation which uses
 // k8s configmaps to store data.
 func NewK8sStore(clusterID string) (Store, configmap.ConfigMap, error) {
+	ns := os.Getenv("PX_NAMESPACE")
 	k8sStore, cm, err := newK8sStoreWithParams(
 		configmap.GetName(confgMapPrefix, clusterID),
 		configmap.DefaultK8sLockTimeout,
 		configmap.DefaultK8sLockAttempts*time.Second,
+		ns,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -90,6 +93,7 @@ func newK8sStoreWithParams(
 	name string,
 	lockTryDuration time.Duration,
 	lockTimeout time.Duration,
+	nameSpace string,
 ) (Store, configmap.ConfigMap, error) {
 	lockAttempts := uint((lockTryDuration / time.Second))
 	cm, err := configmap.New(
@@ -99,6 +103,7 @@ func newK8sStoreWithParams(
 		lockAttempts,
 		0,
 		0,
+		nameSpace,
 	)
 	if err != nil {
 		return nil, nil, err

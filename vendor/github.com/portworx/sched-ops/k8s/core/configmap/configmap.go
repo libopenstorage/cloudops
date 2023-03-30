@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/portworx/sched-ops/k8s/core"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -21,8 +19,9 @@ func New(
 	data map[string]string,
 	lockTimeout time.Duration,
 	lockAttempts uint,
-	lockRefreshDuration time.Duration,
-	lockK8sLockTTL time.Duration,
+	v2LockRefreshDuration time.Duration,
+	v2LockK8sLockTTL time.Duration,
+	nameSpace string,
 ) (ConfigMap, error) {
 	if data == nil {
 		data = make(map[string]string)
@@ -32,11 +31,14 @@ func New(
 		configMapUserLabelKey: TruncateLabel(name),
 	}
 	data[pxOwnerKey] = ""
+	if nameSpace == "" {
+		nameSpace = k8sSystemNamespace
+	}
 
-	cm := &v1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      name,
-			Namespace: k8sSystemNamespace,
+			Namespace: nameSpace,
 			Labels:    labels,
 		},
 		Data: data,
@@ -44,23 +46,33 @@ func New(
 
 	if _, err := core.Instance().CreateConfigMap(cm); err != nil &&
 		!k8s_errors.IsAlreadyExists(err) {
-		return nil, fmt.Errorf("Failed to create configmap %v: %v",
+		return nil, fmt.Errorf("failed to create configmap %v: %v",
 			name, err)
 	}
+
+	if v2LockK8sLockTTL == 0 {
+		v2LockK8sLockTTL = v2DefaultK8sLockTTL
+	}
+
+	if v2LockRefreshDuration == 0 {
+		v2LockRefreshDuration = v2DefaultK8sLockRefreshDuration
+	}
+
 	return &configMap{
-		name:                name,
-		lockTimeout:         lockTimeout,
-		kLocksV2:            map[string]*k8sLock{},
-		lockAttempts:        lockAttempts,
-		lockRefreshDuration: lockRefreshDuration,
-		lockK8sLockTTL:      lockK8sLockTTL,
+		name:                   name,
+		defaultLockHoldTimeout: lockTimeout,
+		kLocksV2:               map[string]*k8sLock{},
+		lockAttempts:           lockAttempts,
+		lockRefreshDuration:    v2LockRefreshDuration,
+		lockK8sLockTTL:         v2LockK8sLockTTL,
+		nameSpace:              nameSpace,
 	}, nil
 }
 
 func (c *configMap) Get() (map[string]string, error) {
 	cm, err := core.Instance().GetConfigMap(
 		c.name,
-		k8sSystemNamespace,
+		c.nameSpace,
 	)
 	if err != nil {
 		return nil, err
@@ -72,7 +84,7 @@ func (c *configMap) Get() (map[string]string, error) {
 func (c *configMap) Delete() error {
 	return core.Instance().DeleteConfigMap(
 		c.name,
-		k8sSystemNamespace,
+		c.nameSpace,
 	)
 }
 
@@ -84,7 +96,7 @@ func (c *configMap) Patch(data map[string]string) error {
 	for retries := 0; retries < maxConflictRetries; retries++ {
 		cm, err = core.Instance().GetConfigMap(
 			c.name,
-			k8sSystemNamespace,
+			c.nameSpace,
 		)
 		if err != nil {
 			return err
@@ -115,7 +127,7 @@ func (c *configMap) Update(data map[string]string) error {
 	for retries := 0; retries < maxConflictRetries; retries++ {
 		cm, err = core.Instance().GetConfigMap(
 			c.name,
-			k8sSystemNamespace,
+			c.nameSpace,
 		)
 		if err != nil {
 			return err

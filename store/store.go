@@ -2,8 +2,9 @@ package store
 
 import (
 	"fmt"
-	"github.com/portworx/kvdb"
 	"time"
+
+	"github.com/portworx/kvdb"
 )
 
 // PX specific scheduler constants
@@ -15,9 +16,9 @@ const (
 // Params is the parameters to use for the Store object
 type Params struct {
 	// Kv is the bootstrap kvdb instance
-	Kv            kvdb.Kvdb
+	Kv kvdb.Kvdb
 	// InternalKvdb indicates if PX is using internal kvdb or not
-	InternalKvdb  bool
+	InternalKvdb bool
 	// SchedulerType indicates the platform pods are running on. e.g Kubernetes
 	SchedulerType string
 }
@@ -97,6 +98,7 @@ func GetStoreWithParams(
 	name string,
 	lockTryDuration time.Duration,
 	lockHoldTimeout time.Duration,
+	nameSpace string,
 ) (Store, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("name required to create Store")
@@ -107,7 +109,7 @@ func GetStoreWithParams(
 	)
 
 	if internalKvdb && schedulerType == Kubernetes {
-		s, _, err = newK8sStoreWithParams(name, lockTryDuration, lockHoldTimeout)
+		s, _, err = newK8sStoreWithParams(name, lockTryDuration, lockHoldTimeout, nameSpace)
 	} else if internalKvdb && kv == nil {
 		return nil, fmt.Errorf("bootstrap kvdb cannot be empty")
 	} else {

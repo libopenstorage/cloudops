@@ -1,14 +1,19 @@
 package configmap
 
 import (
+	"time"
+
 	"github.com/portworx/sched-ops/k8s/core"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
-	"time"
 )
 
 func (c *configMap) Lock(id string) error {
-	fn := "Lock"
+	return c.LockWithHoldTimeout(id, c.defaultLockHoldTimeout)
+}
+
+func (c *configMap) LockWithHoldTimeout(id string, holdTimeout time.Duration) error {
+	fn := "LockWithHoldTimeout"
 	count := uint(0)
 	// try acquiring a lock on the ConfigMap
 	owner, err := c.tryLockV1(id, false)
@@ -29,6 +34,7 @@ func (c *configMap) Lock(id string) error {
 		configMapLog(fn, c.name, owner, "", err).Warnf("Spent %v iteration"+
 			" locking.", count)
 	}
+	c.lockHoldTimeoutV1 = holdTimeout
 	c.kLockV1 = k8sLock{done: make(chan struct{}), id: id}
 	go c.refreshLockV1(id)
 	return nil
@@ -54,7 +60,7 @@ func (c *configMap) Unlock() error {
 	for retries := 0; retries < maxConflictRetries; retries++ {
 		cm, err = core.Instance().GetConfigMap(
 			c.name,
-			k8sSystemNamespace,
+			c.nameSpace,
 		)
 		if err != nil {
 			// A ConfigMap should always be created.
@@ -89,7 +95,7 @@ func (c *configMap) tryLockV1(id string, refresh bool) (string, error) {
 	// Get the existing ConfigMap
 	cm, err := core.Instance().GetConfigMap(
 		c.name,
-		k8sSystemNamespace,
+		c.nameSpace,
 	)
 	if err != nil {
 		// A ConfigMap should always be created.
@@ -149,7 +155,7 @@ func (c *configMap) refreshLockV1(id string) {
 		case <-refresh.C:
 			c.kLockV1.Lock()
 			for !c.kLockV1.unlocked {
-				c.checkLockTimeout(startTime, id)
+				c.checkLockTimeout(c.lockHoldTimeoutV1, startTime, id)
 				currentRefresh = time.Now()
 				if _, err := c.tryLockV1(id, true); err != nil {
 					configMapLog(fn, c.name, "", "", err).Errorf(
