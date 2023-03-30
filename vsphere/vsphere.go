@@ -3,6 +3,7 @@ package vsphere
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -62,6 +63,7 @@ type VirtualDisk struct {
 
 // NewClient creates a new vsphere cloudops instance
 func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, error) {
+	ns := os.Getenv("PX_NAMESPACE")
 	vSphereConn := &vclib.VSphereConnection{
 		Username:          cfg.User,
 		Password:          cfg.Password,
@@ -91,7 +93,8 @@ func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, err
 			storeParams.InternalKvdb,
 			vSphereDataStoreLock,
 			420*time.Second,
-			100*time.Second)
+			100*time.Second,
+			ns)
 		if err != nil {
 			logrus.Errorf(err.Error())
 			return nil, err
@@ -766,7 +769,7 @@ func (ops *vsphereOps) getDatastoreToUseInStoragePod(
 	spec.DeviceChange = deviceChange
 	var (
 		storeLock *store.Lock
-		lockErr error
+		lockErr   error
 	)
 	if ops.dsLock != nil {
 		// It's best effort locking. If we didn't get a lock no harm done.
