@@ -467,6 +467,9 @@ func (s *gceOps) Delete(id string, options map[string]string) error {
 	if err := req.Pages(ctx, func(page *compute.DiskAggregatedList) error {
 		for _, diskScopedList := range page.Items {
 			for _, disk := range diskScopedList.Disks {
+				if disk == nil {
+					continue
+				}
 				if disk.Name == id {
 					found = true
 					operation, err := s.computeService.Disks.Delete(s.inst.project, path.Base(disk.Zone), id).Do()
@@ -550,6 +553,9 @@ func (s *gceOps) DeviceMappings() (map[string]string, error) {
 	}
 	m := make(map[string]string)
 	for _, d := range instance.Disks {
+		if d == nil {
+			continue
+		}
 		if d.Boot {
 			continue
 		}
@@ -626,6 +632,9 @@ func (s *gceOps) Enumerate(
 	}
 
 	for _, disk := range allDisks {
+		if disk == nil {
+			continue
+		}
 		if len(setIdentifier) == 0 {
 			cloudops.AddElementToMap(sets, disk, cloudops.SetIdentifierNone)
 		} else {
@@ -675,7 +684,6 @@ func (s *gceOps) Expand(
 	newSizeInGiB uint64,
 	options map[string]string,
 ) (uint64, error) {
-
 	vol, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, volumeID).Do()
 	if err != nil {
 		return 0, err
@@ -727,6 +735,9 @@ func (s *gceOps) Inspect(diskNames []*string, options map[string]string) ([]inte
 
 	var disks []interface{}
 	for _, id := range diskNames {
+		if id == nil {
+			continue
+		}
 		if d, ok := allDisks[*id]; ok {
 			disks = append(disks, d)
 		} else {

@@ -371,38 +371,17 @@ func (a *azureOps) Create(
 	options map[string]string,
 ) (interface{}, error) {
 	d, ok := template.(*compute.Disk)
-	if !ok || d.DiskProperties == nil{
+	if !ok || d.DiskProperties == nil {
 		return nil, cloudops.NewStorageError(
 			cloudops.ErrVolInval,
 			"Invalid volume template given",
 			a.instance,
 		)
 	}
-	if  d.DiskProperties.DiskIOPSReadWrite == nil{
+	if d.DiskProperties.DiskSizeGB == nil {
 		return nil, cloudops.NewStorageError(
 			cloudops.ErrVolInval,
-			"DiskIOPSReadWrite not specified in the storage spec",
-			a.instance,
-		)
-	}
-	if  d.DiskProperties.DiskMBpsReadWrite == nil{
-		return nil, cloudops.NewStorageError(
-			cloudops.ErrVolInval,
-			"DiskMBpsReadWrite not specified in the storage spec",
-			a.instance,
-		)
-	}
-	if  d.DiskProperties.EncryptionSettingsCollection == nil{
-		return nil, cloudops.NewStorageError(
-			cloudops.ErrVolInval,
-			"EncryptionSettingsCollection not specified in the storage spec",
-			a.instance,
-		)
-	}
-	if  d.DiskProperties.Encryption == nil{
-		return nil, cloudops.NewStorageError(
-			cloudops.ErrVolInval,
-			"Encryption not specified in the storage spec",
+			"DiskSizeGB not specified in the storage spec",
 			a.instance,
 		)
 	}
@@ -734,6 +713,13 @@ func (a *azureOps) DeviceMappings() (map[string]string, error) {
 
 	devMap := make(map[string]string)
 	for _, d := range dataDisks {
+		if d.Lun == nil {
+			return nil, cloudops.NewStorageError(
+				cloudops.ErrInvalidDevicePath,
+				"lun is nil for disk",
+				a.instance,
+			)
+		}
 		devPath, err := lunToBlockDevPath(*d.Lun)
 		if err != nil {
 			return nil, cloudops.NewStorageError(
@@ -741,6 +727,9 @@ func (a *azureOps) DeviceMappings() (map[string]string, error) {
 				fmt.Sprintf("unable to find block dev path for lun%v: %v", *d.Lun, err),
 				a.instance,
 			)
+		}
+		if d.Name == nil {
+			continue
 		}
 		devMap[devPath] = *d.Name
 	}
@@ -836,9 +825,19 @@ func (a *azureOps) devicePath(diskName string) (string, error) {
 	}
 
 	for _, d := range dataDisks {
+		if d.Name == nil {
+			continue
+		}
 		if *d.Name == diskName {
 			// Retry to get the block dev path as it may take few seconds for the path
 			// to be created even after the disk shows attached.
+			if d.Lun == nil {
+				return "", cloudops.NewStorageError(
+					cloudops.ErrInvalidDevicePath,
+					"Lun is nil for disk",
+					a.instance,
+				)
+			}
 			devPath, err := lunToBlockDevPathWithRetry(*d.Lun)
 			if err == nil {
 				return devPath, nil
@@ -1073,6 +1072,9 @@ func (a *azureOps) waitForDetach(diskName, instance string) error {
 			}
 
 			for _, d := range dataDisks {
+				if d.Name != nil {
+					continue
+				}
 				if *d.Name == diskName {
 					return nil, true,
 						fmt.Errorf("disk %s is still attached to instance %s",
