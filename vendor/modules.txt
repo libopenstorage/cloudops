@@ -141,7 +141,7 @@ github.com/gogo/protobuf/sortkeys
 # github.com/golang-jwt/jwt/v4 v4.4.3
 ## explicit; go 1.16
 github.com/golang-jwt/jwt/v4
-# github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
+# github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.4.4
@@ -174,7 +174,7 @@ github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
 github.com/googleapis/gnostic/jsonschema
 github.com/googleapis/gnostic/openapiv2
-# github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
+# github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 ## explicit; go 1.14
 github.com/grpc-ecosystem/go-grpc-middleware/util/metautils
 # github.com/grpc-ecosystem/grpc-gateway v1.16.0
@@ -232,8 +232,8 @@ github.com/pborman/uuid
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/portworx/kvdb v0.0.0-20230326003017-21a38cf82d4b
-## explicit
+# github.com/portworx/kvdb v0.0.0-20230405233801-87666830d3fd
+## explicit; go 1.17
 github.com/portworx/kvdb
 # github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d => github.com/portworx/sched-ops v1.20.4-rc1.0.20211217234328-ead591c0f22d
 ## explicit; go 1.12
