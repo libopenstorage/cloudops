@@ -29,11 +29,11 @@ import (
 )
 
 const (
-	awsDevicePrefix      = "/dev/sd"
-	awsDevicePrefixWithX = "/dev/xvd"
-	awsDevicePrefixWithH = "/dev/hd"
-	awsDevicePrefixNvme  = "/dev/nvme"
-	contextTimeout       = 30 * time.Second
+	awsDevicePrefix              = "/dev/sd"
+	awsDevicePrefixWithX         = "/dev/xvd"
+	awsDevicePrefixWithH         = "/dev/hd"
+	awsDevicePrefixNvme          = "/dev/nvme"
+	contextTimeout               = 30 * time.Second
 	awsErrorModificationNotFound = "InvalidVolumeModification.NotFound"
 )
 
@@ -72,7 +72,9 @@ func NewClient() (cloudops.Ops, error) {
 			return nil, err
 		}
 	}
-
+	if len(zone) == 0 {
+		return nil, fmt.Errorf("env does not have information about zone")
+	}
 	region := zone[:len(zone)-1]
 	awsCreds, err := awscredentials.NewAWSCredentials("", "", "", runningOnEc2)
 	if err != nil {
@@ -215,6 +217,9 @@ func (s *awsOps) waitAttachmentStatus(
 
 		var actual string
 		vol := awsVols.Volumes[0]
+		if vol == nil {
+			return nil, false, fmt.Errorf("nil volume for %s", volumeID)
+		}
 		awsAttachment := vol.Attachments
 		if awsAttachment == nil || len(awsAttachment) == 0 {
 			// We have encountered scenarios where AWS returns a nil attachment state
@@ -298,6 +303,10 @@ func (s *awsOps) InspectInstanceGroupForInstance(instanceID string) (*cloudops.I
 			}
 
 			group := result.AutoScalingGroups[0]
+			if group == nil {
+				return nil, fmt.Errorf("nil AutoScalingGroups group")
+			}
+
 			zones := make([]string, 0)
 			for _, z := range group.AvailabilityZones {
 				zones = append(zones, *z)
@@ -759,6 +768,9 @@ func (s *awsOps) Enumerate(
 
 	// Volume sets are identified by volumes with the same setIdentifer.
 	for _, vol := range awsVols.Volumes {
+		if vol == nil {
+			continue
+		}
 		if s.deleted(vol) {
 			continue
 		}
@@ -796,7 +808,18 @@ func (s *awsOps) Create(
 		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Drive type not specified in the storage spec", "")
 	}
-
+	if vol.AvailabilityZone == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"AvailabilityZone not specified in the storage spec", "")
+	}
+	if vol.Size == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Size not specified in the storage spec", "")
+	}
+	if vol.SnapshotId == nil {
+		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"SnapshotId not specified in the storage spec", "")
+	}
 	req := &ec2.CreateVolumeInput{
 		AvailabilityZone: vol.AvailabilityZone,
 		Encrypted:        vol.Encrypted,
@@ -965,7 +988,9 @@ func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 		}
 	}
 	states := describeOutput.VolumesModifications
-
+	if states == nil {
+		return false, fmt.Errorf("information about the volume modifications is nil")
+	}
 	var state string
 	for i := 0; i < len(states); i++ {
 		if states[i] == nil || states[i].ModificationState == nil {
@@ -977,7 +1002,7 @@ func (s *awsOps) AreVolumesReadyToExpand(volumeIDs []*string) (bool, error) {
 		logrus.Infof("retrived volume modification state: %s for volume id: %s", state, *volumeIDs[i])
 		if state == ec2.VolumeModificationStateModifying ||
 			state == ec2.VolumeModificationStateOptimizing {
-			return false, fmt.Errorf("aws has not fully completed the last modification: " +
+			return false, fmt.Errorf("aws has not fully completed the last modification: "+
 				"volume %s is in %s state. please retry later", *volumeIDs[i], state)
 		}
 	}
@@ -992,6 +1017,14 @@ func (s *awsOps) Expand(
 	vol, err := s.refreshVol(&volumeID)
 	if err != nil {
 		return 0, err
+	}
+	if vol.Size == nil {
+		return 0, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"Size not specified in the storage spec", "")
+	}
+	if vol.VolumeId == nil {
+		return 0, cloudops.NewStorageError(cloudops.ErrVolInval,
+			"VolumeId not specified in the storage spec", "")
 	}
 	currentSizeInGiB := uint64(*vol.Size)
 	if currentSizeInGiB >= newSizeInGiB {
@@ -1011,7 +1044,17 @@ func (s *awsOps) Expand(
 		return currentSizeInGiB, fmt.Errorf("failed to modify AWS volume for %v: %v", volumeID, err)
 	}
 
+	if output.VolumeModification == nil {
+		return currentSizeInGiB, fmt.Errorf("failed to modify AWS volume for %v: %v", volumeID, "VolumeModification is nil")
+	}
+	if output.VolumeModification.ModificationState == nil {
+		return currentSizeInGiB, fmt.Errorf("failed to modify AWS volume for %v: %v", volumeID, "ModificationState is nil")
+	}
+
 	if string(*output.VolumeModification.ModificationState) == ec2.VolumeModificationStateCompleted {
+		if output.VolumeModification.TargetSize == nil {
+			return currentSizeInGiB, fmt.Errorf("failed to modify AWS volume for %v: %v", volumeID, "TargetSize is nil")
+		}
 		return uint64(*output.VolumeModification.TargetSize), nil
 	}
 
@@ -1179,6 +1222,9 @@ func DescribeInstanceByID(service *ec2.EC2, id string) (*ec2.Instance, error) {
 	out, err := service.DescribeInstances(request)
 	if err != nil {
 		return nil, err
+	}
+	if out.Reservations == nil {
+		return nil, fmt.Errorf("DescribeInstances(%v) returned nil Reservations", id)
 	}
 	if len(out.Reservations) != 1 {
 		return nil, fmt.Errorf("DescribeInstances(%v) returned %v reservations, expect 1",

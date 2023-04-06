@@ -312,7 +312,13 @@ func (o *oracleOps) InspectInstanceGroupForInstance(instanceID string) (*cloudop
 
 	zones := []string{}
 	for _, placementConfig := range nodePoolDetails.NodePool.NodeConfigDetails.PlacementConfigs {
+		if placementConfig.AvailabilityDomain == nil {
+			continue
+		}
 		zones = append(zones, *placementConfig.AvailabilityDomain)
+	}
+	if nodePoolDetails.NodeConfigDetails.Size == nil {
+		return nil, fmt.Errorf("node pool size is nil")
 	}
 	size := int64(*nodePoolDetails.NodeConfigDetails.Size)
 
@@ -431,7 +437,6 @@ func (o *oracleOps) Create(template interface{}, labels map[string]string, optio
 		return nil, cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Invalid volume template given", "")
 	}
-
 	createVolReq := core.CreateVolumeRequest{
 		CreateVolumeDetails: core.CreateVolumeDetails{
 			CompartmentId:      &o.compartmentID,
@@ -763,6 +768,9 @@ func (o *oracleOps) FreeDevices(
 
 func (o *oracleOps) GetDeviceID(vol interface{}) (string, error) {
 	if d, ok := vol.(*core.Volume); ok {
+		if d == nil {
+			return "", fmt.Errorf("volume is nil")
+		}
 		return *d.Id, nil
 	}
 	return "", fmt.Errorf("invalid type: %v given to GetDeviceID", vol)
@@ -823,6 +831,9 @@ func (o *oracleOps) DeleteInstance(instanceID string, zone string, timeout time.
 
 func nodePoolContainsNode(s []containerengine.Node, e string) bool {
 	for _, v := range s {
+		if v.Id == nil {
+			continue
+		}
 		if *v.Id == e {
 			return true
 		}
@@ -844,6 +855,9 @@ func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64, options map[str
 		return 0, err
 	}
 
+	if volume.SizeInGBs == nil {
+		return 0, errors.New("volume size is nil")
+	}
 	currentsize := uint64(*volume.SizeInGBs)
 
 	if (currentsize > newSizeInGiB) || (currentsize == newSizeInGiB) {
@@ -862,6 +876,9 @@ func (o *oracleOps) Expand(volumeID string, newSizeInGiB uint64, options map[str
 		return 0, err
 	}
 
+	if updateVolResp.Id == nil {
+		return 0, errors.New("the OCID of the volume is nil")
+	}
 	oracleVol, err := o.waitVolumeStatus(*updateVolResp.Id, core.VolumeLifecycleStateAvailable)
 	if err != nil {
 		return 0, err
@@ -928,7 +945,9 @@ func (o *oracleOps) SetInstanceGroupVersion(instanceGroupName string, version st
 	//To apply changes on existing worker nodes, first, scale the node pool to 0 .
 	//Then scale up to original nodepool size with upgraded version
 	//https://docs.oracle.com/en-us/iaas/Content/knownissues.htm#contengworkernodepropertiesoutofsync
-
+	if instanceGroupID == nil {
+		return errors.New("the OCID of the node pool is nil")
+	}
 	updateResp, err := o.scaleDownToZeroThenScaleUp(instanceGroupName, *instanceGroupID, nodePools, timeout)
 	if err != nil {
 		return err
@@ -998,9 +1017,15 @@ func (o *oracleOps) Enumerate(volumeIds []*string,
 	}
 	volIDsMap := map[string]string{}
 	for _, volIds := range volumeIds {
+		if volIds == nil {
+			continue
+		}
 		volIDsMap[*volIds] = *volIds
 	}
 	for _, vol := range resp.Items {
+		if vol.Id == nil {
+			continue
+		}
 		_, ok := volIDsMap[*vol.Id]
 		if !ok {
 			continue
