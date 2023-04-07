@@ -1000,34 +1000,50 @@ func (o *oracleOps) Enumerate(volumeIds []*string,
 	for _, volIds := range volumeIds {
 		volIDsMap[*volIds] = *volIds
 	}
-	for _, vol := range resp.Items {
-		_, ok := volIDsMap[*vol.Id]
-		if !ok {
-			continue
-		}
+	for {
+		for _, vol := range resp.Items {
+			_, ok := volIDsMap[*vol.Id]
+			if !ok {
+				continue
+			}
 
-		if o.deleted(vol) {
-			continue
-		}
-		// TODO: [PWX-26616] Check if SDK itself returns list of volumes
-		// that have labels OR use volumeGroup for filtering
-		if labels != nil && !containsMap(vol.FreeformTags, labels) {
-			continue
-		}
-		if len(setIdentifier) == 0 {
-			cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
-		} else {
-			found := false
-			for tagKey, tagValue := range vol.FreeformTags {
-				if tagKey == setIdentifier {
-					cloudops.AddElementToMap(sets, vol, tagValue)
-					found = true
-					break
+			if o.deleted(vol) {
+				continue
+			}
+			// TODO: [PWX-26616] Check if SDK itself returns list of volumes
+			// that have labels OR use volumeGroup for filtering
+			if labels != nil && !containsMap(vol.FreeformTags, labels) {
+				continue
+			}
+			if len(setIdentifier) == 0 {
+				cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
+			} else {
+				found := false
+				for tagKey, tagValue := range vol.FreeformTags {
+					if tagKey == setIdentifier {
+						cloudops.AddElementToMap(sets, vol, tagValue)
+						found = true
+						break
+					}
+				}
+				if !found {
+					cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
 				}
 			}
-			if !found {
-				cloudops.AddElementToMap(sets, vol, cloudops.SetIdentifierNone)
+		}
+		if resp.OpcNextPage != nil {
+			// There are more volumes that needs to be listed from oracle cloud via Pagination
+			req = core.ListVolumesRequest{
+				CompartmentId: common.String(o.compartmentID),
+				Page:          resp.OpcNextPage,
 			}
+			resp, err = o.storage.ListVolumes(context.Background(), req)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// No more block volumes remaining to be listed.
+			break
 		}
 	}
 	return sets, nil
