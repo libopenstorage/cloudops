@@ -138,11 +138,7 @@ func TestAwsCreate(t *testing.T) {
 			},
 		}
 		res, err := s.Create(c.volumeTemplate, nil, nil)
-		if c.expectedErr.Error() != err.Error() {
-			t.Errorf("%s failed, expected error: \n%v\n but got: \n%v", c.name, c.expectedErr, err)
-		}
-		if res != c.volResult {
-			t.Errorf("%s failed, expected result %s but got %s", c.name, c.volResult, res)
-		}
+        assert.Equal(t, err.Error(), c.expectedErr.Error(), "%s failed, expected error: \n%v\n but got: \n%v", c.name, c.expectedErr, err)
+        assert.Equal(t, res, c.volResult, "%s failed, expected result %s but got %s", c.name, c.volResult, res)
 	}
 }
