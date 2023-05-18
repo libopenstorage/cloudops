@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/opsworks"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/test"
@@ -102,5 +103,42 @@ func TestAwsGetPrefixFromRootDeviceName(t *testing.T) {
 		prefix, err := a.getPrefixFromRootDeviceName(test.deviceName)
 		assert.Equal(t, err != nil, test.expectError)
 		assert.Equal(t, test.expectedPrefix, prefix)
+	}
+}
+
+type mockEC2Client struct {
+	ec2iface.EC2API
+	Vol *ec2.Volume
+}
+
+func (m mockEC2Client) CreateVolume(*ec2.CreateVolumeInput) (*ec2.Volume, error) {
+	return m.Vol, nil
+}
+
+func TestAwsCreate(t *testing.T) {
+	cases := []struct {
+		name           string
+		volumeTemplate interface{}
+		volResult      interface{}
+		expectedErr    error
+	}{
+		{
+			"illegal volume template from input is handled",
+			"I am anything but a valid ec2 volume template",
+			nil,
+			cloudops.NewStorageError(cloudops.ErrVolInval,
+				"Invalid volume template given", ""),
+		},
+	}
+	for _, c := range cases {
+		expectedRes, _ := c.volResult.(*ec2.Volume)
+		s := &awsOps{
+			ec2: &ec2Wrapper{
+				Client: mockEC2Client{Vol: expectedRes},
+			},
+		}
+		res, err := s.Create(c.volumeTemplate, nil, nil)
+        assert.Equal(t, err.Error(), c.expectedErr.Error(), "%s failed, expected error: \n%v\n but got: \n%v", c.name, c.expectedErr, err)
+        assert.Equal(t, res, c.volResult, "%s failed, expected result %s but got %s", c.name, c.volResult, res)
 	}
 }
