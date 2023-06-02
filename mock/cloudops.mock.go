@@ -227,7 +227,7 @@ func (mr *MockOpsMockRecorder) Expand(arg0, arg1, arg2 interface{}) *gomock.Call
 // FreeDevices mocks base method.
 func (m *MockOps) FreeDevices() ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FreeDevices", arg0, arg1)
+	ret := m.ctrl.Call(m, "FreeDevices")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -236,7 +236,7 @@ func (m *MockOps) FreeDevices() ([]string, error) {
 // FreeDevices indicates an expected call of FreeDevices.
 func (mr *MockOpsMockRecorder) FreeDevices() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreeDevices", reflect.TypeOf((*MockOps)(nil).FreeDevices), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreeDevices", reflect.TypeOf((*MockOps)(nil).FreeDevices))
 }
 
 // GetClusterSizeForInstance mocks base method.
