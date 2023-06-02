@@ -409,7 +409,7 @@ func (ops *vsphereOps) Describe() (interface{}, error) {
 }
 
 // FreeDevices is not supported by this provider
-func (ops *vsphereOps) FreeDevices(blockDeviceMappings []interface{}, rootDeviceName string) ([]string, error) {
+func (ops *vsphereOps) FreeDevices() ([]string, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "FreeDevices",
 	}
@@ -766,7 +766,7 @@ func (ops *vsphereOps) getDatastoreToUseInStoragePod(
 	spec.DeviceChange = deviceChange
 	var (
 		storeLock *store.Lock
-		lockErr error
+		lockErr   error
 	)
 	if ops.dsLock != nil {
 		// It's best effort locking. If we didn't get a lock no harm done.

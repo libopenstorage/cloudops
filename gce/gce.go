@@ -647,10 +647,7 @@ func (s *gceOps) Enumerate(
 	return sets, nil
 }
 
-func (s *gceOps) FreeDevices(
-	blockDeviceMappings []interface{},
-	rootDeviceName string,
-) ([]string, error) {
+func (s *gceOps) FreeDevices() ([]string, error) {
 	return nil, fmt.Errorf("function not implemented")
 }
 

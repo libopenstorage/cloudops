@@ -225,7 +225,7 @@ func (mr *MockOpsMockRecorder) Expand(arg0, arg1, arg2 interface{}) *gomock.Call
 }
 
 // FreeDevices mocks base method.
-func (m *MockOps) FreeDevices(arg0 []interface{}, arg1 string) ([]string, error) {
+func (m *MockOps) FreeDevices() ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FreeDevices", arg0, arg1)
 	ret0, _ := ret[0].([]string)

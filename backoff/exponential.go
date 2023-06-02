@@ -340,8 +340,8 @@ func (e *exponentialBackoff) Describe() (interface{}, error) {
 // FreeDevices returns free block devices on the instance.
 // blockDeviceMappings is a data structure that contains all block devices on
 // the instance and where they are mapped to
-func (e *exponentialBackoff) FreeDevices(blockDeviceMappings []interface{}, rootDeviceName string) ([]string, error) {
-	return e.cloudOps.FreeDevices(blockDeviceMappings, rootDeviceName)
+func (e *exponentialBackoff) FreeDevices() ([]string, error) {
+	return e.cloudOps.FreeDevices()
 }
 
 // Inspect volumes specified by volumeID
