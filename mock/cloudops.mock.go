@@ -234,7 +234,7 @@ func (m *MockOps) FreeDevices() ([]string, error) {
 }
 
 // FreeDevices indicates an expected call of FreeDevices.
-func (mr *MockOpsMockRecorder) FreeDevices(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockOpsMockRecorder) FreeDevices() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreeDevices", reflect.TypeOf((*MockOps)(nil).FreeDevices), arg0, arg1)
 }

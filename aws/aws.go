@@ -562,6 +562,7 @@ func (s *awsOps) FreeDevices() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	rootDeviceName := *self.RootDeviceName
 
 	var blockDeviceMappings = make([]interface{}, len(self.BlockDeviceMappings))
 	for i, b := range self.BlockDeviceMappings {
