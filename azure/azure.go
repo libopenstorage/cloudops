@@ -643,10 +643,7 @@ func (a *azureOps) Describe() (interface{}, error) {
 	return a.vmsClient.describe(a.instance)
 }
 
-func (a *azureOps) FreeDevices(
-	blockDeviceMappings []interface{},
-	rootDeviceName string,
-) ([]string, error) {
+func (a *azureOps) FreeDevices() ([]string, error) {
 	return nil, &cloudops.ErrNotSupported{
 		Operation: "FreeDevices",
 	}

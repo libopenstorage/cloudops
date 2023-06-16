@@ -150,7 +150,7 @@ type Storage interface {
 	// FreeDevices returns free block devices on the instance.
 	// blockDeviceMappings is a data structure that contains all block devices on
 	// the instance and where they are mapped to
-	FreeDevices(blockDeviceMappings []interface{}, rootDeviceName string) ([]string, error)
+	FreeDevices() ([]string, error)
 	// Inspect volumes specified by volumeID
 	Inspect(volumeIds []*string, options map[string]string) ([]interface{}, error)
 	// DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME

@@ -557,10 +557,18 @@ func helperWithTimeoutAndBackoff(metadata *ec2metadata.EC2Metadata, p string) (s
 	return result, origErr
 }
 
-func (s *awsOps) FreeDevices(
-	blockDeviceMappings []interface{},
-	rootDeviceName string,
-) ([]string, error) {
+func (s *awsOps) FreeDevices() ([]string, error) {
+	self, err := s.describe()
+	if err != nil {
+		return nil, err
+	}
+	rootDeviceName := *self.RootDeviceName
+
+	var blockDeviceMappings = make([]interface{}, len(self.BlockDeviceMappings))
+	for i, b := range self.BlockDeviceMappings {
+		blockDeviceMappings[i] = b
+	}
+
 	freeLetterTracker := []byte("fghijklmnop")
 	devNamesInUse := make(map[string]string) // used as a set, values not used
 
@@ -878,17 +886,7 @@ func (s *awsOps) Attach(volumeID string, options map[string]string) (string, err
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	self, err := s.describe()
-	if err != nil {
-		return "", err
-	}
-
-	var blockDeviceMappings = make([]interface{}, len(self.BlockDeviceMappings))
-	for i, b := range self.BlockDeviceMappings {
-		blockDeviceMappings[i] = b
-	}
-
-	devices, err := s.FreeDevices(blockDeviceMappings, *self.RootDeviceName)
+	devices, err := s.FreeDevices()
 	if err != nil {
 		return "", err
 	}

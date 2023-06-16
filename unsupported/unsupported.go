@@ -137,7 +137,7 @@ func (u *unsupportedStorage) Describe() (interface{}, error) {
 		Operation: "Describe",
 	}
 }
-func (u *unsupportedStorage) FreeDevices(blockDeviceMappings []interface{}, rootDeviceName string) ([]string, error) {
+func (u *unsupportedStorage) FreeDevices() ([]string, error) {
 	return []string{}, &cloudops.ErrNotSupported{
 		Operation: "FreeDevices",
 	}

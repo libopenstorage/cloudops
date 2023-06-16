@@ -612,7 +612,7 @@ func (o *oracleOps) Attach(volumeID string, options map[string]string) (string, 
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	devices, err := o.FreeDevices([]interface{}{}, "")
+	devices, err := o.FreeDevices()
 	if err != nil {
 		return "", err
 	}
@@ -743,9 +743,7 @@ func (o *oracleOps) detachInternal(volumeID, instanceID string) error {
 // FreeDevices returns free block devices on the instance.
 // blockDeviceMappings is a data structure that contains all block devices on
 // the instance and where they are mapped to
-func (o *oracleOps) FreeDevices(
-	blockDeviceMappings []interface{},
-	rootDeviceName string) ([]string, error) {
+func (o *oracleOps) FreeDevices() ([]string, error) {
 	freeDevices := []string{}
 	listDevicesReq := core.ListInstanceDevicesRequest{
 		InstanceId:  common.String(o.instance),
