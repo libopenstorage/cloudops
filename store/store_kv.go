@@ -31,8 +31,8 @@ type kvStore struct {
 
 // NewKVStore returns a Store implementation which is a wrapper over
 // kvdb.
-func NewKVStore(kv kvdb.Kvdb) (Store, error) {
-	return newKVStoreWithParams(kv, cloudDriveKey, 0, 0)
+func NewKVStore(kv kvdb.Kvdb, ns string) (Store, error) {
+	return newKVStoreWithParams(kv, cloudDriveKey, 0, 0, ns)
 }
 
 // newKVStoreWithParams returns a Store implementation which is a wrapper over
@@ -42,6 +42,7 @@ func newKVStoreWithParams(
 	name string,
 	lockTryDuration time.Duration,
 	lockHoldDuration time.Duration,
+	namespace string,
 ) (Store, error) {
 	kstore := kvStore{
 		legacy: name == cloudDriveKey,
