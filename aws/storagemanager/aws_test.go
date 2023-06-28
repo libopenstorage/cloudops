@@ -713,6 +713,7 @@ func storageUpdate(t *testing.T) {
 				CurrentDriveType:    "gp3",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
+				CurrentIOPS:         3000,
 			},
 			response: &cloudops.StoragePoolUpdateResponse{
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
@@ -722,6 +723,32 @@ func storageUpdate(t *testing.T) {
 						DriveType:        "gp3",
 						DriveCount:       2,
 						IOPS:             3000,
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			// ***** TEST: 14
+			//        GP3 Instance has 2 x 350 GiB
+			//        Update from 700GiB to 800 GiB by resizing disks
+			request: &cloudops.StoragePoolUpdateRequest{
+				DesiredCapacity:     1000,
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				CurrentDriveSize:    350,
+				CurrentDriveType:    "gp3",
+				CurrentDriveCount:   1,
+				TotalDrivesOnNode:   2,
+				CurrentIOPS:         4000,
+			},
+			response: &cloudops.StoragePoolUpdateResponse{
+				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
+				InstanceStorage: []*cloudops.StoragePoolSpec{
+					{
+						DriveCapacityGiB: 350,
+						DriveType:        "gp3",
+						DriveCount:       2,
+						IOPS:             4000,
 					},
 				},
 			},
