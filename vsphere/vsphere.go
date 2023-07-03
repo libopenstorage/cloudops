@@ -61,7 +61,7 @@ type VirtualDisk struct {
 }
 
 // NewClient creates a new vsphere cloudops instance
-func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, error) {
+func NewClient(cfg *VSphereConfig, storeParams *store.Params, namespace string) (cloudops.Ops, error) {
 	vSphereConn := &vclib.VSphereConnection{
 		Username:          cfg.User,
 		Password:          cfg.Password,
@@ -91,7 +91,8 @@ func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, err
 			storeParams.InternalKvdb,
 			vSphereDataStoreLock,
 			420*time.Second,
-			100*time.Second)
+			100*time.Second,
+			namespace)
 		if err != nil {
 			logrus.Errorf(err.Error())
 			return nil, err
