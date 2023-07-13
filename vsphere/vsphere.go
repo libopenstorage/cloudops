@@ -31,6 +31,7 @@ import (
 const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
 	configProperty       = "config.hardware"
+	permissionError      = "Permission to perform this operation was denied"
 )
 
 type vsphereOps struct {
@@ -485,6 +486,10 @@ func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
 			if ok {
 				diskUUID, err := vmObj.Datacenter.GetVirtualDiskPage83Data(ctx, backing.FileName)
 				if err != nil {
+					if strings.Contains(err.Error(), permissionError) {
+						logrus.Errorf("access denied for device %v, skipping", backing.FileName)
+						continue // skip the cycle if we get Permission Error for the Datastore
+					}
 					vmName, _ := vmObj.ObjectName(ctx)
 					return nil, fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", backing.FileName, vmName, err)
 				}
@@ -942,6 +947,9 @@ func isExponentialError(err error) bool {
 		"ServerFaultCode": {},
 	}
 	if err != nil {
+		if strings.Contains(err.Error(), permissionError) {
+			return false
+		}
 		for retryErr := range retryErrors {
 			if strings.Contains(err.Error(), retryErr) {
 				return true
