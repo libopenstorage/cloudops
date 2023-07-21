@@ -37,7 +37,7 @@ func GetSanitizedK8sName(k8sName string) string {
 					sanitizedString += "."
 				}
 			}
-			//After sanitizing, we need the first and last letter to be alphanumeric
+			// After sanitizing, we need the first and last letter to be alphanumeric
 			isAlpha := regexp.MustCompile(`^[A-Za-z0-9]+$`).MatchString
 			first := float64(len(sanitizedString))
 			last := float64(0)
@@ -72,11 +72,12 @@ type k8sStore struct {
 
 // NewK8sStore returns a Store implementation which uses
 // k8s configmaps to store data.
-func NewK8sStore(clusterID string) (Store, configmap.ConfigMap, error) {
+func NewK8sStore(clusterID, ns string) (Store, configmap.ConfigMap, error) {
 	k8sStore, cm, err := newK8sStoreWithParams(
 		configmap.GetName(confgMapPrefix, clusterID),
 		configmap.DefaultK8sLockTimeout,
 		configmap.DefaultK8sLockAttempts*time.Second,
+		ns,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -90,6 +91,7 @@ func newK8sStoreWithParams(
 	name string,
 	lockTryDuration time.Duration,
 	lockTimeout time.Duration,
+	ns string,
 ) (Store, configmap.ConfigMap, error) {
 	lockAttempts := uint((lockTryDuration / time.Second))
 	cm, err := configmap.New(
@@ -99,6 +101,7 @@ func newK8sStoreWithParams(
 		lockAttempts,
 		0,
 		0,
+		ns,
 	)
 	if err != nil {
 		return nil, nil, err
