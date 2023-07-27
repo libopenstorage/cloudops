@@ -11,7 +11,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -24,6 +23,7 @@ import (
 	"github.com/libopenstorage/cloudops/pkg/exec"
 	"github.com/libopenstorage/cloudops/unsupported"
 	awscredentials "github.com/libopenstorage/secrets/aws/credentials"
+	"github.com/portworx/sched-ops/k8s/core"
 	"github.com/portworx/sched-ops/task"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -36,6 +36,9 @@ const (
 	awsDevicePrefixNvme          = "/dev/nvme"
 	contextTimeout               = 30 * time.Second
 	awsErrorModificationNotFound = "InvalidVolumeModification.NotFound"
+	// Standard aws credential constants
+	awsAccessKeyName       = "AWS_ACCESS_KEY_ID"
+	awsSecretAccessKeyName = "AWS_SECRET_ACCESS_KEY"
 )
 
 // For unit testing purpose
@@ -57,12 +60,12 @@ type awsOps struct {
 
 var (
 	// ErrAWSEnvNotAvailable is the error type when aws credentials are not set
-	ErrAWSEnvNotAvailable = fmt.Errorf("AWS credentials are not set in environment")
+	ErrAWSEnvNotAvailable = fmt.Errorf("aws credentials are not set in environment")
 	nvmeCmd               = exec.Which("nvme")
 )
 
 // NewClient creates a new cloud operations client for AWS
-func NewClient() (cloudops.Ops, error) {
+func NewClient(k8sSecretName, k8sSecretNamespace string) (cloudops.Ops, error) {
 	runningOnEc2 := true
 	zone, instanceID, instanceType, outpostARN, err := getInfoFromMetadata()
 	if err != nil {
@@ -79,8 +82,27 @@ func NewClient() (cloudops.Ops, error) {
 		}
 	}
 
+	var (
+		staticAwsSecretKey string
+		staticAwsAccessKey string
+	)
+	if len(k8sSecretName) != 0 && len(k8sSecretNamespace) != 0 {
+		k8sSecret, err := core.Instance().GetSecret(k8sSecretName, k8sSecretNamespace)
+		if err == nil {
+			awsAccessKey, found := k8sSecret.Data[awsAccessKeyName]
+			if !found {
+				return nil, fmt.Errorf("%v not found in k8s secret %v", awsAccessKeyName, k8sSecretName)
+			}
+			staticAwsAccessKey = string(awsAccessKey)
+			awsSecretKey, found := k8sSecret.Data[awsSecretAccessKeyName]
+			if !found {
+				return nil, fmt.Errorf("%v not found in k8s secret %v", awsSecretAccessKeyName, k8sSecretName)
+			}
+			staticAwsSecretKey = string(awsSecretKey)
+		} // else try other secret providers
+	}
 	region := zone[:len(zone)-1]
-	awsCreds, err := awscredentials.NewAWSCredentials("", "", "", runningOnEc2)
+	awsCreds, err := awscredentials.NewAWSCredentials(staticAwsAccessKey, staticAwsSecretKey, "", runningOnEc2)
 	if err != nil {
 		return nil, err
 	}
@@ -1167,10 +1189,6 @@ func getInfoFromEnv() (string, string, string, error) {
 	instanceType, err := cloudops.GetEnvValueStrict("AWS_INSTANCE_TYPE")
 	if err != nil {
 		return "", "", "", err
-	}
-
-	if _, err := credentials.NewEnvCredentials().Get(); err != nil {
-		return "", "", "", ErrAWSEnvNotAvailable
 	}
 
 	return zone, instance, instanceType, nil
