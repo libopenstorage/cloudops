@@ -49,7 +49,7 @@ rows:
     instance_max_drives: 12
     region: "*"
     min_size: 4096
-    max_size: 8192
+    max_size: 63488
     priority: 0
     thin_provisioning: true
     drive_type: "thin"
@@ -103,7 +103,7 @@ rows:
     instance_max_drives: 12
     region: "*"
     min_size: 4096
-    max_size: 8192
+    max_size: 63488
     priority: 0
     thin_provisioning: true
     drive_type: "zeroedthick"
@@ -157,7 +157,7 @@ rows:
     instance_max_drives: 12
     region: "*"
     min_size: 4096
-    max_size: 8192
+    max_size: 63488
     priority: 0
     thin_provisioning: true
     drive_type: "eagerzeroedthick"
@@ -211,7 +211,7 @@ rows:
     instance_max_drives: 12
     region: "*"
     min_size: 4096
-    max_size: 8192
+    max_size: 63488
     priority: 0
     thin_provisioning: false
     drive_type: "lazyzeroedthick"
