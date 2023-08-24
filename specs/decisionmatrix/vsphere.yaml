@@ -3,7 +3,7 @@ rows:
     instance_min_drives: 1
     instance_max_drives: 12
     region: "*"
-    min_size: 32
+    min_size: 8
     max_size: 100
     priority: 0
     thin_provisioning: true
@@ -57,7 +57,7 @@ rows:
     instance_min_drives: 1
     instance_max_drives: 12
     region: "*"
-    min_size: 32
+    min_size: 8
     max_size: 100
     priority: 0
     thin_provisioning: true
@@ -111,7 +111,7 @@ rows:
     instance_min_drives: 1
     instance_max_drives: 12
     region: "*"
-    min_size: 32
+    min_size: 8
     max_size: 100
     priority: 0
     thin_provisioning: true
@@ -165,7 +165,7 @@ rows:
     instance_min_drives: 1
     instance_max_drives: 12
     region: "*"
-    min_size: 32
+    min_size: 8
     max_size: 100
     priority: 0
     thin_provisioning: false
