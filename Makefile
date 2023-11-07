@@ -80,7 +80,7 @@ install:
 
 cloudops:
 	@echo "Building the cloudops binary"
-	@cd cmd/cloudops && CGO_ENABLED=0 go build $(BUILD_OPTIONS) -o $(BIN)/cloudops
+	@cd cmd/cloudops && CGO_ENABLED=0 go build $(BUILD_OPTIONS) -o ../../bin/cloudops
 
 generate-mockfiles:
 	go generate $(PKGS)

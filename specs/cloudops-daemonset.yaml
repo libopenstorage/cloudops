@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cloudops
+  namespace: kube-system
+  labels:
+    app: cloudops
+spec:
+  selector:
+    matchLabels:
+      app: cloudops
+  template:
+    metadata:
+      labels:
+        app: cloudops
+        tier: control-plane
+    spec:
+      containers:
+      - command:
+        - /cloudops
+        - --provider=azure
+        imagePullPolicy: Always
+        image:  priyanshu511/cloudops:latest
+        name: cloudops
+        ports:
+        - containerPort: 8090
+        env:
+        - name: STORAGE_PROVIDER 
+          value: "your-storage-provider"
+
+      # Add any other environment variables or volume mounts as needed
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudops-service
+  namespace: kube-system
+spec:
+  selector:
+    app: cloudops
+  ports:
+  - protocol: TCP
+    port: 8090
+    targetPort: 8090  # Use the same port as containerPort in the DaemonSet
+  type: ClusterIP  # Adjust the service type as needed
