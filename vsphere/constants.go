@@ -20,3 +20,6 @@ const (
 	VMUUIDEnvKey        = "VSPHERE_VM_UUID"
 	TestDatastoreEnvKey = "VSPHERE_TEST_DATASTORE"
 )
+const(
+	productSerialPath        = "/sys/class/dmi/id/product_serial"
+)
