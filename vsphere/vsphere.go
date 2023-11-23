@@ -3,6 +3,7 @@ package vsphere
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -74,6 +75,45 @@ func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, err
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	if len(cfg.VMUUID) == 0 {
+		vmwareSupportedErrStr := "Consult with Portworx support if you are running on a supported VMware platform."
+		logrus.Infof("Attempting to parse uuid from %s", productSerialPath)
+		// Reference: https://vmware.github.io/vsphere-storage-for-kubernetes/documentation/existing.html
+		// Sample content of product_serial file: VMware-42 02 8f c4 90 97 7f bf-58 b0 68 b4 58 0b 39 b0
+		// Doing below here
+		// cat /sys/class/dmi/id/product_serial | sed -e 's/^VMware-//' -e 's/-/ /' | awk '{ print toupper($1$2$3$4 "-" $5$6 "-" $7$8 "-" $9$10 "-" $11$12$13$14$15$16) }'
+		dat, err := ioutil.ReadFile(productSerialPath)
+		if err != nil {
+			err = fmt.Errorf("failed to read to vm uuid from product serial due to: %v. %s",
+				err, vmwareSupportedErrStr)
+			logrus.Errorf(err.Error())
+			return nil, err
+		}
+
+		datString := strings.TrimSpace(string(dat))
+
+		datString = strings.Replace(datString, "VMware-", "", 1)
+		datString = strings.Replace(datString, "-", " ", 1)
+		bytes := strings.Split(datString, " ")
+		if len(bytes) != 16 {
+			err := fmt.Errorf("%s does not have expected product serial. Found: %s. %s",
+				productSerialPath, datString, productSerialPath)
+			logrus.Errorf(err.Error())
+			return nil, err
+		}
+
+		cfg.VMUUID = strings.ToLower(fmt.Sprintf("%s%s%s%s-%s%s-%s%s-%s%s-%s%s%s%s%s%s",
+			bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+			bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
+
+		logrus.Infof("Parsed VM UUID: %s from product serial file", cfg.VMUUID)
+	}
+
+	if len(cfg.VMUUID) == 0 {
+		err := fmt.Errorf("failed to find VM UUID. Ensure you are running on a supported Kubernetes platform")
+		logrus.Errorf(err.Error())
+		return nil, err
+	}
 	vmObj, err := GetVMObject(ctx, vSphereConn, cfg.VMUUID)
 	if err != nil {
 		return nil, err
