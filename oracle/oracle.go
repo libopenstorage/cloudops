@@ -376,36 +376,83 @@ func (o *oracleOps) DevicePath(volumeID string) (string, error) {
 		return "", err
 	}
 
-	if volumeAttachmentResp.Items == nil ||
-		len(volumeAttachmentResp.Items) == 0 ||
-		volumeAttachmentResp.Items[0].GetInstanceId() == nil ||
-		volumeAttachmentResp.Items[0].GetLifecycleState() == core.VolumeAttachmentLifecycleStateDetached ||
-		volumeAttachmentResp.Items[0].GetLifecycleState() == core.VolumeAttachmentLifecycleStateDetaching {
+	/* List of volumeAttachements for a given volume can have multiple entries,
+	one for each attachement happened in past. For e.g
+
+	[
+	   {
+	      "AvailabilityDomain=ieuf":"US-ASHBURN-AD-3
+	      CompartmentId=ocid1.compartment.oc1..aaaaaaaajzk4fsk62c57i7tzejqn4fd4kicp5242zs2hwi5ly77peu4m6tra
+	      Id=ocid1.volumeattachment.oc1.iad.anuwcljrxypu2kici6ydxpkph7goz4lv3uharrx6pcp4vqoolxxd7wiwurdq
+	      InstanceId=ocid1.instance.oc1.iad.anuwcljrxypu2kicfvzrjqfmohzma22yvpqpbewhsrs7ujkgcepgyu3enrnq
+	      TimeCreated=2023-12-11 17":"12":55.722 +0000 UTC
+	      VolumeId=ocid1.volume.oc1.iad.abuwcljrbqodecemboccq3k3y6pdp62vpvps56tu6tlbg4zc57ploucmlptq
+	      Device=/dev/oracleoci/oraclevdb
+	      DisplayName=volumeattachment20231211171255
+	      IsReadOnly=false
+	      IsShareable=false
+	      IsPvEncryptionInTransitEnabled=false
+	      IsMultipath=<nil>
+	      LifecycleState=DETACHED
+	      IscsiLoginState=
+	   }{
+	      "AvailabilityDomain=ieuf":"US-ASHBURN-AD-3
+	      CompartmentId=ocid1.compartment.oc1..aaaaaaaajzk4fsk62c57i7tzejqn4fd4kicp5242zs2hwi5ly77peu4m6tra
+	      Id=ocid1.volumeattachment.oc1.iad.anuwcljrxypu2kicgllswaeuhxxowwui6bdownczbok5s4e3k4ejcxik3bba
+	      InstanceId=ocid1.instance.oc1.iad.anuwcljrxypu2kicg3i7g757isjqo6jswbdsmoxl4nicyq26mpmigecaxl3q
+	      TimeCreated=2023-12-12 02":"59":51.745 +0000 UTC
+	      VolumeId=ocid1.volume.oc1.iad.abuwcljrbqodecemboccq3k3y6pdp62vpvps56tu6tlbg4zc57ploucmlptq
+	      Device=/dev/oracleoci/oraclevdb
+	      DisplayName=volumeattachment20231212025951
+	      IsReadOnly=false
+	      IsShareable=false
+	      IsPvEncryptionInTransitEnabled=false
+	      IsMultipath=<nil>
+	      LifecycleState=ATTACHED
+	      IscsiLoginState=
+	   }
+	]
+	*/
+
+	if volumeAttachmentResp.Items == nil || len(volumeAttachmentResp.Items) == 0 {
 		return "", cloudops.NewStorageError(cloudops.ErrVolDetached,
 			"Volume is detached", volumeID)
 	}
 
-	volumeAttachment := volumeAttachmentResp.Items[0]
+	var latestVolumeAttachment core.VolumeAttachment
+	for _, va := range volumeAttachmentResp.Items {
+		if va.GetLifecycleState() == core.VolumeAttachmentLifecycleStateAttached {
+			// OCI Block Volumes (cloud-drives) created by PX are non-sharable,
+			// So, at any point in time, only one volumeAttachment will be in ATTACHED state
+			latestVolumeAttachment = va
+			break
+		}
+	}
 
-	if o.instance != *volumeAttachment.GetInstanceId() {
+	if latestVolumeAttachment == nil {
+		return "", cloudops.NewStorageError(cloudops.ErrVolDetached,
+			"Volume is detached", volumeID)
+	}
+
+	if o.instance != *latestVolumeAttachment.GetInstanceId() {
 		return "", cloudops.NewStorageError(cloudops.ErrVolAttachedOnRemoteNode,
 			fmt.Sprintf("Volume attached on %q current instance %q",
-				*volumeAttachment.GetInstanceId(), o.instance),
-			*volumeAttachment.GetInstanceId())
+				*latestVolumeAttachment.GetInstanceId(), o.instance),
+			*latestVolumeAttachment.GetInstanceId())
 	}
 
-	if volumeAttachment.GetLifecycleState() != core.VolumeAttachmentLifecycleStateAttached {
+	if latestVolumeAttachment.GetLifecycleState() != core.VolumeAttachmentLifecycleStateAttached {
 		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			fmt.Sprintf("Invalid state %q, volume is not attached",
-				volumeAttachment.GetLifecycleState()), "")
+				latestVolumeAttachment.GetLifecycleState()), "")
 	}
 
-	if volumeAttachment.GetDevice() == nil {
+	if latestVolumeAttachment.GetDevice() == nil {
 		return "", cloudops.NewStorageError(cloudops.ErrVolInval,
 			"Unable to determine volume attachment path", "")
 	}
 
-	return *volumeAttachment.GetDevice(), nil
+	return *latestVolumeAttachment.GetDevice(), nil
 }
 
 // Inspect volumes specified by volumeID
