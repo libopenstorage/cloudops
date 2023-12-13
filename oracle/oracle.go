@@ -435,7 +435,6 @@ func (o *oracleOps) DevicePath(volumeID string) (string, error) {
 					fmt.Sprintf("Volume %s is attached to multiple instances: [%s] and [%s]",
 						volumeID, attachedInstanceID, *va.GetInstanceId()), "")
 			}
-			break
 		}
 	}
 
