@@ -21,6 +21,8 @@ const (
 	// ErrDiskGreaterOrEqualToExpandSize is code when a volume/disk expansion call fails
 	// as the given disk is already at a size greater than or equal to requested size
 	ErrDiskGreaterOrEqualToExpandSize
+	// ErrVolumeAttachedOnMultipleNodes is code when a volume is attached to multiple nodes
+	ErrVolumeAttachedOnMultipleNodes
 )
 
 // ErrNotFound is error type when an object of Type with ID is not found
@@ -115,9 +117,9 @@ func (e *ErrCurrentCapacityHigherThanDesired) Error() string {
 
 // ErrCloudProviderRequestFailure is returned when an unknown API request failure occurred.
 type ErrCloudProviderRequestFailure struct {
-    // Request is the API function name
+	// Request is the API function name
 	Request string
-    // Message is the error message returned by the cloud provider
+	// Message is the error message returned by the cloud provider
 	Message string
 }
 

@@ -420,11 +420,21 @@ func (o *oracleOps) DevicePath(volumeID string) (string, error) {
 	}
 
 	var latestVolumeAttachment core.VolumeAttachment
+	var attachedInstanceID string
 	for _, va := range volumeAttachmentResp.Items {
 		if va.GetLifecycleState() == core.VolumeAttachmentLifecycleStateAttached {
 			// OCI Block Volumes (cloud-drives) created by PX are non-sharable,
 			// So, at any point in time, only one volumeAttachment will be in ATTACHED state
-			latestVolumeAttachment = va
+			if attachedInstanceID == "" {
+				attachedInstanceID = *va.GetInstanceId()
+				latestVolumeAttachment = va
+			} else if attachedInstanceID == *va.GetInstanceId() {
+				latestVolumeAttachment = va
+			} else {
+				return "", cloudops.NewStorageError(cloudops.ErrVolumeAttachedOnMultipleNodes,
+					fmt.Sprintf("Volume %s is attached to multiple instances: [%s] and [%s]",
+						volumeID, attachedInstanceID, *va.GetInstanceId()), "")
+			}
 			break
 		}
 	}
