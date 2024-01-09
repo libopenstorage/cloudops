@@ -1244,6 +1244,9 @@ func gceInfo(ctx context.Context, inst *instance) error {
 	}
 
 	credential, err := google.FindDefaultCredentials(ctx)
+	if err != nil {
+		return err
+	}
 	content := map[string]interface{}{}
 	json.Unmarshal(credential.JSON, &content)
 	if content["client_email"] != nil {
