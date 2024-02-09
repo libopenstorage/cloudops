@@ -7,7 +7,7 @@ const (
 	diskDirectory               = "osd-provisioned-disks"
 	dummyDiskName               = "kube-dummyDisk.vmdk"
 	diskByIDPath                = "/dev/disk/by-id/"
-	diskSCSIPrefix              = "wwn-0x"
+	DiskSCSIPrefix              = "wwn-0x"
 	keepAfterDeleteVMApiVersion = "6.7.3"
 
 	VCenterEnvKey     = "VSPHERE_VCENTER"

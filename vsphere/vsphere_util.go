@@ -168,7 +168,8 @@ func setdatastoreFolderIDMap(
 }
 
 // GetStoragePodMoList fetches the managed storage pod objects for the given references
-//		Only the properties is the given property list will be populated in the response
+//
+//	Only the properties is the given property list will be populated in the response
 func GetStoragePodMoList(
 	ctx context.Context,
 	client *vim25.Client,
