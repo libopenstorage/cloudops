@@ -323,7 +323,7 @@ func (ops *vsphereOps) Attach(diskPath string, options map[string]string) (strin
 		return "", err
 	}
 
-	return path.Join(diskByIDPath, diskSCSIPrefix+diskUUID), nil
+	return path.Join(diskByIDPath, DiskSCSIPrefix+diskUUID), nil
 }
 
 func (ops *vsphereOps) Detach(diskPath string, options map[string]string) error {
@@ -494,7 +494,7 @@ func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
 					return nil, fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", backing.FileName, vmName, err)
 				}
 
-				devicePath, err := path.Join(diskByIDPath, diskSCSIPrefix+diskUUID), nil
+				devicePath, err := path.Join(diskByIDPath, DiskSCSIPrefix+diskUUID), nil
 				if err == nil && len(devicePath) != 0 { // TODO can ignore errors?
 					m[devicePath] = backing.FileName
 				}
@@ -535,7 +535,7 @@ func (ops *vsphereOps) DevicePath(diskPath string) (string, error) {
 		return "", fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", diskPath, vmName, err)
 	}
 
-	return path.Join(diskByIDPath, diskSCSIPrefix+diskUUID), nil
+	return path.Join(diskByIDPath, DiskSCSIPrefix+diskUUID), nil
 }
 
 func (ops *vsphereOps) Enumerate(volumeIds []*string,
