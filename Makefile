@@ -41,7 +41,7 @@ vendor:
 	go mod vendor
 
 $(GOPATH)/bin/golint:
-	GO111MODULE=on go get -u golang.org/x/lint/golint
+	GO111MODULE=off go get -u golang.org/x/lint/golint
 lint: $(GOPATH)/bin/golint
 	for file in $$(find . -name '*.go' | grep -v vendor | \
                                        grep -v '\.pb\.go' | \
