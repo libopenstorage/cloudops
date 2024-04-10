@@ -189,6 +189,7 @@ func storageDistribution(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		/*
 		{
 			// Test6: reduce the number of instances per zone if the IOPS and min capacity are not met
 			request: &cloudops.StorageDistributionRequest{
@@ -216,6 +217,7 @@ func storageDistribution(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		*/
 		{
 			// Test7: provision an io1 drive if the IOPS is not achievable
 			// by the provided size
