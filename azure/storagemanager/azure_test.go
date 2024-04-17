@@ -1,3 +1,4 @@
+//go:build unittest
 // +build unittest
 
 package storagemanager
@@ -70,7 +71,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 256,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						InstancesPerZone: 2,
 						DriveCount:       1,
 						IOPS:             1100,
@@ -116,6 +117,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        5000,
 						MinCapacity: 9216,
 						MaxCapacity: 90000,
+						DriveType:   "PremiumV2_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -127,7 +129,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "Premium_LRS",
+						DriveType:        "PremiumV2_LRS",
 						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             5000,
@@ -200,6 +202,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        7500,
 						MinCapacity: 4096,
 						MaxCapacity: 100000,
+						DriveType:   "UltraSSD_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -210,7 +213,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 2048,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             7500,
@@ -227,6 +230,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        7500,
 						MinCapacity: 2048,
 						MaxCapacity: 100000,
+						DriveType:   "Premium_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -261,6 +265,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        5000,
 						MinCapacity: 9216,
 						MaxCapacity: 90000,
+						DriveType:   "PremiumV2_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -278,7 +283,7 @@ func storageDistribution(t *testing.T) {
 					},
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "Premium_LRS",
+						DriveType:        "PremiumV2_LRS",
 						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             5000,
@@ -367,7 +372,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1536,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentIOPS:         1000,
 				CurrentDriveCount:   3,
 			},
@@ -376,7 +381,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 512,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						DriveCount:       3,
 						IOPS:             1100,
 					},
@@ -440,7 +445,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     4096,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "PremiumV2_LRS",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -449,7 +454,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "Premium_LRS",
+						DriveType:        "PremiumV2_LRS",
 						DriveCount:       2,
 					},
 				},
@@ -488,7 +493,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     2000,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    600,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -497,7 +502,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						DriveCount:       1,
 					},
 				},
@@ -596,7 +601,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     400,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "PremiumV2_LRS",
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -605,7 +610,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        "Premium_LRS",
+						DriveType:        "PremiumV2_LRS",
 						DriveCount:       1,
 					},
 				},
@@ -644,7 +649,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     401,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -710,7 +715,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     953,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    137,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentDriveCount:   5,
 				TotalDrivesOnNode:   5,
 			},
@@ -719,7 +724,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 191,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						DriveCount:       5,
 					},
 				},

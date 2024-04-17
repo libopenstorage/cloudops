@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2021-07-01/containerservice"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-07-01/containerservice"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -347,7 +347,7 @@ func (a *azureOps) SetInstanceGroupSize(instanceGroupID string,
 	instanceGroupSize := int32(count)
 	agentPoolProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
 		Count:  &instanceGroupSize,
-		OsType: containerservice.OSTypeLinux,
+		OsType: containerservice.Linux,
 	}
 
 	agentPool := containerservice.AgentPool{
@@ -410,7 +410,7 @@ func (a *azureOps) Create(
 			Sku:      d.Sku,
 			DiskProperties: &compute.DiskProperties{
 				CreationData: &compute.CreationData{
-					CreateOption: compute.DiskCreateOptionEmpty,
+					CreateOption: compute.Empty,
 				},
 				DiskSizeGB:                   d.DiskProperties.DiskSizeGB,
 				DiskIOPSReadWrite:            d.DiskProperties.DiskIOPSReadWrite,
@@ -847,7 +847,7 @@ func (a *azureOps) Snapshot(diskName string, readonly bool, options map[string]s
 			Location: disk.Location,
 			SnapshotProperties: &compute.SnapshotProperties{
 				CreationData: &compute.CreationData{
-					CreateOption:     compute.DiskCreateOptionCopy,
+					CreateOption:     compute.Copy,
 					SourceResourceID: disk.ID,
 				},
 			},
