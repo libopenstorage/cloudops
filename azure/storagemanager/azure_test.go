@@ -71,7 +71,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 256,
-						DriveType:        "UltraSSD_LRS",
+						DriveType:        "Premium_LRS",
 						InstancesPerZone: 2,
 						DriveCount:       1,
 						IOPS:             1100,
@@ -117,7 +117,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        5000,
 						MinCapacity: 9216,
 						MaxCapacity: 90000,
-						DriveType:   "PremiumV2_LRS",
+						DriveType:   "Premium_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -129,7 +129,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "PremiumV2_LRS",
+						DriveType:        "Premium_LRS",
 						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             5000,
@@ -202,7 +202,6 @@ func storageDistribution(t *testing.T) {
 						IOPS:        7500,
 						MinCapacity: 4096,
 						MaxCapacity: 100000,
-						DriveType:   "UltraSSD_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -213,7 +212,7 @@ func storageDistribution(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 2048,
-						DriveType:        "UltraSSD_LRS",
+						DriveType:        "Premium_LRS",
 						InstancesPerZone: 1,
 						DriveCount:       1,
 						IOPS:             7500,
@@ -265,7 +264,6 @@ func storageDistribution(t *testing.T) {
 						IOPS:        5000,
 						MinCapacity: 9216,
 						MaxCapacity: 90000,
-						DriveType:   "PremiumV2_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -283,7 +281,7 @@ func storageDistribution(t *testing.T) {
 					},
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "PremiumV2_LRS",
+						DriveType:        "Premium_LRS",
 						InstancesPerZone: 3,
 						DriveCount:       1,
 						IOPS:             5000,
@@ -383,7 +381,7 @@ func storageUpdate(t *testing.T) {
 						DriveCapacityGiB: 512,
 						DriveType:        "UltraSSD_LRS",
 						DriveCount:       3,
-						IOPS:             1100,
+						IOPS:             9600,
 					},
 				},
 			},

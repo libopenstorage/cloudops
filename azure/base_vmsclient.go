@@ -57,10 +57,14 @@ func (b *baseVMsClient) updateDataDisks(
 	instanceName string,
 	dataDisks []compute.DataDisk,
 ) error {
+	ultraSSDenabled := true
 	updatedVM := compute.VirtualMachineUpdate{
 		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{
 				DataDisks: &dataDisks,
+			},
+			AdditionalCapabilities: &compute.AdditionalCapabilities{
+				UltraSSDEnabled: &ultraSSDenabled,
 			},
 		},
 	}
