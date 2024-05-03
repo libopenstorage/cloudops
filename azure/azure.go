@@ -613,21 +613,21 @@ func (a *azureOps) Expand(
 	// Azure resizes in chunks of GiB even if the disk properties variable is DiskSizeGB
 	newSizeInGiBInt32 := int32(newSizeInGiB)
 	disk.DiskProperties.DiskSizeGB = &newSizeInGiBInt32
-	logrus.Infof("Dolly Log Expand *disk %v", disk.Sku.Name)
-	logrus.Infof("Dolly Log Expand newSizeInGiBInt32 %v", newSizeInGiBInt32)
+
+	//The minimum guaranteed IOPS per disk are 1 IOPS/GiB,
+	//with an overall baseline minimum of 100 IOPS.
+	//For example, if you provisioned a 4-GiB ultra disk,
+	//the minimum IOPS for that disk is 100, instead of four.
+	//https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#ultra-disk-iops
 	if disk.Sku.Name == compute.UltraSSDLRS {
 		newIops := int64(newSizeInGiB)
-		logrus.Infof("Dolly Log Expand newIopsReadWriteInt64 %v", newIops)
 		if *disk.DiskProperties.DiskIOPSReadOnly < newIops {
 			disk.DiskProperties.DiskIOPSReadOnly = &newIops
-			logrus.Infof("Dolly Log Expand disk.DiskProperties.DiskIOPSReadWrite %v", *disk.DiskProperties.DiskIOPSReadWrite)
 		}
 		if *disk.DiskProperties.DiskIOPSReadWrite < newIops {
 			disk.DiskProperties.DiskIOPSReadWrite = &newIops
-			logrus.Infof("Dolly Log Expand disk.DiskProperties.DiskIOPSReadWrite %v", *disk.DiskProperties.DiskIOPSReadWrite)
 		}
 	}
-	logrus.Infof("Dolly Log Expand %v", *disk.DiskProperties.DiskIOPSReadWrite)
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
 		ctx,
