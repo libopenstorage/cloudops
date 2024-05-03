@@ -230,7 +230,7 @@ rows:
           priority: 2
           thin_provisioning: false
           drive_type: "PremiumV2_LRS"
-        - min_iops: 9600
+        - min_iops: 100
           max_iops: 400000
           instance_type: "*"
           instance_max_drives: 8

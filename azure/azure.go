@@ -614,6 +614,20 @@ func (a *azureOps) Expand(
 	newSizeInGiBInt32 := int32(newSizeInGiB)
 	disk.DiskProperties.DiskSizeGB = &newSizeInGiBInt32
 
+	//The minimum guaranteed IOPS per disk are 1 IOPS/GiB,
+	//with an overall baseline minimum of 100 IOPS.
+	//For example, if you provisioned a 4-GiB ultra disk,
+	//the minimum IOPS for that disk is 100, instead of four.
+	//https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#ultra-disk-iops
+	if disk.Sku.Name == compute.UltraSSDLRS {
+		newIops := int64(newSizeInGiB)
+		if *disk.DiskProperties.DiskIOPSReadOnly < newIops {
+			disk.DiskProperties.DiskIOPSReadOnly = &newIops
+		}
+		if *disk.DiskProperties.DiskIOPSReadWrite < newIops {
+			disk.DiskProperties.DiskIOPSReadWrite = &newIops
+		}
+	}
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
 		ctx,
