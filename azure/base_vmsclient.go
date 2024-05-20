@@ -6,6 +6,8 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/sirupsen/logrus"
 )
 
 type baseVMsClient struct {
@@ -76,6 +78,30 @@ func (b *baseVMsClient) updateDataDisks(
 		instanceName,
 		updatedVM,
 	)
+	if err != nil {
+		if azErr, ok := err.(autorest.DetailedError); ok {
+			if re, ok := azErr.Original.(azure.RequestError); ok &&
+				re.ServiceError.Code == "OperationNotAllowed" {
+				logrus.Warnf("Failed to UpdateDatadisk with error : %v retrying without ultraEnabled", err)
+				// retrying without additional Capabilities since
+				//  additionalCapabilities.ultraSSDEnabled' can be updated only when VM is in deallocated state.
+				updatedVM = compute.VirtualMachineUpdate{
+					VirtualMachineProperties: &compute.VirtualMachineProperties{
+						StorageProfile: &compute.StorageProfile{
+							DataDisks: &dataDisks,
+						},
+					},
+				}
+				future, err = b.client.Update(
+					ctx,
+					b.resourceGroupName,
+					instanceName,
+					updatedVM,
+				)
+			}
+		}
+	}
+
 	if err != nil {
 		return err
 	}
