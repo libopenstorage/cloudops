@@ -70,6 +70,12 @@ func (o *oracleStorageManager) RecommendStoragePoolUpdate(request *cloudops.Stor
 	return resp, nil
 }
 
+func (o *oracleStorageManager) GetMaxDriveSize(
+	request *cloudops.MaxDriveSizeRequest) (*cloudops.MaxDriveSizeResponse, error) {
+	resp, err := storagedistribution.GetMaxDriveSize(request, o.decisionMatrix)
+	return resp, err
+}
+
 func determineIOPSForPool(instStorage *cloudops.StoragePoolSpec, row *cloudops.StorageDecisionMatrixRow) uint64 {
 	var iopsPerGB, maxIopsPerVol int64
 	switch row.DriveType {

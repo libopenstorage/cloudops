@@ -217,3 +217,10 @@ func (u *unsupportedStorageManager) RecommendStoragePoolUpdate(
 		Operation: "RecommendStoragePoolUpdate",
 	}
 }
+
+func (u *unsupportedStorageManager) GetMaxDriveSize(
+	request *cloudops.MaxDriveSizeRequest) (*cloudops.MaxDriveSizeResponse, error) {
+	return nil, &cloudops.ErrNotSupported{
+		Operation: "GetMaxDriveSize",
+	}
+}

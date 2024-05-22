@@ -33,6 +33,7 @@ func TestAzureStorageManager(t *testing.T) {
 	t.Run("setup", setup)
 	t.Run("storageDistribution", storageDistribution)
 	t.Run("storageUpdate", storageUpdate)
+	t.Run("maxDriveSize", maxDriveSize)
 }
 
 func setup(t *testing.T) {
@@ -778,6 +779,99 @@ func storageUpdate(t *testing.T) {
 			}
 		} else {
 			require.NotNil(t, err, "RecommendInstanceStorageUpdate should have returned an error")
+			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
+		}
+	}
+}
+
+func maxDriveSize(t *testing.T) {
+	testMatrix := []struct {
+		expectedErr error
+		request     *cloudops.MaxDriveSizeRequest
+		response    *cloudops.MaxDriveSizeResponse
+	}{
+		{
+			// Test1: empty drive type
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "",
+			},
+			response:    nil,
+			expectedErr: &cloudops.ErrInvalidMaxDriveSizeRequest{Request: &cloudops.MaxDriveSizeRequest{DriveType: ""}, Reason: "empty drive type"},
+		},
+		{
+			// Test2: invalid drive type
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "invalid_drive",
+			},
+			response:    nil,
+			expectedErr: &cloudops.ErrMaxDriveSizeCandidateNotFound{Request: &cloudops.MaxDriveSizeRequest{DriveType: "invalid_drive"}, Reason: "no matching inputs found for input drive type"},
+		},
+
+		{
+			// Test3: Premium_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "Premium_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test4: StandardSSD_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "StandardSSD_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test5: Standard_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "Standard_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test6: PremiumV2_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "PremiumV2_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 65536,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test7: UltraSSD_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "UltraSSD_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 65536,
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for j, test := range testMatrix {
+		fmt.Println("Executing test case: ", j+1)
+		response, err := storageManager.GetMaxDriveSize(test.request)
+		if test.expectedErr == nil {
+			require.Nil(t, err, "GetMaxDriveSize returned an error")
+			require.NotNil(t, response, "GetMaxDriveSize returned empty response")
+			require.Equal(t, test.response.MaxSize, response.MaxSize, "expected and actual max drive size not equal")
+		} else {
+			require.NotNil(t, err, "GetMaxDriveSize should have returned an error")
 			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
 		}
 	}
