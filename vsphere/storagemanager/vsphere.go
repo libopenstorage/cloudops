@@ -55,6 +55,13 @@ func (a *vsphereStorageManager) RecommendStoragePoolUpdate(
 	resp, _, err := storagedistribution.GetStorageUpdateConfig(request, a.decisionMatrix)
 	return resp, err
 }
+
+func (a *vsphereStorageManager) GetMaxDriveSize(
+	request *cloudops.MaxDriveSizeRequest) (*cloudops.MaxDriveSizeResponse, error) {
+	resp, err := storagedistribution.GetMaxDriveSize(request, a.decisionMatrix)
+	return resp, err
+}
+
 func init() {
 	cloudops.RegisterStorageManager(cloudops.Vsphere, newVsphereStorageManager)
 }

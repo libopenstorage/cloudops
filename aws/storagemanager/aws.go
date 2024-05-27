@@ -79,6 +79,12 @@ func (a *awsStorageManager) RecommendStoragePoolUpdate(
 	return resp, nil
 }
 
+func (a *awsStorageManager) GetMaxDriveSize(
+	request *cloudops.MaxDriveSizeRequest) (*cloudops.MaxDriveSizeResponse, error) {
+	resp, err := storagedistribution.GetMaxDriveSize(request, a.decisionMatrix)
+	return resp, err
+}
+
 func determineIOPSForPool(instStorage *cloudops.StoragePoolSpec, row *cloudops.StorageDecisionMatrixRow, currentIOPS uint64) uint64 {
 	if instStorage.DriveType == DriveTypeGp2 {
 		return instStorage.DriveCapacityGiB * Gp2IopsMultiplier

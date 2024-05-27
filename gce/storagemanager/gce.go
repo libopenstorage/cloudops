@@ -43,7 +43,6 @@ const (
 	GCESSDMaxIopsLeast uint64 = 15000
 	// GCESSDMaxIopsMost is the most of all the maximum iops that can be achieved with disk type px-ssd.
 	GCESSDMaxIopsMost uint64 = 100000
-
 )
 
 // NewStorageManager returns a GCE specific implementation of StorageManager interface.
@@ -123,6 +122,19 @@ func (g *gceStorageManager) RecommendStoragePoolUpdate(request *cloudops.Storage
 	}
 
 	return resp, nil
+}
+
+func (g *gceStorageManager) GetMaxDriveSize(request *cloudops.MaxDriveSizeRequest) (*cloudops.MaxDriveSizeResponse, error) {
+	// this hack is required because the gce drive type comes as urls:
+	// https://www.googleapis.com/compute/v1/projects/portworx-eng/zones/us-east1-b/diskTypes/pd-standard
+	// or  https://www.googleapis.com/compute/v1/projects/portworx-eng/zones/us-east1-b/diskTypes/pd-ssd
+	if request.DriveType != "" {
+		split := strings.Split(request.DriveType, "/")
+		request.DriveType = split[len(split)-1]
+	}
+
+	resp, err := storagedistribution.GetMaxDriveSize(request, g.decisionMatrix)
+	return resp, err
 }
 
 func determineIOPSForPool(instStorage *cloudops.StoragePoolSpec, row *cloudops.StorageDecisionMatrixRow) uint64 {
