@@ -118,6 +118,11 @@ type Compute interface {
 	SetInstanceGroupVersion(instanceGroupID string,
 		version string,
 		timeout time.Duration) error
+	// SetInstanceUpgradeStrategy sets desired Upgrade strategy & respective parameters for the node group
+	SetInstanceUpgradeStrategy(instanceGroupID string,
+		upgradeStrategy string,
+		timeout time.Duration,
+		surgeSetting string) error
 }
 
 // Storage interface to manage storage operations.

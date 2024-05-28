@@ -75,6 +75,15 @@ func (u *unsupportedCompute) SetInstanceGroupVersion(instanceGroupID string,
 	}
 }
 
+func (u *unsupportedCompute) SetInstanceUpgradeStrategy(instanceGroupID string,
+	upgradeStrategy string,
+	timeout time.Duration,
+	surgeSetting string) error {
+	return &cloudops.ErrNotSupported{
+		Operation: "SetInstanceUpgradeStrategy",
+	}
+}
+
 type unsupportedStorage struct {
 }
 
