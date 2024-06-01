@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -626,6 +627,19 @@ func (a *azureOps) Expand(
 		}
 		if *disk.DiskProperties.DiskIOPSReadWrite < newIops {
 			disk.DiskProperties.DiskIOPSReadWrite = &newIops
+		}
+		//The throughput limit of a single Ultra Disk is 256-kB/s for each provisioned IOPS,
+		//up to a maximum of 10,000 MB/s per disk.
+		// The minimum guaranteed throughput per disk is 4kB/s for each provisioned IOPS,
+		//with an overall baseline minimum of 1 MB/s.
+		iops := float64(*disk.DiskProperties.DiskIOPSReadOnly)
+		throughput := math.Ceil(math.Max(iops*4/1024, 1))
+		minThroughput := int64(math.Min(throughput, 10000))
+		if *disk.DiskProperties.DiskMBpsReadWrite < minThroughput {
+			disk.DiskProperties.DiskMBpsReadWrite = &minThroughput
+		}
+		if *disk.DiskProperties.DiskMBpsReadOnly < minThroughput {
+			disk.DiskProperties.DiskMBpsReadOnly = &minThroughput
 		}
 	}
 	ctx := context.Background()
