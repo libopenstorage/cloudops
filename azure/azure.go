@@ -54,6 +54,7 @@ const (
 	devicePathMaxRetryCount             = 3
 	devicePathRetryInterval             = 2 * time.Second
 	errCodeAttachDiskWhileBeingDetached = "AttachDiskWhileBeingDetached"
+	maxIopsUltra                        = 400000
 )
 
 var (
@@ -84,6 +85,24 @@ type Config struct {
 	ManagedClusterName string
 	AgentPoolName      string
 	UserAgent          string
+}
+
+// calculateMedianThroughput calculates the median throuput for a particular IOPS value for Ultra Disks
+func calculateMedianThroughput(iops int64) (medianThroughput int64) {
+	// Calculate max throughput
+	maxThroughput := int64(math.Min(float64(iops*256/1024), 10000)) // Convert kB/s to MB/s
+
+	// Calculate min throughput
+	minThroughput := int64(math.Max(float64(iops*4/1024), 1)) // Convert kB/s to MB/s and ensure minimum 1 MB/s
+
+	//calculate median throughput
+	medianThroughput = (maxThroughput + minThroughput) / 2
+	return medianThroughput
+}
+
+// calculateIopsUltra calculates the median IOPS for a particular size of disk for ultra disks
+func calculateIopsUltra(sizeGiB int32) (medianIops int64) {
+	return int64(math.Min(float64(sizeGiB)*150, maxIopsUltra))
 }
 
 // NewClientFromMetadata initializes cloudops driver for azure based on environment
@@ -397,7 +416,11 @@ func (a *azureOps) Create(
 	if !ok || code != 404 {
 		return "", err
 	}
-
+	if d.Sku.Name == compute.UltraSSDLRS {
+		iops := calculateIopsUltra(*d.DiskProperties.DiskSizeGB)
+		d.DiskProperties.DiskIOPSReadOnly = &iops
+		d.DiskProperties.DiskIOPSReadWrite = &iops
+	}
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
 		ctx,
@@ -615,31 +638,28 @@ func (a *azureOps) Expand(
 	newSizeInGiBInt32 := int32(newSizeInGiB)
 	disk.DiskProperties.DiskSizeGB = &newSizeInGiBInt32
 
-	//The minimum guaranteed IOPS per disk are 1 IOPS/GiB,
-	//with an overall baseline minimum of 100 IOPS.
-	//For example, if you provisioned a 4-GiB ultra disk,
-	//the minimum IOPS for that disk is 100, instead of four.
+	//The minimum guaranteed IOPS per disk are 1 IOPS/GiB and Maximum is 300 IOPS/GiB
+	// We will set the IOPS to a median Value , that is 150 IOPS/GiB
 	//https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#ultra-disk-iops
 	if disk.Sku.Name == compute.UltraSSDLRS {
-		newIops := int64(newSizeInGiB)
-		if *disk.DiskProperties.DiskIOPSReadOnly < newIops {
-			disk.DiskProperties.DiskIOPSReadOnly = &newIops
+		iops := calculateIopsUltra(newSizeInGiBInt32)
+		if *disk.DiskProperties.DiskIOPSReadOnly < iops {
+			disk.DiskProperties.DiskIOPSReadOnly = &iops
 		}
-		if *disk.DiskProperties.DiskIOPSReadWrite < newIops {
-			disk.DiskProperties.DiskIOPSReadWrite = &newIops
+		if *disk.DiskProperties.DiskIOPSReadWrite < iops {
+			disk.DiskProperties.DiskIOPSReadWrite = &iops
 		}
 		//The throughput limit of a single Ultra Disk is 256-kB/s for each provisioned IOPS,
 		//up to a maximum of 10,000 MB/s per disk.
 		// The minimum guaranteed throughput per disk is 4kB/s for each provisioned IOPS,
 		//with an overall baseline minimum of 1 MB/s.
-		iops := float64(*disk.DiskProperties.DiskIOPSReadOnly)
-		throughput := math.Ceil(math.Max(iops*4/1024, 1))
-		minThroughput := int64(math.Min(throughput, 10000))
-		if *disk.DiskProperties.DiskMBpsReadWrite < minThroughput {
-			disk.DiskProperties.DiskMBpsReadWrite = &minThroughput
+		iops = *disk.DiskProperties.DiskIOPSReadOnly
+		medianThroughput := calculateMedianThroughput(iops)
+		if *disk.DiskProperties.DiskMBpsReadWrite < medianThroughput {
+			disk.DiskProperties.DiskMBpsReadWrite = &medianThroughput
 		}
-		if *disk.DiskProperties.DiskMBpsReadOnly < minThroughput {
-			disk.DiskProperties.DiskMBpsReadOnly = &minThroughput
+		if *disk.DiskProperties.DiskMBpsReadOnly < medianThroughput {
+			disk.DiskProperties.DiskMBpsReadOnly = &medianThroughput
 		}
 	}
 	ctx := context.Background()
