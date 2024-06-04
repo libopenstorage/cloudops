@@ -87,6 +87,7 @@ type Config struct {
 	UserAgent          string
 }
 
+
 // calculateMaxThroughput calculates the max throuput for a particular IOPS value for Ultra Disks
 func calculateMaxThroughput(iops int64) (maxThroughput int64) {
 	return int64(math.Min(float64(iops*256/1024), 10000)) // Convert kB/s to MB/s

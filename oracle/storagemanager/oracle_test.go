@@ -30,6 +30,7 @@ func TestOracleStorageManager(t *testing.T) {
 	t.Run("setup", setup)
 	t.Run("storageDistribution", storageDistribution)
 	t.Run("storageUpdate", storageUpdate)
+	t.Run("maxDriveSize", maxDriveSize)
 }
 
 func setup(t *testing.T) {
@@ -560,6 +561,187 @@ func storageUpdate(t *testing.T) {
 			}
 		} else {
 			require.NotNil(t, err, "RecommendInstanceStorageUpdate should have returned an error")
+			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
+		}
+	}
+}
+
+func maxDriveSize(t *testing.T) {
+	testMatrix := []struct {
+		expectedErr error
+		request     *cloudops.MaxDriveSizeRequest
+		response    *cloudops.MaxDriveSizeResponse
+	}{
+		{
+			// Test1: empty drive type
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "",
+			},
+			response:    nil,
+			expectedErr: &cloudops.ErrInvalidMaxDriveSizeRequest{Request: &cloudops.MaxDriveSizeRequest{DriveType: ""}, Reason: "empty drive type"},
+		},
+		{
+			// Test2: invalid drive type
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "invalid_drive",
+			},
+			response:    nil,
+			expectedErr: &cloudops.ErrMaxDriveSizeCandidateNotFound{Request: &cloudops.MaxDriveSizeRequest{DriveType: "invalid_drive"}, Reason: "no matching inputs found for input drive type"},
+		},
+
+		{
+			// Test3: pv-0 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-0",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test4: pv-10 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-10",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test5: pv-20 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-20",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test6: pv-30 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-30",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test7: pv-40 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-40",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test8: pv-50 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-50",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test9: pv-60 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-60",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test10: pv-70 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-70",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test11: pv-80 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-80",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test12: pv-90 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-90",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test13: pv-100 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-100",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test14: pv-110 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-110",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test15: pv-120 drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "pv-120",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for j, test := range testMatrix {
+		fmt.Println("Executing test case: ", j+1)
+		response, err := storageManager.GetMaxDriveSize(test.request)
+		if test.expectedErr == nil {
+			require.Nil(t, err, "GetMaxDriveSize returned an error")
+			require.NotNil(t, response, "GetMaxDriveSize returned empty response")
+			require.Equal(t, test.response.MaxSize, response.MaxSize, "expected and actual max drive size not equal")
+		} else {
+			require.NotNil(t, err, "GetMaxDriveSize should have returned an error")
 			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
 		}
 	}
