@@ -873,6 +873,9 @@ func (s *gceOps) SetInstanceUpgradeStrategy(instanceGroupID string,
 		return fmt.Errorf("invalid surge setting: %s", surgeSetting)
 	}
 
+	logrus.Infof("Setting upgrade strategy for instance group [%s] to [%s] with MaxSurge [%d] & MaxUnavailable [%d]",
+		instanceGroupID, upgradeStrategy, MaxSurge, MaxUnavailable)
+
 	nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
 		s.inst.project, s.inst.clusterLocation, s.inst.clusterName, instanceGroupID)
 

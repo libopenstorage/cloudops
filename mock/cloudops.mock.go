@@ -485,3 +485,17 @@ func (mr *MockOpsMockRecorder) Tags(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tags", reflect.TypeOf((*MockOps)(nil).Tags), arg0)
 }
+
+// SetInstanceUpgradeStrategy mocks base method
+func (m *MockOps) SetInstanceUpgradeStrategy(arg0 string, arg1 string, arg2 time.Duration, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetInstanceUpgradeStrategy", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetInstanceUpgradeStrategy indicates an expected call of SetInstanceUpgradeStrategy
+func (mr *MockOpsMockRecorder) SetInstanceUpgradeStrategy(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceUpgradeStrategy", reflect.TypeOf((*MockOps)(nil).SetInstanceUpgradeStrategy), arg0, arg1, arg2, arg3)
+}
