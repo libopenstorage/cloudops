@@ -1,3 +1,4 @@
+//go:build unittest
 // +build unittest
 
 package storagemanager
@@ -32,6 +33,7 @@ func TestAzureStorageManager(t *testing.T) {
 	t.Run("setup", setup)
 	t.Run("storageDistribution", storageDistribution)
 	t.Run("storageUpdate", storageUpdate)
+	t.Run("maxDriveSize", maxDriveSize)
 }
 
 func setup(t *testing.T) {
@@ -116,6 +118,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        5000,
 						MinCapacity: 9216,
 						MaxCapacity: 90000,
+						DriveType:   "Premium_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -227,6 +230,7 @@ func storageDistribution(t *testing.T) {
 						IOPS:        7500,
 						MinCapacity: 2048,
 						MaxCapacity: 100000,
+						DriveType:   "Premium_LRS",
 					},
 				},
 				InstanceType:     "foo",
@@ -367,7 +371,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     1536,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    256,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentIOPS:         1000,
 				CurrentDriveCount:   3,
 			},
@@ -376,9 +380,9 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 512,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						DriveCount:       3,
-						IOPS:             1100,
+						IOPS:             9600,
 					},
 				},
 			},
@@ -440,7 +444,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     4096,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    1024,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "PremiumV2_LRS",
 				CurrentDriveCount:   2,
 				TotalDrivesOnNode:   2,
 			},
@@ -449,7 +453,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 1024,
-						DriveType:        "Premium_LRS",
+						DriveType:        "PremiumV2_LRS",
 						DriveCount:       2,
 					},
 				},
@@ -488,7 +492,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     2000,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    600,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -497,7 +501,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 600,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						DriveCount:       1,
 					},
 				},
@@ -596,7 +600,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     400,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "PremiumV2_LRS",
 				CurrentDriveCount:   1,
 				TotalDrivesOnNode:   1,
 			},
@@ -605,7 +609,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 200,
-						DriveType:        "Premium_LRS",
+						DriveType:        "PremiumV2_LRS",
 						DriveCount:       1,
 					},
 				},
@@ -644,7 +648,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     401,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_ADD_DISK,
 				CurrentDriveSize:    200,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentDriveCount:   3,
 				TotalDrivesOnNode:   3,
 			},
@@ -710,7 +714,7 @@ func storageUpdate(t *testing.T) {
 				DesiredCapacity:     953,
 				ResizeOperationType: api.SdkStoragePool_RESIZE_TYPE_RESIZE_DISK,
 				CurrentDriveSize:    137,
-				CurrentDriveType:    "Premium_LRS",
+				CurrentDriveType:    "UltraSSD_LRS",
 				CurrentDriveCount:   5,
 				TotalDrivesOnNode:   5,
 			},
@@ -719,7 +723,7 @@ func storageUpdate(t *testing.T) {
 				InstanceStorage: []*cloudops.StoragePoolSpec{
 					&cloudops.StoragePoolSpec{
 						DriveCapacityGiB: 191,
-						DriveType:        "Premium_LRS",
+						DriveType:        "UltraSSD_LRS",
 						DriveCount:       5,
 					},
 				},
@@ -775,6 +779,99 @@ func storageUpdate(t *testing.T) {
 			}
 		} else {
 			require.NotNil(t, err, "RecommendInstanceStorageUpdate should have returned an error")
+			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
+		}
+	}
+}
+
+func maxDriveSize(t *testing.T) {
+	testMatrix := []struct {
+		expectedErr error
+		request     *cloudops.MaxDriveSizeRequest
+		response    *cloudops.MaxDriveSizeResponse
+	}{
+		{
+			// Test1: empty drive type
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "",
+			},
+			response:    nil,
+			expectedErr: &cloudops.ErrInvalidMaxDriveSizeRequest{Request: &cloudops.MaxDriveSizeRequest{DriveType: ""}, Reason: "empty drive type"},
+		},
+		{
+			// Test2: invalid drive type
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "invalid_drive",
+			},
+			response:    nil,
+			expectedErr: &cloudops.ErrMaxDriveSizeCandidateNotFound{Request: &cloudops.MaxDriveSizeRequest{DriveType: "invalid_drive"}, Reason: "no matching inputs found for input drive type"},
+		},
+
+		{
+			// Test3: Premium_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "Premium_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test4: StandardSSD_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "StandardSSD_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test5: Standard_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "Standard_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 32768,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test6: PremiumV2_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "PremiumV2_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 65536,
+			},
+			expectedErr: nil,
+		},
+
+		{
+			// Test7: UltraSSD_LRS drive
+			request: &cloudops.MaxDriveSizeRequest{
+				DriveType: "UltraSSD_LRS",
+			},
+			response: &cloudops.MaxDriveSizeResponse{
+				MaxSize: 65536,
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for j, test := range testMatrix {
+		fmt.Println("Executing test case: ", j+1)
+		response, err := storageManager.GetMaxDriveSize(test.request)
+		if test.expectedErr == nil {
+			require.Nil(t, err, "GetMaxDriveSize returned an error")
+			require.NotNil(t, response, "GetMaxDriveSize returned empty response")
+			require.Equal(t, test.response.MaxSize, response.MaxSize, "expected and actual max drive size not equal")
+		} else {
+			require.NotNil(t, err, "GetMaxDriveSize should have returned an error")
 			require.Equal(t, test.expectedErr.Error(), err.Error(), "received unexpected type of error")
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2021-07-01/containerservice"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-07-01/containerservice"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -53,6 +54,9 @@ const (
 	devicePathMaxRetryCount             = 3
 	devicePathRetryInterval             = 2 * time.Second
 	errCodeAttachDiskWhileBeingDetached = "AttachDiskWhileBeingDetached"
+	maxThroughputUltra                  = 10000
+	maxIopsUltra                        = 400000
+	minIopsUltra                        = 100
 )
 
 var (
@@ -83,6 +87,22 @@ type Config struct {
 	ManagedClusterName string
 	AgentPoolName      string
 	UserAgent          string
+}
+
+// calculateMidThroughputUltra calculates the median throuput for a particular IOPS value for Ultra Disks
+func calculateMidThroughputUltra(iops int64) (maxThroughput int64) {
+	return int64(math.Min(float64(iops*128/1024), maxThroughputUltra)) // Convert kB/s to MB/s
+}
+
+// calculateMidIopsUltra calculates the median IOPS for a particular size of disk for ultra disks
+func calculateMidIopsUltra(sizeGiB int32) (medianIops int64) {
+	return int64(math.Min(float64(sizeGiB)*150, maxIopsUltra))
+}
+
+// calculateMinIopsUltra calculates the min IOPS for a particular size of disk for ultra disks
+func calculateMinIopsUltra(sizeGiB int32) (medianIops int64) {
+	iops := math.Max(float64(sizeGiB)*1, minIopsUltra)
+	return int64(math.Min(iops, maxIopsUltra))
 }
 
 // NewClientFromMetadata initializes cloudops driver for azure based on environment
@@ -347,7 +367,7 @@ func (a *azureOps) SetInstanceGroupSize(instanceGroupID string,
 	instanceGroupSize := int32(count)
 	agentPoolProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
 		Count:  &instanceGroupSize,
-		OsType: containerservice.OSTypeLinux,
+		OsType: containerservice.Linux,
 	}
 
 	agentPool := containerservice.AgentPool{
@@ -396,7 +416,10 @@ func (a *azureOps) Create(
 	if !ok || code != 404 {
 		return "", err
 	}
-
+	if d.Sku.Name == compute.UltraSSDLRS {
+		midIops := calculateMidIopsUltra(*d.DiskProperties.DiskSizeGB)
+		d.DiskProperties.DiskIOPSReadWrite = &midIops
+	}
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
 		ctx,
@@ -410,7 +433,7 @@ func (a *azureOps) Create(
 			Sku:      d.Sku,
 			DiskProperties: &compute.DiskProperties{
 				CreationData: &compute.CreationData{
-					CreateOption: compute.DiskCreateOptionEmpty,
+					CreateOption: compute.Empty,
 				},
 				DiskSizeGB:                   d.DiskProperties.DiskSizeGB,
 				DiskIOPSReadWrite:            d.DiskProperties.DiskIOPSReadWrite,
@@ -614,6 +637,31 @@ func (a *azureOps) Expand(
 	newSizeInGiBInt32 := int32(newSizeInGiB)
 	disk.DiskProperties.DiskSizeGB = &newSizeInGiBInt32
 
+	//The minimum guaranteed IOPS per disk are 1 IOPS/GiB and Maximum is 300 IOPS/GiB
+	// We will set the IOPS to a median Value , that is 150 IOPS/GiB
+	//https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#ultra-disk-iops
+	if disk.Sku.Name == compute.UltraSSDLRS {
+		midIops := calculateMidIopsUltra(newSizeInGiBInt32)
+		if *disk.DiskProperties.DiskIOPSReadWrite < midIops {
+			disk.DiskProperties.DiskIOPSReadWrite = &midIops
+		}
+		minIops := calculateMinIopsUltra(newSizeInGiBInt32)
+		if *disk.DiskProperties.DiskIOPSReadOnly < minIops {
+			disk.DiskProperties.DiskIOPSReadOnly = &minIops
+		}
+		//The throughput limit of a single Ultra Disk is 256-kB/s for each provisioned IOPS,
+		//up to a maximum of 10,000 MB/s per disk.
+		// The minimum guaranteed throughput per disk is 4kB/s for each provisioned IOPS,
+		//with an overall baseline minimum of 1 MB/s.
+		throughputRW := calculateMidThroughputUltra(*disk.DiskProperties.DiskIOPSReadWrite)
+		if *disk.DiskProperties.DiskMBpsReadWrite < throughputRW {
+			disk.DiskProperties.DiskMBpsReadWrite = &throughputRW
+		}
+		throughputRO := calculateMidThroughputUltra(*disk.DiskProperties.DiskIOPSReadOnly)
+		if *disk.DiskProperties.DiskMBpsReadOnly < throughputRO {
+			disk.DiskProperties.DiskMBpsReadOnly = &throughputRO
+		}
+	}
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
 		ctx,
@@ -847,7 +895,7 @@ func (a *azureOps) Snapshot(diskName string, readonly bool, options map[string]s
 			Location: disk.Location,
 			SnapshotProperties: &compute.SnapshotProperties{
 				CreationData: &compute.CreationData{
-					CreateOption:     compute.DiskCreateOptionCopy,
+					CreateOption:     compute.Copy,
 					SourceResourceID: disk.ID,
 				},
 			},

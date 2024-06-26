@@ -839,6 +839,79 @@ func (s *gceOps) SetInstanceGroupVersion(instanceGroupID string,
 	return s.WaitForOperationCompletion(operation, zonalCluster, timeout)
 }
 
+// SetInstanceUpgradeStrategy sets desired Upgrade strategy & respective parameters for the node group
+func (s *gceOps) SetInstanceUpgradeStrategy(instanceGroupID string,
+	upgradeStrategy string,
+	timeout time.Duration,
+	surgeSetting string) error {
+
+	// TODO: Add Blue_Green upgradeStrategy when supported
+
+	if upgradeStrategy == "surge" {
+		if surgeSetting == "" {
+			surgeSetting = "default"
+		}
+	}
+
+	MaxSurge := 0
+	MaxUnavailable := 0
+
+	switch surgeSetting {
+	case "default": // Balanced (Default), slower but least disruptive
+		MaxSurge = 1
+		MaxUnavailable = 0
+	case "fast-no-surge": // Fast, no surge resources, most disruptive
+		MaxSurge = 0
+		MaxUnavailable = 20
+	case "fast-surge": // Fast, most surge resources and less disruptive
+		MaxSurge = 20
+		MaxUnavailable = 0
+	case "slow": // Slowest, disruptive, no surge resources
+		MaxSurge = 0
+		MaxUnavailable = 1
+	default:
+		return fmt.Errorf("invalid surge setting: %s", surgeSetting)
+	}
+
+	logrus.Infof("Setting upgrade strategy for instance group [%s] to [%s] with MaxSurge [%d] & MaxUnavailable [%d]",
+		instanceGroupID, upgradeStrategy, MaxSurge, MaxUnavailable)
+
+	nodePoolPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s",
+		s.inst.project, s.inst.clusterLocation, s.inst.clusterName, instanceGroupID)
+
+	updateNodePoolRequest := &container.UpdateNodePoolRequest{
+		Name: nodePoolPath,
+		UpgradeSettings: &container.UpgradeSettings{
+			MaxSurge:       int64(MaxSurge),
+			MaxUnavailable: int64(MaxUnavailable),
+		},
+	}
+
+	zonalCluster, err := isZonalCluster(s.inst.clusterLocation)
+	if err != nil {
+		return err
+	}
+
+	var operation *container.Operation
+	if zonalCluster {
+		operation, err = s.containerService.Projects.Zones.Clusters.NodePools.Update(s.inst.project,
+			s.inst.clusterLocation,
+			s.inst.clusterName,
+			instanceGroupID,
+			updateNodePoolRequest).Do()
+	} else {
+		operation, err = s.containerService.Projects.Locations.Clusters.NodePools.Update(
+			nodePoolPath,
+			updateNodePoolRequest).Do()
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return s.WaitForOperationCompletion(operation, zonalCluster, timeout)
+}
+
 // SetInstanceGroupSize sets node count for a instance group.
 // Count here is per availability zone
 func (s *gceOps) SetInstanceGroupSize(instanceGroupID string,

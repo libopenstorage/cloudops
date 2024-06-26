@@ -126,3 +126,31 @@ type ErrCloudProviderRequestFailure struct {
 func (e *ErrCloudProviderRequestFailure) Error() string {
 	return fmt.Sprintf("Request %s returns %s", e.Request, e.Message)
 }
+
+// ErrInvalidMaxDriveSizeRequest is returned when an unsupported or invalid request
+// is sent to get the max drive size
+type ErrInvalidMaxDriveSizeRequest struct {
+	// Request is the request that caused the invalid error
+	Request *MaxDriveSizeRequest
+	// Reason is the reason why the request was invalid
+	Reason string
+}
+
+func (e *ErrInvalidMaxDriveSizeRequest) Error() string {
+	return fmt.Sprintf("Invalid request to get the max drive size: %s Request: %v",
+		e.Reason, e.Request)
+}
+
+// ErrMaxDriveSizeCandidateNotFound is returned when an unsupported or invalid request
+// is sent to get the max drive size
+type ErrMaxDriveSizeCandidateNotFound struct {
+	// Request is the request that caused the error
+	Request *MaxDriveSizeRequest
+	// Reason is the reason why the request caused an error
+	Reason string
+}
+
+func (e *ErrMaxDriveSizeCandidateNotFound) Error() string {
+	return fmt.Sprintf("could not find a suitable max drive size candidate: %s Request: %v",
+		e.Reason, e.Request)
+}

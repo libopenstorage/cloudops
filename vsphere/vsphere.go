@@ -51,6 +51,7 @@ var (
 	}
 
 	vmdkMatcherRegex = regexp.MustCompile("\\[(.+)\\](.+)") // e.g [px-datastore-02] osd-provisioned-disks/PX-DO-NOT-DELETE-122be943-485f-4a66-b665-b592f685a3de.vmdk"
+	userAgent string
 )
 
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
@@ -62,19 +63,23 @@ type VirtualDisk struct {
 }
 
 // NewClient creates a new vsphere cloudops instance
-func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, error) {
-	vSphereConn := &vclib.VSphereConnection{
-		Username:          cfg.User,
-		Password:          cfg.Password,
-		Hostname:          cfg.VCenterIP,
-		Insecure:          cfg.InsecureFlag,
-		RoundTripperCount: cfg.RoundTripperCount,
-		Port:              cfg.VCenterPort,
+func NewClient(cfg *VSphereConfig, conn *vclib.VSphereConnection, storeParams *store.Params, ua string) (cloudops.Ops, error) {
+	if conn == nil {
+		conn = &vclib.VSphereConnection{
+			Username:          cfg.User,
+			Password:          cfg.Password,
+			Hostname:          cfg.VCenterIP,
+			Insecure:          cfg.InsecureFlag,
+			RoundTripperCount: cfg.RoundTripperCount,
+			Port:              cfg.VCenterPort,
+		}
+
 	}
+	userAgent = ua
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	vmObj, err := GetVMObject(ctx, vSphereConn, cfg.VMUUID)
+	vmObj, err := GetVMObject(ctx, conn, cfg.VMUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +109,7 @@ func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, err
 			Compute: unsupported.NewUnsupportedCompute(),
 			cfg:     cfg,
 			vm:      vmObj,
-			conn:    vSphereConn,
+			conn:    conn,
 			dsLock:  storeInstance,
 		},
 		isExponentialError,
@@ -561,6 +566,7 @@ func (ops *vsphereOps) Expand(
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Caller will close the connection
 	vm, err := ops.renewVM(ctx, ops.vm)
 	if err != nil {
 		return 0, err
@@ -674,7 +680,7 @@ func GetVMObject(ctx context.Context, conn *vclib.VSphereConnection, vmUUID stri
 	// TODO change impl below using multiple goroutines and sync.WaitGroup to make it faster
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if err := conn.Connect(ctx); err != nil {
+	if err := conn.Connect(ctx, userAgent); err != nil {
 		return nil, err
 	}
 
@@ -710,9 +716,9 @@ func GetVMObject(ctx context.Context, conn *vclib.VSphereConnection, vmUUID stri
 
 func (ops *vsphereOps) renewVM(ctx context.Context, vm *vclib.VirtualMachine) (*vclib.VirtualMachine, error) {
 	var client *vim25.Client
-	err := ops.conn.Connect(ctx)
+	err := ops.conn.Connect(ctx, userAgent)
 	if err != nil {
-		client, err = ops.conn.NewClient(ctx)
+		client, err = ops.conn.NewClient(ctx, userAgent)
 		if err != nil {
 			return nil, err
 		}
