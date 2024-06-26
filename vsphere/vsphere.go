@@ -51,7 +51,7 @@ var (
 	}
 
 	vmdkMatcherRegex = regexp.MustCompile("\\[(.+)\\](.+)") // e.g [px-datastore-02] osd-provisioned-disks/PX-DO-NOT-DELETE-122be943-485f-4a66-b665-b592f685a3de.vmdk"
-	userAgent string
+	userAgent        string
 )
 
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
@@ -489,18 +489,9 @@ func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
 			virtualDevice := device.GetVirtualDevice()
 			backing, ok := virtualDevice.Backing.(*types.VirtualDiskFlatVer2BackingInfo)
 			if ok {
-				diskUUID, err := vmObj.Datacenter.GetVirtualDiskPage83Data(ctx, backing.FileName)
-				if err != nil {
-					if strings.Contains(err.Error(), permissionError) {
-						logrus.Errorf("access denied for device %v, skipping", backing.FileName)
-						continue // skip the cycle if we get Permission Error for the Datastore
-					}
-					vmName, _ := vmObj.ObjectName(ctx)
-					return nil, fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", backing.FileName, vmName, err)
-				}
-
-				devicePath, err := path.Join(diskByIDPath, DiskSCSIPrefix+diskUUID), nil
-				if err == nil && len(devicePath) != 0 { // TODO can ignore errors?
+				diskUUID := vclib.FormatVirtualDiskUUID(backing.Uuid)
+				devicePath := path.Join(diskByIDPath, DiskSCSIPrefix+diskUUID)
+				if len(devicePath) != 0 { // TODO can ignore errors?
 					m[devicePath] = backing.FileName
 				}
 			}
