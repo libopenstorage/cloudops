@@ -36,7 +36,7 @@ func initVsphere(t *testing.T) (cloudops.Ops, map[string]interface{}) {
 	require.NoError(t, err, "failed to get datastore from env variable VSPHERE_TEST_DATASTORE")
 
 	var storeParams store.Params
-	driver, err = NewClient(cfg, &storeParams)
+	driver, err = NewClient(cfg, nil, &storeParams, "user-agent")
 	require.NoError(t, err, "failed to instantiate storage ops driver")
 
 	diskOptions := &vclib.VolumeOptions{
