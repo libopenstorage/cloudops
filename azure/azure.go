@@ -58,6 +58,10 @@ const (
 	minThroughputUltra                  = 1
 	maxIopsUltra                        = 400000
 	minIopsUltra                        = 100
+	maxThroughputV2                     = 1200
+	minThroughputV2                     = 125
+	maxIopsV2                           = 80000
+	minIopsV2                           = 3000
 )
 
 var (
@@ -92,20 +96,35 @@ type Config struct {
 
 // updateUltraIopsThroughput - validates if the requested IOPS and throuput are in range - If not update with minimum
 func updateUltraIopsThroughput(size int32, reqIops, reqTP *int64) {
-
 	minAllowedIOPS := int64(math.Max(minIopsUltra, float64(size)))
 	maxAllowedIOPS := int64(math.Min(maxIopsUltra, float64(size*300)))
-
-	if *reqIops < minAllowedIOPS || *reqIops > maxAllowedIOPS {
-		logrus.Warnf("UltraDisk : Requested IOPS: [%v] not in range for size: [%v] - defaulting to minimum iops: [%v]",*reqIops,size,minAllowedIOPS)
-		*reqIops = minAllowedIOPS
+	if reqIops != nil {
+		if *reqIops < minAllowedIOPS || *reqIops > maxAllowedIOPS {
+			logrus.Warnf("UltraDisk : Requested IOPS: [%v] not in range for size: [%v] - defaulting to minimum iops: [%v]", *reqIops, size, minAllowedIOPS)
+			*reqIops = minAllowedIOPS
+		}
+		minAllowedTP := int64(math.Max(minThroughputUltra, math.Ceil(float64(*reqIops)*4/1024)))
+		maxAllowedTP := int64(math.Min(maxThroughputUltra, float64(*reqIops*256/1024)))
+		if reqTP != nil && (*reqTP < minAllowedTP || *reqTP > maxAllowedTP) {
+			logrus.Warnf("UltraDisk : Requested throughput [%v] not in range for iops [%v] - defaulting to minimum throughput : [%v]", *reqTP, *reqIops, minAllowedTP)
+			*reqTP = minAllowedTP
+		}
 	}
-	minAllowedTP := int64(math.Max(minThroughputUltra, math.Ceil(float64(*reqIops)*4/1024)))
-	maxAllowedTP := int64(math.Min(maxThroughputUltra, float64(*reqIops*256/1024)))
+}
 
-	if *reqTP < minAllowedTP || *reqTP > maxAllowedTP {
-		logrus.Warnf("UltraDisk : Requested throughput [%v] not in range for iops [%v] - defaulting to minimum throughput : [%v]",*reqTP,*reqIops,minAllowedTP)
-		*reqTP = minAllowedTP
+// updatePremiumv2IopsThroughput - validates if the requested IOPS and throuput are in range - If not update with minimum
+func updatePremiumv2IopsThroughput(size int32, reqIops, reqTP *int64) {
+	maxAllowedIOPS := int64(math.Min(maxIopsV2, float64(size*500)))
+	if reqIops != nil {
+		if *reqIops < minIopsV2 || *reqIops > maxAllowedIOPS {
+			logrus.Warnf("Premiumv2 : Requested IOPS: [%v] not in range for size: [%v] - defaulting to minimum iops: [%v]", *reqIops, size, minIopsV2)
+			*reqIops = minIopsV2
+		}
+		maxAllowedTP := int64(math.Min(maxThroughputV2, float64(*reqIops/4))) // maximum TP = IOPS * 0.25
+		if reqTP != nil && (*reqTP < minThroughputV2 || *reqTP > maxAllowedTP) {
+			logrus.Warnf("Premiumv2 : Requested throughput [%v] not in range for iops [%v] - defaulting to minimum throughput : [%v]", *reqTP, *reqIops, minThroughputV2)
+			*reqTP = minThroughputV2
+		}
 	}
 }
 
@@ -431,6 +450,8 @@ func (a *azureOps) Create(
 	// check if IOPS and throughput are in the range , If not - go to minimum and display a warning DOLLY
 	if d.Sku.Name == compute.UltraSSDLRS {
 		updateUltraIopsThroughput(*d.DiskProperties.DiskSizeGB, d.DiskProperties.DiskIOPSReadWrite, d.DiskProperties.DiskMBpsReadWrite)
+	} else if d.Sku.Name == compute.PremiumV2LRS {
+		updatePremiumv2IopsThroughput(*d.DiskProperties.DiskSizeGB, d.DiskProperties.DiskIOPSReadWrite, d.DiskProperties.DiskMBpsReadWrite)
 	}
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
