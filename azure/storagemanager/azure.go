@@ -3,6 +3,7 @@ package storagemanager
 import (
 	"fmt"
 
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
 	"github.com/libopenstorage/cloudops"
 	"github.com/libopenstorage/cloudops/pkg/storagedistribution"
 	"github.com/libopenstorage/cloudops/unsupported"
@@ -46,7 +47,7 @@ func (a *azureStorageManager) GetStorageDistribution(
 				DriveType:        instStorage.DriveType,
 				InstancesPerZone: instancePerZone,
 				DriveCount:       instStorage.DriveCount,
-				IOPS:             determineIOPSForPool(row),
+				IOPS:             determineIOPSForPool(instStorage, row, userRequest.IOPS),
 			},
 		)
 
@@ -63,7 +64,7 @@ func (a *azureStorageManager) RecommendStoragePoolUpdate(
 	if resp == nil || len(resp.InstanceStorage) != 1 {
 		return nil, fmt.Errorf("could not find a valid instance storage object")
 	}
-	resp.InstanceStorage[0].IOPS = determineIOPSForPool(row)
+	resp.InstanceStorage[0].IOPS = determineIOPSForPool(resp.InstanceStorage[0], row, request.CurrentIOPS)
 	return resp, nil
 }
 
@@ -73,7 +74,11 @@ func (a *azureStorageManager) GetMaxDriveSize(
 	return resp, err
 }
 
-func determineIOPSForPool(row *cloudops.StorageDecisionMatrixRow) uint64 {
+func determineIOPSForPool(instStorage *cloudops.StoragePoolSpec, row *cloudops.StorageDecisionMatrixRow, currentIOPS uint64) uint64 {
+	if instStorage.DriveType == string(compute.UltraSSDLRS) || instStorage.DriveType == string(compute.PremiumV2LRS) {
+		// ultra SSD LRS and Premium v2 LRS IOPS are independent of the drive size and is a configurable parameter.
+		return currentIOPS
+	}
 	return row.MinIOPS
 }
 
