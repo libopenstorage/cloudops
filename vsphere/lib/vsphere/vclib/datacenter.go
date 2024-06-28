@@ -265,7 +265,7 @@ func (dc *Datacenter) GetVirtualDiskPage83Data(ctx context.Context, diskPath str
 		klog.Warningf("QueryVirtualDiskUuid failed for diskPath: %q. err: %+v", diskPath, err)
 		return "", err
 	}
-	diskUUID = formatVirtualDiskUUID(diskUUID)
+	diskUUID = FormatVirtualDiskUUID(diskUUID)
 	return diskUUID, nil
 }
 
