@@ -32,6 +32,7 @@ const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
 	configProperty       = "config.hardware"
 	permissionError      = "Permission to perform this operation was denied"
+	svmotionErrorMsg     = "Retry pool expansion if you have performed svmotion on the disk"
 )
 
 type vsphereOps struct {
@@ -51,7 +52,7 @@ var (
 	}
 
 	vmdkMatcherRegex = regexp.MustCompile("\\[(.+)\\](.+)") // e.g [px-datastore-02] osd-provisioned-disks/PX-DO-NOT-DELETE-122be943-485f-4a66-b665-b592f685a3de.vmdk"
-	userAgent string
+	userAgent        string
 )
 
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
@@ -599,7 +600,7 @@ func (ops *vsphereOps) Expand(
 	if len(disks) == 0 {
 		return 0, cloudops.NewStorageError(
 			cloudops.ErrVolNotFound,
-			fmt.Sprintf("vmdk: %s was not found on vm: %s", vmdkPath, vmName),
+			fmt.Sprintf("vmdk: %s was not found on vm: %s, %v", vmdkPath, vmName, svmotionErrorMsg),
 			vmName)
 	} else if len(disks) > 1 {
 		return 0, cloudops.NewStorageError(
@@ -629,12 +630,19 @@ func (ops *vsphereOps) Expand(
 
 	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
+		if strings.Contains(err.Error(), ".vmdk not found") {
+			return 0, fmt.Errorf(err.Error() + svmotionErrorMsg)
+		}
 		return 0, err
 	}
 
 	err = task.Wait(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("error resizing vmdk: %s due to:  %s", vmdkPath, err)
+		errMsg := fmt.Errorf("error resizing vmdk: %s due to:  %s", vmdkPath, err)
+		if strings.Contains(err.Error(), ".vmdk not found") {
+			return 0, fmt.Errorf(errMsg.Error() + svmotionErrorMsg)
+		}
+		return 0, errMsg
 	}
 
 	return newSizeInGiB, nil
