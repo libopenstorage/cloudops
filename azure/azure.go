@@ -131,7 +131,7 @@ func updatePremiumv2IopsThroughput(size int32, reqIops, reqTP *int64) {
 // calculateMinThroughput calculates the minimum throughput given the IOPS for Ultra Disks
 func calculateMinThroughput(iops int64) int64 {
 	// Calculate the throughput in MB/s with a ceiling function
-	throughput := math.Ceil(math.Max((float64)(iops*4/1024), 1))
+	throughput := math.Ceil(math.Max((float64(iops) * 4 / 1024), 1))
 	// Ensure the throughput does not exceed 10,000 MB/s
 	return int64(math.Min(throughput, 10000))
 }
