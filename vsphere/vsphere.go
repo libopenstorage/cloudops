@@ -32,6 +32,8 @@ const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
 	configProperty       = "config.hardware"
 	permissionError      = "Permission to perform this operation was denied"
+	svmotionErrorMsg     = "retry pool expansion, if a storage vMotion operation was in progress during expansion"
+	vmdkNotFoundErrorMsg = ".vmdk not found"
 )
 
 type vsphereOps struct {
@@ -590,7 +592,7 @@ func (ops *vsphereOps) Expand(
 	if len(disks) == 0 {
 		return 0, cloudops.NewStorageError(
 			cloudops.ErrVolNotFound,
-			fmt.Sprintf("vmdk: %s was not found on vm: %s", vmdkPath, vmName),
+			fmt.Sprintf("vmdk: %s was not found on vm: %s, %v", vmdkPath, vmName, svmotionErrorMsg),
 			vmName)
 	} else if len(disks) > 1 {
 		return 0, cloudops.NewStorageError(
@@ -620,12 +622,19 @@ func (ops *vsphereOps) Expand(
 
 	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
+		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
+			return 0, fmt.Errorf(err.Error() + svmotionErrorMsg)
+		}
 		return 0, err
 	}
 
 	err = task.Wait(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("error resizing vmdk: %s due to:  %s", vmdkPath, err)
+		errMsg := fmt.Errorf("error resizing vmdk: %s due to:  %s", vmdkPath, err)
+		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
+			return 0, fmt.Errorf(errMsg.Error() + svmotionErrorMsg)
+		}
+		return 0, errMsg
 	}
 
 	return newSizeInGiB, nil
