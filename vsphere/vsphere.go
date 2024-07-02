@@ -32,7 +32,8 @@ const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
 	configProperty       = "config.hardware"
 	permissionError      = "Permission to perform this operation was denied"
-	svmotionErrorMsg     = "Retry pool expansion if you have performed svmotion on the disk"
+	svmotionErrorMsg     = "retry pool expansion, if a storage vMotion operation was in progress during expansion"
+	vmdkNotFoundErrorMsg = ".vmdk not found"
 )
 
 type vsphereOps struct {
@@ -628,9 +629,11 @@ func (ops *vsphereOps) Expand(
 	config.FileOperation = ""
 	spec.DeviceChange = append(spec.DeviceChange, config)
 
+	errMsgFormat := "error resizing vmdk: %s. Path not found. %s Error: %s"
 	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
-		if strings.Contains(err.Error(), ".vmdk not found") {
+		logrus.Errorf(errMsgFormat, vmdkPath, svmotionErrorMsg, err)
+		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
 			return 0, fmt.Errorf(err.Error() + svmotionErrorMsg)
 		}
 		return 0, err
@@ -638,8 +641,9 @@ func (ops *vsphereOps) Expand(
 
 	err = task.Wait(ctx)
 	if err != nil {
-		errMsg := fmt.Errorf("error resizing vmdk: %s due to:  %s", vmdkPath, err)
-		if strings.Contains(err.Error(), ".vmdk not found") {
+		errMsg := fmt.Errorf(errMsgFormat, vmdkPath, svmotionErrorMsg, err)
+		logrus.Error(errMsg)
+		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
 			return 0, fmt.Errorf(errMsg.Error() + svmotionErrorMsg)
 		}
 		return 0, errMsg
