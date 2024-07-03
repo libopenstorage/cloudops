@@ -641,7 +641,7 @@ func (ops *vsphereOps) Expand(
 
 	err = task.Wait(ctx)
 	if err != nil {
-		logrus.Error("Task wait failed; %v", err)
+		logrus.Errorf("Task wait failed; %v", err)
 		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
 			return 0, errMsgSvmotion
 		}
