@@ -629,24 +629,23 @@ func (ops *vsphereOps) Expand(
 	config.FileOperation = ""
 	spec.DeviceChange = append(spec.DeviceChange, config)
 
-	errMsgFormat := "error resizing vmdk: %s. Path not found. %s Error: %s"
+	errMsgSvmotion := fmt.Errorf("error resizing vmdk: %s. Path not found. Retry pool expansion, if a storage vMotion operation was in progress during expansion", vmdkPath)
 	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
-		logrus.Errorf(errMsgFormat, vmdkPath, svmotionErrorMsg, err)
+		logrus.Errorf("Unable to reconfigure: %v", err)
 		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
-			return 0, fmt.Errorf(err.Error() + svmotionErrorMsg)
+			return 0, errMsgSvmotion
 		}
 		return 0, err
 	}
 
 	err = task.Wait(ctx)
 	if err != nil {
-		errMsg := fmt.Errorf(errMsgFormat, vmdkPath, svmotionErrorMsg, err)
-		logrus.Error(errMsg)
+		logrus.Error("Task wait failed; %v", err)
 		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
-			return 0, fmt.Errorf(errMsg.Error() + svmotionErrorMsg)
+			return 0, errMsgSvmotion
 		}
-		return 0, errMsg
+		return 0, err
 	}
 
 	return newSizeInGiB, nil
