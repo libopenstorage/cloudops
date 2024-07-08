@@ -55,8 +55,13 @@ const (
 	devicePathRetryInterval             = 2 * time.Second
 	errCodeAttachDiskWhileBeingDetached = "AttachDiskWhileBeingDetached"
 	maxThroughputUltra                  = 10000
+	minThroughputUltra                  = 1
 	maxIopsUltra                        = 400000
 	minIopsUltra                        = 100
+	maxThroughputV2                     = 1200
+	minThroughputV2                     = 125
+	maxIopsV2                           = 80000
+	minIopsV2                           = 3000
 )
 
 var (
@@ -89,20 +94,46 @@ type Config struct {
 	UserAgent          string
 }
 
-// calculateMidThroughputUltra calculates the median throuput for a particular IOPS value for Ultra Disks
-func calculateMidThroughputUltra(iops int64) (maxThroughput int64) {
-	return int64(math.Min(float64(iops*128/1024), maxThroughputUltra)) // Convert kB/s to MB/s
+// updateUltraIopsThroughput - validates if the requested IOPS and throuput are in range - If not update with minimum
+func updateUltraIopsThroughput(size int32, reqIops, reqTP *int64) {
+	minAllowedIOPS := int64(math.Max(minIopsUltra, float64(size)))
+	maxAllowedIOPS := int64(math.Min(maxIopsUltra, float64(size*300)))
+	if reqIops != nil {
+		if *reqIops < minAllowedIOPS || *reqIops > maxAllowedIOPS {
+			logrus.Warnf("UltraDisk : Requested IOPS: [%v] not in range for size: [%v] - defaulting to minimum iops: [%v]", *reqIops, size, minAllowedIOPS)
+			*reqIops = minAllowedIOPS
+		}
+		minAllowedTP := int64(math.Max(minThroughputUltra, math.Ceil(float64(*reqIops)*4/1024)))
+		maxAllowedTP := int64(math.Min(maxThroughputUltra, float64(*reqIops*256/1024)))
+		if reqTP != nil && (*reqTP < minAllowedTP || *reqTP > maxAllowedTP) {
+			logrus.Warnf("UltraDisk : Requested throughput [%v] not in range for iops [%v] - defaulting to minimum throughput : [%v]", *reqTP, *reqIops, minAllowedTP)
+			*reqTP = minAllowedTP
+		}
+	}
 }
 
-// calculateMidIopsUltra calculates the median IOPS for a particular size of disk for ultra disks
-func calculateMidIopsUltra(sizeGiB int32) (medianIops int64) {
-	return int64(math.Min(float64(sizeGiB)*150, maxIopsUltra))
+// updatePremiumv2IopsThroughput - validates if the requested IOPS and throuput are in range - If not update with minimum
+func updatePremiumv2IopsThroughput(size int32, reqIops, reqTP *int64) {
+	maxAllowedIOPS := int64(math.Min(maxIopsV2, float64(size*500)))
+	if reqIops != nil {
+		if *reqIops < minIopsV2 || *reqIops > maxAllowedIOPS {
+			logrus.Warnf("Premiumv2 : Requested IOPS: [%v] not in range for size: [%v] - defaulting to minimum iops: [%v]", *reqIops, size, minIopsV2)
+			*reqIops = minIopsV2
+		}
+		maxAllowedTP := int64(math.Min(maxThroughputV2, float64(*reqIops/4))) // maximum TP = IOPS * 0.25
+		if reqTP != nil && (*reqTP < minThroughputV2 || *reqTP > maxAllowedTP) {
+			logrus.Warnf("Premiumv2 : Requested throughput [%v] not in range for iops [%v] - defaulting to minimum throughput : [%v]", *reqTP, *reqIops, minThroughputV2)
+			*reqTP = minThroughputV2
+		}
+	}
 }
 
-// calculateMinIopsUltra calculates the min IOPS for a particular size of disk for ultra disks
-func calculateMinIopsUltra(sizeGiB int32) (medianIops int64) {
-	iops := math.Max(float64(sizeGiB)*1, minIopsUltra)
-	return int64(math.Min(iops, maxIopsUltra))
+// calculateMinThroughput calculates the minimum throughput given the IOPS for Ultra Disks
+func calculateMinThroughput(iops int64) int64 {
+	// Calculate the throughput in MB/s with a ceiling function
+	throughput := math.Ceil(math.Max((float64(iops) * 4 / 1024), 1))
+	// Ensure the throughput does not exceed 10,000 MB/s
+	return int64(math.Min(throughput, 10000))
 }
 
 // NewClientFromMetadata initializes cloudops driver for azure based on environment
@@ -416,9 +447,11 @@ func (a *azureOps) Create(
 	if !ok || code != 404 {
 		return "", err
 	}
+	// check if IOPS and throughput are in the range , If not - go to minimum and display a warning DOLLY
 	if d.Sku.Name == compute.UltraSSDLRS {
-		midIops := calculateMidIopsUltra(*d.DiskProperties.DiskSizeGB)
-		d.DiskProperties.DiskIOPSReadWrite = &midIops
+		updateUltraIopsThroughput(*d.DiskProperties.DiskSizeGB, d.DiskProperties.DiskIOPSReadWrite, d.DiskProperties.DiskMBpsReadWrite)
+	} else if d.Sku.Name == compute.PremiumV2LRS {
+		updatePremiumv2IopsThroughput(*d.DiskProperties.DiskSizeGB, d.DiskProperties.DiskIOPSReadWrite, d.DiskProperties.DiskMBpsReadWrite)
 	}
 	ctx := context.Background()
 	future, err := a.disksClient.CreateOrUpdate(
@@ -637,29 +670,18 @@ func (a *azureOps) Expand(
 	newSizeInGiBInt32 := int32(newSizeInGiB)
 	disk.DiskProperties.DiskSizeGB = &newSizeInGiBInt32
 
-	//The minimum guaranteed IOPS per disk are 1 IOPS/GiB and Maximum is 300 IOPS/GiB
-	// We will set the IOPS to a median Value , that is 150 IOPS/GiB
+	// Only for ultra disk, Setting the IOPS and throughput to a minimum Value , if IOPS in not in range.
 	//https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#ultra-disk-iops
 	if disk.Sku.Name == compute.UltraSSDLRS {
-		midIops := calculateMidIopsUltra(newSizeInGiBInt32)
-		if *disk.DiskProperties.DiskIOPSReadWrite < midIops {
-			disk.DiskProperties.DiskIOPSReadWrite = &midIops
-		}
-		minIops := calculateMinIopsUltra(newSizeInGiBInt32)
+		updateUltraIopsThroughput(*disk.DiskProperties.DiskSizeGB, disk.DiskProperties.DiskIOPSReadWrite, disk.DiskProperties.DiskMBpsReadWrite)
+		minIops := int64(newSizeInGiBInt32)
+		// Update Readonly iops and readonly throughput to minimum to avoid failure during resize.
 		if *disk.DiskProperties.DiskIOPSReadOnly < minIops {
 			disk.DiskProperties.DiskIOPSReadOnly = &minIops
 		}
-		//The throughput limit of a single Ultra Disk is 256-kB/s for each provisioned IOPS,
-		//up to a maximum of 10,000 MB/s per disk.
-		// The minimum guaranteed throughput per disk is 4kB/s for each provisioned IOPS,
-		//with an overall baseline minimum of 1 MB/s.
-		throughputRW := calculateMidThroughputUltra(*disk.DiskProperties.DiskIOPSReadWrite)
-		if *disk.DiskProperties.DiskMBpsReadWrite < throughputRW {
-			disk.DiskProperties.DiskMBpsReadWrite = &throughputRW
-		}
-		throughputRO := calculateMidThroughputUltra(*disk.DiskProperties.DiskIOPSReadOnly)
-		if *disk.DiskProperties.DiskMBpsReadOnly < throughputRO {
-			disk.DiskProperties.DiskMBpsReadOnly = &throughputRO
+		roThroughput := calculateMinThroughput(*disk.DiskProperties.DiskIOPSReadOnly)
+		if *disk.DiskProperties.DiskMBpsReadOnly < roThroughput {
+			disk.DiskProperties.DiskMBpsReadOnly = &roThroughput
 		}
 	}
 	ctx := context.Background()
