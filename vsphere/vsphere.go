@@ -33,7 +33,7 @@ const (
 	configProperty       = "config.hardware"
 	permissionError      = "Permission to perform this operation was denied"
 	svmotionErrorMsg     = "retry pool expansion, if a storage vMotion operation was in progress during expansion"
-	vmdkNotFoundErrorMsg = ".vmdk not found"
+	vmdkNotFoundErrorMsg = ".vmdk was not found"
 )
 
 type vsphereOps struct {
