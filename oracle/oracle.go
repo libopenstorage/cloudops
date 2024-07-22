@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -168,7 +168,7 @@ func getRequest(endpoint string, headers map[string]string) (map[string]interfac
 	}
 	if resp.Body != nil {
 		defer resp.Body.Close()
-		respBody, err := ioutil.ReadAll(resp.Body)
+		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return metadata, resp.StatusCode,
 				fmt.Errorf("error while reading Oracle metadata response: [%v]", err)

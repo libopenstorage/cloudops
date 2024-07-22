@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/libopenstorage/cloudops"
 	"gopkg.in/yaml.v2"
@@ -37,13 +37,13 @@ func (s *sdmParser) MarshalToYaml(
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filePath, yamlBytes, 0777)
+	return os.WriteFile(filePath, yamlBytes, 0777)
 }
 
 func (s *sdmParser) UnmarshalFromYaml(
 	filePath string,
 ) (*cloudops.StorageDecisionMatrix, error) {
-	yamlBytes, err := ioutil.ReadFile(filePath)
+	yamlBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}

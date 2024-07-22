@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"net/http"
 	"os"
@@ -205,7 +205,7 @@ func onAzure() (bool, map[string]interface{}, error) {
 
 	if resp.Body != nil {
 		defer resp.Body.Close()
-		respBody, err := ioutil.ReadAll(resp.Body)
+		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return false, metadata,
 				fmt.Errorf("Error while reading Azure metadata response: [%v]", err)
