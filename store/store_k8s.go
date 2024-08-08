@@ -15,11 +15,10 @@ import (
 )
 
 const (
-	confgMapPrefix  = "px-cloud-drive-"
-	cloudDriveEntry = "cloud-drive"
-	waitDuration    = 2 * time.Second
-	waitFactor      = 1.5
-	waitSteps       = 5
+	confgMapPrefix = "px-cloud-drive-"
+	waitDuration   = 2 * time.Second
+	waitFactor     = 1.5
+	waitSteps      = 5
 )
 
 // GetSanitizedK8sName will sanitize the name conforming to RFC 1123 standards so that it's a "qualified name" per k8s
@@ -110,18 +109,18 @@ func (k8s *k8sStore) Lock(owner string) (*Lock, error) {
 	if err := k8s.cm.Lock(owner); err != nil {
 		return nil, err
 	}
-	return &Lock{owner: owner}, nil
+	return &Lock{Owner: owner}, nil
 }
 
 func (k8s *k8sStore) LockWithKey(owner, key string) (*Lock, error) {
 	if err := k8s.cm.LockWithKey(owner, key); err != nil {
 		return nil, err
 	}
-	return &Lock{Key: key, owner: owner, lockedWithKey: true}, nil
+	return &Lock{Key: key, Owner: owner, LockedWithKey: true}, nil
 }
 
 func (k8s *k8sStore) Unlock(storeLock *Lock) error {
-	if storeLock.lockedWithKey {
+	if storeLock.LockedWithKey {
 		return k8s.cm.UnlockWithKey(storeLock.Key)
 	}
 	return k8s.cm.Unlock()
@@ -131,17 +130,17 @@ func (k8s *k8sStore) IsKeyLocked(key string) (bool, string, error) {
 	return k8s.cm.IsKeyLocked(key)
 }
 
-func (k8s *k8sStore) CreateKey(key string, value []byte) error {
+func (k8s *k8sStore) CreateKey(lockAs, key string, value []byte) error {
 	sanitizedKey := GetSanitizedK8sName(key)
-	err := k8s.cm.LockWithKey(string(value), sanitizedKey)
+	err := k8s.cm.LockWithKey(lockAs, sanitizedKey)
 	if err != nil {
-		logrus.Errorf("unable to lock with key %v", key)
+		logrus.Errorf("Failed to lock with key %s: %v", key, err)
 		return err
 	}
 	defer func() {
 		err := k8s.cm.UnlockWithKey(sanitizedKey)
 		if err != nil {
-			logrus.Warnf("unable to unlock with key %v", key)
+			logrus.Warnf("Failed to unlock with key %s: %v", key, err)
 		}
 	}()
 
@@ -156,22 +155,23 @@ func (k8s *k8sStore) CreateKey(key string, value []byte) error {
 			Message: "Use PutKey API",
 		}
 	}
-
-	if data == nil {
-		data = make(map[string]string)
-	}
-	data[key] = string(value)
-	return k8s.patchWithRetries(data)
+	return k8s.patchWithRetries(false, lockAs, key, string(value))
 }
 
-func (k8s *k8sStore) PutKey(key string, value []byte) error {
-	data, err := k8s.cm.Get()
+func (k8s *k8sStore) PutKey(lockAs, key string, value []byte) error {
+	sanitizedKey := GetSanitizedK8sName(key)
+	err := k8s.cm.LockWithKey(lockAs, sanitizedKey)
 	if err != nil {
+		logrus.Errorf("Failed to lock with key %s: %v", key, err)
 		return err
 	}
-
-	data[key] = string(value)
-	return k8s.patchWithRetries(data)
+	defer func() {
+		err := k8s.cm.UnlockWithKey(sanitizedKey)
+		if err != nil {
+			logrus.Warnf("Failed to unlock with key %s: %v", key, err)
+		}
+	}()
+	return k8s.patchWithRetries(false, lockAs, key, string(value))
 }
 
 func (k8s *k8sStore) GetKey(key string) ([]byte, error) {
@@ -193,28 +193,21 @@ func (k8s *k8sStore) GetKey(key string) ([]byte, error) {
 func (k8s *k8sStore) DeleteKey(key string) error {
 	sanitizedKey := GetSanitizedK8sName(key)
 	// Let's use the sanitized key itself as the owner.
-	err := k8s.cm.LockWithKey(sanitizedKey, sanitizedKey)
-	if err != nil {
-		logrus.Errorf("unable to lock with key %v", key)
+	if err := k8s.cm.LockWithKey(sanitizedKey, sanitizedKey); err != nil {
+		logrus.Errorf("Failed to lock with key %s: %v", sanitizedKey, err)
 		return err
 	}
 	defer func() {
 		err := k8s.cm.UnlockWithKey(sanitizedKey)
 		if err != nil {
-			logrus.Infof("unable to unlock with key %v", key)
+			logrus.Infof("Failed to unlock with key %s: %v", sanitizedKey, err)
 		}
 	}()
-	data, err := k8s.cm.Get()
-	if err != nil {
+	if err := k8s.cm.DeleteKeyLocked(false, sanitizedKey, key); err != nil {
+		logrus.Errorf("Failed to delete key %s: %v", key, err)
 		return err
 	}
-
-	if _, ok := data[key]; !ok {
-		return nil
-	}
-
-	delete(data, key)
-	return k8s.cm.Update(data)
+	return nil
 }
 
 func (k8s *k8sStore) EnumerateWithKeyPrefix(key string) ([]string, error) {
@@ -233,9 +226,9 @@ func (k8s *k8sStore) EnumerateWithKeyPrefix(key string) ([]string, error) {
 	return returnKeys, nil
 }
 
-func (k8s *k8sStore) patchWithRetries(data map[string]string) error {
+func (k8s *k8sStore) patchWithRetries(isV1Lock bool, lockOwner, key, val string) error {
 	f := func() (bool, error) {
-		err := k8s.cm.Patch(data)
+		err := k8s.cm.PatchKeyLocked(isV1Lock, lockOwner, key, val)
 
 		for _, retryErr := range errorsToRetryOn {
 			if err == retryErr {
@@ -251,7 +244,7 @@ func (k8s *k8sStore) patchWithRetries(data map[string]string) error {
 		return true, nil
 	}
 	if err := wait.ExponentialBackoff(waitBackoff, f); err != nil {
-		return fmt.Errorf("failed to patch configmap data: %s, %w", data, err)
+		return fmt.Errorf("failed to patch configmap key %s=%s, %w", key, val, err)
 	}
 	return nil
 }
