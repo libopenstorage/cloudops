@@ -2,6 +2,7 @@ package configmap
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,6 +19,15 @@ func (c *configMap) LockWithKey(owner, key string) error {
 	}
 
 	fn := "LockWithKey"
+	configMapLog(fn, c.name, owner, key, nil).Debugf("Taking the lock")
+
+	c.kLocksV2Mutex.Lock()
+	lock := c.kLocksV2[key]
+	c.kLocksV2Mutex.Unlock()
+	if lock != nil {
+		// wait for any previous refreshLock goroutine to exit
+		lock.wg.Wait()
+	}
 	count := uint(0)
 	// try acquiring a lock on the ConfigMap
 	newOwner, err := c.tryLock(owner, key, false)
@@ -38,11 +48,18 @@ func (c *configMap) LockWithKey(owner, key string) error {
 		configMapLog(fn, c.name, newOwner, key, err).Warnf("Spent %v iteration"+
 			" locking.", count)
 	}
+
+	lock = &k8sLock{done: make(chan struct{}), id: owner}
 	c.kLocksV2Mutex.Lock()
-	c.kLocksV2[key] = &k8sLock{done: make(chan struct{}), id: owner}
+	c.kLocksV2[key] = lock
 	c.kLocksV2Mutex.Unlock()
 
-	go c.refreshLock(owner, key)
+	configMapLog(fn, c.name, owner, key, nil).Debugf("Starting lock refresh")
+	lock.wg.Add(1)
+	go func() {
+		c.refreshLock(owner, key)
+		lock.wg.Done()
+	}()
 	return nil
 }
 
@@ -52,6 +69,7 @@ func (c *configMap) UnlockWithKey(key string) error {
 	}
 
 	fn := "UnlockWithKey"
+	configMapLog(fn, c.name, "", key, nil).Debugf("Releasing the lock for %s", key)
 
 	// Get the lock reference now so we don't have to keep locking and unlocking
 	c.kLocksV2Mutex.Lock()
@@ -69,7 +87,9 @@ func (c *configMap) UnlockWithKey(key string) error {
 		return nil
 	}
 	lock.unlocked = true
-	lock.done <- struct{}{}
+	// Don't write to the chan since the refresh goroutine might have exited already if the lock was lost.
+	// If we write to the chan, we may block indefinitely.
+	close(lock.done)
 
 	var (
 		err error
@@ -197,6 +217,15 @@ func (c *configMap) tryLock(owner string, key string, refresh bool) (string, err
 	return owner, nil
 }
 
+// Returns the lock owner for the v2 lock regardless of whether the lock has expired.
+func (c *configMap) getV2LockOwnerIncludeExpired(cm *v1.ConfigMap, key string) (string, error) {
+	lockOwners, _, err := c.parseLocks(cm)
+	if err != nil {
+		return "", err
+	}
+	return lockOwners[key], nil
+}
+
 // parseLocks reads the lock data from the given ConfigMap and then converts it to:
 // * a map of keys to lock owners
 // * a map of keys to lock expiration times
@@ -222,50 +251,54 @@ func (c *configMap) parseLocks(cm *v1.ConfigMap) (map[string]string, map[string]
 	return lockOwners, lockExpirations, nil
 }
 
-// checkAndTakeLock tries to take the given lock (owner, key) given the current state of the lock
-// (lockOwners, lockExpirations). Refresh indicates if this is the refreshLock goroutine
-// refreshing the lock or an initial Lock call taking the lock.
-func (c *configMap) checkAndTakeLock(owner, key string, refresh bool,
-	lockOwners map[string]string, lockExpirations map[string]time.Time) (string, error) {
+// checkAndTakeLock checks if we can take the desired lock (refresh=false) or extend the expiration of the lock
+// we have taken already (refresh=true). If either condition is true, it updates the in-memory state in
+// lockOwners and lockExpirations. "refresh" argument indicates if this is the refreshLock goroutine refreshing
+// the lock or an initial Lock call taking the lock.
+func (c *configMap) checkAndTakeLock(
+	owner, key string,
+	refresh bool,
+	lockOwners map[string]string,
+	lockExpirations map[string]time.Time,
+) (string, error) {
 	fn := "checkAndTakeLock"
-
-	_, ownerOK := lockOwners[key]
+	currentOwner, ownerOK := lockOwners[key]
 	_, expOK := lockExpirations[key]
 
 	// Just check to make sure these are consistent and that we either have both or don't
 	if ownerOK != expOK {
 		return "", fmt.Errorf("inconsistent lock ID and expiration")
 	}
-	k8sTTL := v2DefaultK8sLockTTL
-	if c.lockK8sLockTTL > 0 {
-		k8sTTL = c.lockK8sLockTTL
+	k8sTTL := c.lockK8sLockTTL
+
+	if refresh {
+		if currentOwner != owner {
+			// We lost our lock probably because we could not refresh it in time. Note that even if the
+			// lock is available now, it is not safe to just re-acquire the lock here in refresh.
+			// We will fail any subsequent Patch/Delete calls being made under this lock. Caller must start over and
+			// call Lock() again.
+			configMapLog(fn, c.name, "", "", nil).Warnf(
+				"Lost our lock on key %s in the configMap %s to a new owner %q", key, c.name, currentOwner)
+			return currentOwner, ErrConfigMapLockLost
+		}
+		// We hold the lock; just refresh the expiry
+		lockExpirations[key] = time.Now().Add(k8sTTL)
+		return owner, nil
 	}
 
-	// Now that we've parsed all the lock lines, let's check the specific key we're taking
-	if !ownerOK {
-		// There is no lock, we can take it
+	if currentOwner == "" {
 		lockOwners[key] = owner
 		lockExpirations[key] = time.Now().Add(k8sTTL)
 		return owner, nil
 	}
 
-	// There is a lock: let's check it out and see what the details are
-
-	// First let's see if we're refreshing and who holds it
-	if refresh && lockOwners[key] == owner {
-		// We hold the lock, just refresh it
-		lockExpirations[key] = time.Now().Add(k8sTTL)
-		return owner, nil
-	}
-
-	// Now let's see if the lock is expired or not: if it's not expired, we can't take it
 	if time.Now().Before(lockExpirations[key]) {
 		return lockOwners[key], ErrConfigMapLocked
 	}
 
-	configMapLog(fn, c.name, owner, key, nil).Infof("Lock from owner '%s' is expired, now claiming for new owner '%s'", lockOwners[key], owner)
+	configMapLog(fn, c.name, owner, key, nil).Infof(
+		"Lock from owner '%s' is expired, now claiming for new owner '%s'", currentOwner, owner)
 
-	// Lock is expired: let's take it
 	lockOwners[key] = owner
 	lockExpirations[key] = time.Now().Add(k8sTTL)
 	return owner, nil
@@ -304,10 +337,8 @@ func (c *configMap) updateConfigMap(cm *v1.ConfigMap) (bool, error) {
 // take longer-term locks.
 func (c *configMap) refreshLock(id, key string) {
 	fn := "refreshLock"
-	refresh := time.NewTicker(v2DefaultK8sLockRefreshDuration)
-	if c.lockRefreshDuration > 0 {
-		refresh = time.NewTicker(c.lockRefreshDuration)
-	}
+	refresh := time.NewTicker(c.lockRefreshDuration)
+	defer refresh.Stop()
 	var (
 		currentRefresh time.Time
 		prevRefresh    time.Time
@@ -321,15 +352,20 @@ func (c *configMap) refreshLock(id, key string) {
 	lock := c.kLocksV2[key]
 	c.kLocksV2Mutex.Unlock()
 
+	if lock == nil {
+		// could happen if the lock was unlocked before the goroutine started
+		configMapLog(fn, c.name, "", key, nil).Warnf("Lock not found for key %s; refresh goroutine exiting", key)
+		return
+	}
+
 	startTime = time.Now()
-	defer refresh.Stop()
 	for {
 		select {
 		case <-refresh.C:
 			lock.Lock()
 
 			for !lock.unlocked {
-				c.checkLockTimeout(startTime, id)
+				c.checkLockTimeout(c.defaultLockHoldTimeout, startTime, id)
 				currentRefresh = time.Now()
 				if _, err := c.tryLock(id, key, true); err != nil {
 					configMapLog(fn, c.name, "", key, err).Errorf(
@@ -341,6 +377,18 @@ func (c *configMap) refreshLock(id, key string) {
 						// try refreshing again
 						continue
 					}
+					if errors.Is(err, ErrConfigMapLockLost) {
+						// there is no coming back from this
+						lock.unlocked = true
+						lock.Unlock()
+						return
+					}
+				}
+				thresh := c.lockRefreshDuration * 3 / 2
+				if !prevRefresh.IsZero() && prevRefresh.Add(thresh).Before(currentRefresh) {
+					configMapLog(fn, c.name, "", "", nil).Warnf(
+						"V2 lock refresh is taking too long. [Owner %v] [Current Refresh: %v] [Previous Refresh: %v]",
+						id, currentRefresh, prevRefresh)
 				}
 				prevRefresh = currentRefresh
 				break
@@ -353,9 +401,9 @@ func (c *configMap) refreshLock(id, key string) {
 
 }
 
-func (c *configMap) checkLockTimeout(startTime time.Time, id string) {
-	if c.lockTimeout > 0 && time.Since(startTime) > c.lockTimeout {
-		panicMsg := fmt.Sprintf("Lock timeout triggered for K8s configmap lock key %s", id)
+func (c *configMap) checkLockTimeout(holdTimeout time.Duration, startTime time.Time, id string) {
+	if holdTimeout > 0 && time.Since(startTime) > holdTimeout {
+		panicMsg := fmt.Sprintf("Lock hold timeout (%v) triggered for K8s configmap lock key %s", holdTimeout, id)
 		if fatalCb != nil {
 			fatalCb(panicMsg)
 		} else {

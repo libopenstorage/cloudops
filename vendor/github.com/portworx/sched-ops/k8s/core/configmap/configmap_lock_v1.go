@@ -1,19 +1,32 @@
 package configmap
 
 import (
+	"errors"
+	"time"
+
 	"github.com/portworx/sched-ops/k8s/core"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
-	"time"
 )
 
 func (c *configMap) Lock(id string) error {
-	fn := "Lock"
+	return c.LockWithParams(id, c.defaultLockHoldTimeout, c.lockAttempts)
+}
+
+func (c *configMap) LockWithParams(id string, holdTimeout time.Duration, numAttempts uint) error {
+	fn := "LockWithParams"
+
+	// wait for any previous refreshLockV1 goroutine to exit
+	c.kLockV1.wg.Wait()
+
+	if numAttempts == 0 {
+		// This is the same no. of times (300) we try while acquiring a kvdb lock
+		numAttempts = c.lockAttempts
+	}
 	count := uint(0)
 	// try acquiring a lock on the ConfigMap
 	owner, err := c.tryLockV1(id, false)
-	// This is the same no. of times (300) we try while acquiring a kvdb lock
-	for maxCount := c.lockAttempts; err != nil && count < maxCount; count++ {
+	for maxCount := numAttempts; err != nil && count < maxCount; count++ {
 		time.Sleep(lockSleepDuration)
 		owner, err = c.tryLockV1(id, false)
 		if count > 0 && count%15 == 0 && err != nil {
@@ -29,8 +42,18 @@ func (c *configMap) Lock(id string) error {
 		configMapLog(fn, c.name, owner, "", err).Warnf("Spent %v iteration"+
 			" locking.", count)
 	}
-	c.kLockV1 = k8sLock{done: make(chan struct{}), id: id}
-	go c.refreshLockV1(id)
+	c.kLockV1.Lock()
+	defer c.kLockV1.Unlock()
+	c.lockHoldTimeoutV1 = holdTimeout
+	c.kLockV1.id = id
+	c.kLockV1.unlocked = false
+	c.kLockV1.done = make(chan struct{})
+
+	c.kLockV1.wg.Add(1)
+	go func() {
+		c.refreshLockV1(id)
+		c.kLockV1.wg.Done()
+	}()
 	return nil
 }
 
@@ -39,18 +62,20 @@ func (c *configMap) Unlock() error {
 	// Get the existing ConfigMap
 	c.kLockV1.Lock()
 	defer c.kLockV1.Unlock()
+
 	if c.kLockV1.unlocked {
 		// The lock is already unlocked
 		return nil
 	}
 	c.kLockV1.unlocked = true
-	c.kLockV1.done <- struct{}{}
+	// Don't write to the chan since the refresh goroutine might have exited already if the lock was lost.
+	// If we write to the chan, we may block indefinitely.
+	close(c.kLockV1.done)
 
 	var (
 		err error
 		cm  *corev1.ConfigMap
 	)
-
 	for retries := 0; retries < maxConflictRetries; retries++ {
 		cm, err = core.Instance().GetConfigMap(
 			c.name,
@@ -68,7 +93,6 @@ func (c *configMap) Unlock() error {
 		}
 		delete(cm.Data, pxOwnerKey)
 		delete(cm.Data, pxExpirationKey)
-
 		if _, err = core.Instance().UpdateConfigMap(cm); err != nil {
 			configMapLog(fn, c.name, "", "", err).Errorf("Failed to update" +
 				" config map during unlock")
@@ -81,11 +105,11 @@ func (c *configMap) Unlock() error {
 		c.kLockV1.id = ""
 		return nil
 	}
-
 	return err
 }
 
 func (c *configMap) tryLockV1(id string, refresh bool) (string, error) {
+	fn := "tryLockV1"
 	// Get the existing ConfigMap
 	cm, err := core.Instance().GetConfigMap(
 		c.name,
@@ -101,16 +125,24 @@ func (c *configMap) tryLockV1(id string, refresh bool) (string, error) {
 	}
 
 	currentOwner := cm.Data[pxOwnerKey]
-	if currentOwner != "" {
-		if currentOwner == id && refresh {
-			// We already hold the lock just refresh
-			// our expiry
-			goto increase_expiry
-		} // refresh not requested
-		// Someone might have a lock on the cm
-		// Check expiration
+	if refresh {
+		if currentOwner != id {
+			// We lost our lock probably because we could not refresh it in time. Note that even if the
+			// lock is available now, it is not safe to just re-acquire the lock here in refresh.
+			// We will fail any subsequent Patch/Delete calls being made under this lock. Caller must start over and
+			// call Lock() again.
+			configMapLog(fn, c.name, "", "", nil).Warnf(
+				"Lost our lock on the configMap %s to a new owner %q", c.name, currentOwner)
+			return "", ErrConfigMapLockLost
+		}
+		// We already hold the lock just refresh our expiry (fall through)
+	} else if currentOwner != "" {
+		// Someone else might have a lock on the cm. Check expiration.
 		expiration := cm.Data[pxExpirationKey]
-		if expiration != "" {
+		if expiration == "" {
+			configMapLog(fn, c.name, "", "", nil).Warnf(
+				"ConfigMap %v has an owner %s but no expiry; taking the lock away", c.name, currentOwner)
+		} else {
 			expiresAt, err := time.Parse(time.UnixDate, expiration)
 			if err != nil {
 				return currentOwner, err
@@ -122,12 +154,9 @@ func (c *configMap) tryLockV1(id string, refresh bool) (string, error) {
 			} // else lock is expired. Try to lock it.
 		}
 	}
-
 	// Take the lock or increase our expiration if we are already holding the lock
 	cm.Data[pxOwnerKey] = id
-increase_expiry:
 	cm.Data[pxExpirationKey] = time.Now().Add(v1DefaultK8sLockTTL).Format(time.UnixDate)
-
 	if _, err = core.Instance().UpdateConfigMap(cm); err != nil {
 		return "", err
 	}
@@ -135,7 +164,7 @@ increase_expiry:
 }
 
 func (c *configMap) refreshLockV1(id string) {
-	fn := "refreshLock"
+	fn := "refreshLockV1"
 	refresh := time.NewTicker(v1DefaultK8sLockRefreshDuration)
 	var (
 		currentRefresh time.Time
@@ -149,8 +178,9 @@ func (c *configMap) refreshLockV1(id string) {
 		case <-refresh.C:
 			c.kLockV1.Lock()
 			for !c.kLockV1.unlocked {
-				c.checkLockTimeout(startTime, id)
+				c.checkLockTimeout(c.lockHoldTimeoutV1, startTime, id)
 				currentRefresh = time.Now()
+
 				if _, err := c.tryLockV1(id, true); err != nil {
 					configMapLog(fn, c.name, "", "", err).Errorf(
 						"Error refreshing lock. [Owner %v] [Err: %v]"+
@@ -161,6 +191,19 @@ func (c *configMap) refreshLockV1(id string) {
 						// try refreshing again
 						continue
 					}
+					if errors.Is(err, ErrConfigMapLockLost) {
+						// there is no coming back from this
+						c.kLockV1.unlocked = true
+						c.kLockV1.done = nil
+						c.kLockV1.Unlock()
+						return
+					}
+				}
+				thresh := v1DefaultK8sLockRefreshDuration * 3 / 2
+				if !prevRefresh.IsZero() && prevRefresh.Add(thresh).Before(currentRefresh) {
+					configMapLog(fn, c.name, "", "", nil).Warnf(
+						"V1 lock refresh is taking too long. [Owner %v] [Current Refresh: %v] [Previous Refresh: %v]",
+						id, currentRefresh, prevRefresh)
 				}
 				prevRefresh = currentRefresh
 				break

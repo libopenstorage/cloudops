@@ -2,8 +2,9 @@ package store
 
 import (
 	"fmt"
-	"github.com/portworx/kvdb"
 	"time"
+
+	"github.com/portworx/kvdb"
 )
 
 // PX specific scheduler constants
@@ -15,9 +16,9 @@ const (
 // Params is the parameters to use for the Store object
 type Params struct {
 	// Kv is the bootstrap kvdb instance
-	Kv            kvdb.Kvdb
+	Kv kvdb.Kvdb
 	// InternalKvdb indicates if PX is using internal kvdb or not
-	InternalKvdb  bool
+	InternalKvdb bool
 	// SchedulerType indicates the platform pods are running on. e.g Kubernetes
 	SchedulerType string
 }
@@ -27,10 +28,10 @@ type Lock struct {
 	// Key is the name on which the lock is acquired.
 	// This is used by the callers for logging purpose. Hence public
 	Key string
-	// Name of the owner who acquired the lock
-	owner string
+	// Name of the Owner who acquired the lock
+	Owner string
 	// true if this lock was acquired using LockWithKey() interface
-	lockedWithKey bool
+	LockedWithKey bool
 	// lock structure as returned from the KVDB interface
 	internalLock interface{}
 }
@@ -71,13 +72,13 @@ type Store interface {
 	LockWithKey(owner, key string) (*Lock, error)
 	// IsKeyLocked checks if the specified key is currently locked
 	IsKeyLocked(key string) (bool, string, error)
-	// CreateKey creates the given key with the value
-	CreateKey(key string, value []byte) error
-	// PutKey updates the given key with the value
-	PutKey(key string, value []byte) error
+	// CreateKey creates the given key with the value. lockAs argument is used as an owner to lock the key.
+	CreateKey(lockAs, key string, value []byte) error
+	// PutKey updates the given key with the value. lockAs argument is used as an owner to lock the key.
+	PutKey(lockAs, key string, value []byte) error
 	// GetKey returns the value for the given key
 	GetKey(key string) ([]byte, error)
-	// DeleteKey deletes the given key
+	// DeleteKey deletes the given key. Sanitized version of the key is used internally for locking.
 	DeleteKey(key string) error
 	// EnumerateWithKeyPrefix enumerates all keys in the store that begin with the given key
 	EnumerateWithKeyPrefix(key string) ([]string, error)
