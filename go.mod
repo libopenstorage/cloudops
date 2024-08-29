@@ -16,13 +16,13 @@ require (
 	github.com/hashicorp/go-version v1.2.1
 	github.com/libopenstorage/openstorage v8.0.1-0.20210603043922-faf638fed3e5+incompatible
 	github.com/libopenstorage/secrets v0.0.0-20210908194121-a1d19aa9713a
-	github.com/oracle/oci-go-sdk/v65 v65.13.1
+	github.com/oracle/oci-go-sdk/v65 v65.62.0
 	github.com/pborman/uuid v1.2.0
 	github.com/portworx/kvdb v0.0.0-20230405233801-87666830d3fd
 	github.com/portworx/sched-ops v1.20.4-rc1.0.20240817145415-1b0e4be5649a
 	github.com/prometheus/client_golang v1.11.1
 	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.4
 	github.com/vmware/govmomi v0.22.2
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
@@ -82,7 +82,7 @@ require (
 	go.opencensus.io v0.22.4 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/net v0.6.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
