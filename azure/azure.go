@@ -821,6 +821,10 @@ func (a *azureOps) Enumerate(
 	return sets, nil
 }
 
+func (a *azureOps) CleanupPaths(volumeID string)  error {
+	return &cloudops.ErrNotSupported{}
+}
+
 func (a *azureOps) DevicePath(diskName string) (string, error) {
 	if _, err := a.checkDiskAttachmentStatus(diskName); err != nil {
 		return "", err

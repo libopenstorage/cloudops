@@ -169,6 +169,13 @@ func (u *unsupportedStorage) Enumerate(volumeIds []*string,
 		Operation: "Enumerate",
 	}
 }
+
+func (u *unsupportedStorage) CleanupPaths(volumeID string) error {
+	return  &cloudops.ErrNotSupported{
+		Operation: "CleanupPaths",
+	}
+}
+
 func (u *unsupportedStorage) DevicePath(volumeID string) (string, error) {
 	return "", &cloudops.ErrNotSupported{
 		Operation: "DevicePath",

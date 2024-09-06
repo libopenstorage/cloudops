@@ -437,6 +437,10 @@ func volumeIdsStringDereference(volumeIds []*string) []string {
 	return volumeIdsStr
 }
 
+func (e *exponentialBackoff) CleanupPaths(volumeID string)  error {
+	return &cloudops.ErrNotSupported{}
+}
+
 // DevicePath for the given volume i.e path where it's attached
 func (e *exponentialBackoff) DevicePath(volumeID string) (string, error) {
 	var (

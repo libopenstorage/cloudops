@@ -179,6 +179,8 @@ type Storage interface {
 	RemoveTags(volumeID string, labels map[string]string, options map[string]string) error
 	// Tags will list the existing labels/tags on the given volume
 	Tags(volumeID string) (map[string]string, error)
+	// CleanupPaths
+	CleanupPaths(id string) error
 }
 
 // Ops interface to perform basic cloud operations.

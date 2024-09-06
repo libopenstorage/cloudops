@@ -568,6 +568,10 @@ func (s *gceOps) DeviceMappings() (map[string]string, error) {
 	return m, nil
 }
 
+func (s *gceOps) CleanupPaths(id string) error {
+	return &cloudops.ErrNotSupported{}
+}
+
 func (s *gceOps) DevicePath(diskName string) (string, error) {
 	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if gerr, ok := err.(*googleapi.Error); ok &&
