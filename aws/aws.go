@@ -938,7 +938,7 @@ func (s *awsOps) Attach(volumeID string, options map[string]string) (string, err
 			return "", err
 		}
 
-		return s.DevicePath(*vol.VolumeId)
+		return s.DevicePath(*vol.VolumeId, "")
 	}
 
 	return "", fmt.Errorf("failed to attach any of the free devices. Attempted: %v", devices)
@@ -1098,7 +1098,11 @@ func (s *awsOps) SnapshotDelete(snapID string, options map[string]string) error 
 	return err
 }
 
-func (s *awsOps) DevicePath(volumeID string) (string, error) {
+func (s *awsOps) CleanupPaths(volumeID string) error {
+	return &cloudops.ErrNotSupported{}
+}
+
+func (s *awsOps) DevicePath(volumeID string, volumeSerial string) (string, error) {
 	vol, err := s.refreshVol(&volumeID)
 	if err != nil {
 		return "", err

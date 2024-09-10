@@ -503,8 +503,12 @@ func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
 	return m, nil
 }
 
+func (ops *vsphereOps) CleanupPaths(id string) error {
+	return &cloudops.ErrNotSupported{}
+}
+
 // DevicePath for the given volume i.e path where it's attached
-func (ops *vsphereOps) DevicePath(diskPath string) (string, error) {
+func (ops *vsphereOps) DevicePath(diskPath string, volumeSerial string) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

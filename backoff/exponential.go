@@ -437,14 +437,18 @@ func volumeIdsStringDereference(volumeIds []*string) []string {
 	return volumeIdsStr
 }
 
+func (e *exponentialBackoff) CleanupPaths(volumeID string)  error {
+	return &cloudops.ErrNotSupported{}
+}
+
 // DevicePath for the given volume i.e path where it's attached
-func (e *exponentialBackoff) DevicePath(volumeID string) (string, error) {
+func (e *exponentialBackoff) DevicePath(volumeID string,volumeSerial string) (string, error) {
 	var (
 		devicePath string
 		origErr    error
 	)
 	conditionFn := func() (bool, error) {
-		devicePath, origErr = e.cloudOps.DevicePath(volumeID)
+		devicePath, origErr = e.cloudOps.DevicePath(volumeID,"")
 		msg := fmt.Sprintf("Failed to get device path for drive (%v).", volumeID)
 		return e.handleError(origErr, msg)
 	}

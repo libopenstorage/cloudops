@@ -568,7 +568,11 @@ func (s *gceOps) DeviceMappings() (map[string]string, error) {
 	return m, nil
 }
 
-func (s *gceOps) DevicePath(diskName string) (string, error) {
+func (s *gceOps) CleanupPaths(id string) error {
+	return &cloudops.ErrNotSupported{}
+}
+
+func (s *gceOps) DevicePath(diskName string,volumeSerial string) (string, error) {
 	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if gerr, ok := err.(*googleapi.Error); ok &&
 		gerr.Code == http.StatusNotFound {
@@ -1407,7 +1411,7 @@ func (s *gceOps) waitForAttach(
 ) (string, error) {
 	devicePath, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
-			devicePath, err := s.DevicePath(disk.Name)
+			devicePath, err := s.DevicePath(disk.Name,"")
 			if se, ok := err.(*cloudops.StorageError); ok &&
 				se.Code == cloudops.ErrVolAttachedOnRemoteNode {
 				return "", false, err

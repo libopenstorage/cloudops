@@ -167,8 +167,8 @@ type Storage interface {
 		labels map[string]string,
 		setIdentifier string,
 	) (map[string][]interface{}, error)
-	// DevicePath for the given volume i.e path where it's attached
-	DevicePath(volumeID string) (string, error)
+	// DevicePath for the given volume i.e path where it's attached ( volumeSerial is required in case of FA)
+	DevicePath(volumeID string, volumeSerial string) (string, error)
 	// Snapshot the volume with given volumeID
 	Snapshot(volumeID string, readonly bool, options map[string]string) (interface{}, error)
 	// SnapshotDelete deletes the snapshot with given ID
@@ -179,6 +179,8 @@ type Storage interface {
 	RemoveTags(volumeID string, labels map[string]string, options map[string]string) error
 	// Tags will list the existing labels/tags on the given volume
 	Tags(volumeID string) (map[string]string, error)
+	// CleanupPaths will cleanup device paths
+	CleanupPaths(id string) error
 }
 
 // Ops interface to perform basic cloud operations.
