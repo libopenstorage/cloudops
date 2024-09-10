@@ -107,7 +107,7 @@ func (kv *kvStore) LockWithKey(owner, key string) (*Lock, error) {
 		return nil, err
 	}
 
-	kvPair.lockedWithKey = true
+	kvPair.LockedWithKey = true
 	return kvPair, err
 }
 
@@ -124,13 +124,13 @@ func (kv *kvStore) IsKeyLocked(key string) (bool, string, error) {
 	return kv.k.IsKeyLocked(fullPath)
 }
 
-func (kv *kvStore) CreateKey(key string, value []byte) error {
+func (kv *kvStore) CreateKey(_, key string, value []byte) error {
 	key = kv.getFullKey(key)
 	_, err := kv.k.Create(key, string(value), 0)
 	return err
 }
 
-func (kv *kvStore) PutKey(key string, value []byte) error {
+func (kv *kvStore) PutKey(_, key string, value []byte) error {
 	key = kv.getFullKey(key)
 	_, err := kv.k.Put(key, string(value), 0)
 	return err

@@ -442,6 +442,20 @@ func (mr *MockOpsMockRecorder) SetInstanceGroupVersion(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceGroupVersion", reflect.TypeOf((*MockOps)(nil).SetInstanceGroupVersion), arg0, arg1, arg2)
 }
 
+// SetInstanceUpgradeStrategy mocks base method
+func (m *MockOps) SetInstanceUpgradeStrategy(arg0, arg1 string, arg2 time.Duration, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetInstanceUpgradeStrategy", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetInstanceUpgradeStrategy indicates an expected call of SetInstanceUpgradeStrategy
+func (mr *MockOpsMockRecorder) SetInstanceUpgradeStrategy(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceUpgradeStrategy", reflect.TypeOf((*MockOps)(nil).SetInstanceUpgradeStrategy), arg0, arg1, arg2, arg3)
+}
+
 // Snapshot mocks base method
 func (m *MockOps) Snapshot(arg0 string, arg1 bool, arg2 map[string]string) (interface{}, error) {
 	m.ctrl.T.Helper()

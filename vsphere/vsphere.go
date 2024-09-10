@@ -32,6 +32,8 @@ const (
 	vSphereDataStoreLock = "vsphere-ds-lock"
 	configProperty       = "config.hardware"
 	permissionError      = "Permission to perform this operation was denied"
+	svmotionErrorMsg     = "retry pool expansion, if a storage vMotion operation was in progress during expansion"
+	vmdkNotFoundErrorMsg = ".vmdk was not found"
 )
 
 type vsphereOps struct {
@@ -51,6 +53,7 @@ var (
 	}
 
 	vmdkMatcherRegex = regexp.MustCompile("\\[(.+)\\](.+)") // e.g [px-datastore-02] osd-provisioned-disks/PX-DO-NOT-DELETE-122be943-485f-4a66-b665-b592f685a3de.vmdk"
+	userAgent        string
 )
 
 // VirtualDisk encapsulates the existing virtual disk object to add a managed object
@@ -62,19 +65,23 @@ type VirtualDisk struct {
 }
 
 // NewClient creates a new vsphere cloudops instance
-func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, error) {
-	vSphereConn := &vclib.VSphereConnection{
-		Username:          cfg.User,
-		Password:          cfg.Password,
-		Hostname:          cfg.VCenterIP,
-		Insecure:          cfg.InsecureFlag,
-		RoundTripperCount: cfg.RoundTripperCount,
-		Port:              cfg.VCenterPort,
+func NewClient(cfg *VSphereConfig, conn *vclib.VSphereConnection, storeParams *store.Params, ua string) (cloudops.Ops, error) {
+	if conn == nil {
+		conn = &vclib.VSphereConnection{
+			Username:          cfg.User,
+			Password:          cfg.Password,
+			Hostname:          cfg.VCenterIP,
+			Insecure:          cfg.InsecureFlag,
+			RoundTripperCount: cfg.RoundTripperCount,
+			Port:              cfg.VCenterPort,
+		}
+
 	}
+	userAgent = ua
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	vmObj, err := GetVMObject(ctx, vSphereConn, cfg.VMUUID)
+	vmObj, err := GetVMObject(ctx, conn, cfg.VMUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +111,7 @@ func NewClient(cfg *VSphereConfig, storeParams *store.Params) (cloudops.Ops, err
 			Compute: unsupported.NewUnsupportedCompute(),
 			cfg:     cfg,
 			vm:      vmObj,
-			conn:    vSphereConn,
+			conn:    conn,
 			dsLock:  storeInstance,
 		},
 		isExponentialError,
@@ -484,18 +491,9 @@ func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
 			virtualDevice := device.GetVirtualDevice()
 			backing, ok := virtualDevice.Backing.(*types.VirtualDiskFlatVer2BackingInfo)
 			if ok {
-				diskUUID, err := vmObj.Datacenter.GetVirtualDiskPage83Data(ctx, backing.FileName)
-				if err != nil {
-					if strings.Contains(err.Error(), permissionError) {
-						logrus.Errorf("access denied for device %v, skipping", backing.FileName)
-						continue // skip the cycle if we get Permission Error for the Datastore
-					}
-					vmName, _ := vmObj.ObjectName(ctx)
-					return nil, fmt.Errorf("failed to get device path for disk: %s on vm: %s err: %s", backing.FileName, vmName, err)
-				}
-
-				devicePath, err := path.Join(diskByIDPath, DiskSCSIPrefix+diskUUID), nil
-				if err == nil && len(devicePath) != 0 { // TODO can ignore errors?
+				diskUUID := vclib.FormatVirtualDiskUUID(backing.Uuid)
+				devicePath := path.Join(diskByIDPath, DiskSCSIPrefix+diskUUID)
+				if len(devicePath) != 0 { // TODO can ignore errors?
 					m[devicePath] = backing.FileName
 				}
 			}
@@ -561,6 +559,7 @@ func (ops *vsphereOps) Expand(
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Caller will close the connection
 	vm, err := ops.renewVM(ctx, ops.vm)
 	if err != nil {
 		return 0, err
@@ -593,7 +592,7 @@ func (ops *vsphereOps) Expand(
 	if len(disks) == 0 {
 		return 0, cloudops.NewStorageError(
 			cloudops.ErrVolNotFound,
-			fmt.Sprintf("vmdk: %s was not found on vm: %s", vmdkPath, vmName),
+			fmt.Sprintf("vmdk: %s was not found on vm: %s, %v", vmdkPath, vmName, svmotionErrorMsg),
 			vmName)
 	} else if len(disks) > 1 {
 		return 0, cloudops.NewStorageError(
@@ -621,14 +620,23 @@ func (ops *vsphereOps) Expand(
 	config.FileOperation = ""
 	spec.DeviceChange = append(spec.DeviceChange, config)
 
+	errMsgSvmotion := fmt.Errorf("error resizing vmdk: %s. Path not found. Retry pool expansion, if a storage vMotion operation was in progress during expansion", vmdkPath)
 	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
+		logrus.Errorf("Unable to reconfigure: %v", err)
+		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
+			return 0, errMsgSvmotion
+		}
 		return 0, err
 	}
 
 	err = task.Wait(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("error resizing vmdk: %s due to:  %s", vmdkPath, err)
+		logrus.Errorf("Task wait failed; %v", err)
+		if strings.Contains(err.Error(), vmdkNotFoundErrorMsg) {
+			return 0, errMsgSvmotion
+		}
+		return 0, err
 	}
 
 	return newSizeInGiB, nil
@@ -674,7 +682,7 @@ func GetVMObject(ctx context.Context, conn *vclib.VSphereConnection, vmUUID stri
 	// TODO change impl below using multiple goroutines and sync.WaitGroup to make it faster
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if err := conn.Connect(ctx); err != nil {
+	if err := conn.Connect(ctx, userAgent); err != nil {
 		return nil, err
 	}
 
@@ -710,9 +718,9 @@ func GetVMObject(ctx context.Context, conn *vclib.VSphereConnection, vmUUID stri
 
 func (ops *vsphereOps) renewVM(ctx context.Context, vm *vclib.VirtualMachine) (*vclib.VirtualMachine, error) {
 	var client *vim25.Client
-	err := ops.conn.Connect(ctx)
+	err := ops.conn.Connect(ctx, userAgent)
 	if err != nil {
-		client, err = ops.conn.NewClient(ctx)
+		client, err = ops.conn.NewClient(ctx, userAgent)
 		if err != nil {
 			return nil, err
 		}

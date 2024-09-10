@@ -29,7 +29,6 @@ import (
 	"github.com/vmware/govmomi/sts"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/soap"
-	"k8s.io/client-go/pkg/version"
 	"k8s.io/klog"
 )
 
@@ -54,13 +53,13 @@ var (
 // Connect makes connection to vCenter and sets VSphereConnection.Client.
 // If connection.Client is already set, it obtains the existing user session.
 // if user session is not valid, connection.Client will be set to the new client.
-func (connection *VSphereConnection) Connect(ctx context.Context) error {
+func (connection *VSphereConnection) Connect(ctx context.Context, userAgent string) error {
 	var err error
 	clientLock.Lock()
 	defer clientLock.Unlock()
 
 	if connection.Client == nil {
-		connection.Client, err = connection.NewClient(ctx)
+		connection.Client, err = connection.NewClient(ctx, userAgent)
 		if err != nil {
 			klog.Errorf("Failed to create govmomi client. err: %+v", err)
 			return err
@@ -78,7 +77,7 @@ func (connection *VSphereConnection) Connect(ctx context.Context) error {
 	}
 	klog.Warningf("Creating new client session since the existing session is not valid or not authenticated")
 
-	connection.Client, err = connection.NewClient(ctx)
+	connection.Client, err = connection.NewClient(ctx, userAgent)
 	if err != nil {
 		klog.Errorf("Failed to create govmomi client. err: %+v", err)
 		return err
@@ -158,22 +157,16 @@ func (connection *VSphereConnection) Logout(ctx context.Context) {
 
 	m := session.NewManager(c)
 
-	hasActiveSession, err := m.SessionIsActive(ctx)
-	if err != nil {
-		klog.Errorf("Logout failed: %s", err)
-		return
-	}
-	if !hasActiveSession {
-		klog.Errorf("No active session, cannot logout")
-		return
-	}
 	if err := m.Logout(ctx); err != nil {
 		klog.Errorf("Logout failed: %s", err)
 	}
+	// Set the user agent to empty string to indicate that it's logged out
+	// During a login, we populate it.
+	c.UserAgent = ""
 }
 
 // NewClient creates a new govmomi client for the VSphereConnection obj
-func (connection *VSphereConnection) NewClient(ctx context.Context) (*vim25.Client, error) {
+func (connection *VSphereConnection) NewClient(ctx context.Context, userAgent string) (*vim25.Client, error) {
 	url, err := soap.ParseURL(net.JoinHostPort(connection.Hostname, connection.Port))
 	if err != nil {
 		klog.Errorf("Failed to parse URL: %s. err: %+v", url, err)
@@ -197,8 +190,7 @@ func (connection *VSphereConnection) NewClient(ctx context.Context) (*vim25.Clie
 		return nil, err
 	}
 
-	k8sVersion := version.Get().GitVersion
-	client.UserAgent = fmt.Sprintf("kubernetes-cloudprovider/%s", k8sVersion)
+	client.UserAgent = fmt.Sprintf("portworx/%s", userAgent)
 
 	err = connection.login(ctx, client)
 	if err != nil {
