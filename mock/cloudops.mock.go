@@ -194,18 +194,18 @@ func (mr *MockOpsMockRecorder) DetachFrom(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // DeviceMappings mocks base method.
-func (m *MockOps) DeviceMappings() (map[string]string, error) {
+func (m *MockOps) DeviceMappings(arg0 map[string]interface{}) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeviceMappings")
+	ret := m.ctrl.Call(m, "DeviceMappings", arg0)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DeviceMappings indicates an expected call of DeviceMappings.
-func (mr *MockOpsMockRecorder) DeviceMappings() *gomock.Call {
+func (mr *MockOpsMockRecorder) DeviceMappings(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeviceMappings", reflect.TypeOf((*MockOps)(nil).DeviceMappings))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeviceMappings", reflect.TypeOf((*MockOps)(nil).DeviceMappings), arg0)
 }
 
 // DevicePath mocks base method.

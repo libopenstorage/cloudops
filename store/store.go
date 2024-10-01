@@ -71,7 +71,7 @@ type Store interface {
 	// LockWithKey locks the cloud drive store with an arbitrary key
 	LockWithKey(owner, key string) (*Lock, error)
 	// IsKeyLocked checks if the specified key is currently locked
-	IsKeyLocked(key string) (bool, string, error)
+	IsKeyLocked(key, requester string) (bool, string, error)
 	// CreateKey creates the given key with the value. lockAs argument is used as an owner to lock the key.
 	CreateKey(lockAs, key string, value []byte) error
 	// PutKey updates the given key with the value. lockAs argument is used as an owner to lock the key.

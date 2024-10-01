@@ -1140,8 +1140,8 @@ github.com/portworx/kvdb v0.0.0-20230405233801-87666830d3fd h1:L/1So9aaNBBOKXUPL
 github.com/portworx/kvdb v0.0.0-20230405233801-87666830d3fd/go.mod h1:srh8qY1VIUFoaJN5TWQ6yWkICy7OoyNZuAqT4JMgAgI=
 github.com/portworx/px-backup-api v1.0.1-0.20200915150042-274508e876ef/go.mod h1:puy7YVXeb6glot1vVCIePIiRLSwB//+rFtN2ZjvXeEw=
 github.com/portworx/pxc v0.33.0/go.mod h1:Tl7hf4K2CDr0XtxzM08sr9H/KsMhscjf9ydb+MnT0U4=
-github.com/portworx/sched-ops v1.20.4-rc1.0.20240817145415-1b0e4be5649a h1:wrK6ZxEcUPHR73oxVn99iOPm9j5JtwaDkBdl0oRGiIQ=
-github.com/portworx/sched-ops v1.20.4-rc1.0.20240817145415-1b0e4be5649a/go.mod h1:5xy8TTt9m/8UGG8Hw5NHxwc/mctjCsmj7mpcR7jIFjI=
+github.com/portworx/sched-ops v1.20.4-rc1.0.20240926203920-4bbddae738b5 h1:3lyU18OSgNe9IlehIoMMTAjfegE083EqYYkDuFzf2jo=
+github.com/portworx/sched-ops v1.20.4-rc1.0.20240926203920-4bbddae738b5/go.mod h1:5xy8TTt9m/8UGG8Hw5NHxwc/mctjCsmj7mpcR7jIFjI=
 github.com/portworx/talisman v0.0.0-20210302012732-8af4564777f7/go.mod h1:e8a6uFpSbOlRpZQlW9aXYogC+GWAo065G0RL9hDkD4Q=
 github.com/portworx/torpedo v0.20.4-rc1.0.20210325154352-eb81b0cdd145/go.mod h1:CkLAs/ojTzSu3SPyeDxc3qhsbRU78H5Xz1qJlj1Ap1U=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=
@@ -1316,6 +1316,8 @@ github.com/ugorji/go v1.1.1/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJ
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/ulikunitz/xz v0.5.6/go.mod h1:2bypXElzHzzJZwzH67Y6wb67pO62Rzfn7BSiF4ABRW8=
+github.com/undefinedlabs/go-mpatch v1.0.7 h1:943FMskd9oqfbZV0qRVKOUsXQhTLXL0bQTVbQSpzmBs=
+github.com/undefinedlabs/go-mpatch v1.0.7/go.mod h1:TyJZDQ/5AgyN7FSLiBJ8RO9u2c6wbtRvK827b6AVqY4=
 github.com/urfave/cli v1.18.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=

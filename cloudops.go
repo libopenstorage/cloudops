@@ -159,7 +159,7 @@ type Storage interface {
 	// Inspect volumes specified by volumeID
 	Inspect(volumeIds []*string, options map[string]string) ([]interface{}, error)
 	// DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME
-	DeviceMappings() (map[string]string, error)
+	DeviceMappings(options map[string]interface{}) (map[string]string, error)
 	// Enumerate volumes that match given filters. Organize them into
 	// sets identified by setIdentifier.
 	// labels can be nil, setIdentifier can be empty string.

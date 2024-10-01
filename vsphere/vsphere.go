@@ -469,7 +469,7 @@ func (ops *vsphereOps) Inspect(vmdksWithDS []*string, options map[string]string)
 }
 
 // DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME
-func (ops *vsphereOps) DeviceMappings() (map[string]string, error) {
+func (ops *vsphereOps) DeviceMappings(_ map[string]interface{}) (map[string]string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

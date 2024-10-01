@@ -126,8 +126,8 @@ func (k8s *k8sStore) Unlock(storeLock *Lock) error {
 	return k8s.cm.Unlock()
 }
 
-func (k8s *k8sStore) IsKeyLocked(key string) (bool, string, error) {
-	return k8s.cm.IsKeyLocked(key)
+func (k8s *k8sStore) IsKeyLocked(key, requester string) (bool, string, error) {
+	return k8s.cm.IsKeyLocked(key, requester)
 }
 
 func (k8s *k8sStore) CreateKey(lockAs, key string, value []byte) error {

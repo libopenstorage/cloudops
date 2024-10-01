@@ -382,13 +382,13 @@ func (e *exponentialBackoff) Inspect(volumeIds []*string, options map[string]str
 }
 
 // DeviceMappings returns map[local_attached_volume_path]->volume ID/NAME
-func (e *exponentialBackoff) DeviceMappings() (map[string]string, error) {
+func (e *exponentialBackoff) DeviceMappings(options map[string]interface{}) (map[string]string, error) {
 	var (
 		mappings map[string]string
 		origErr  error
 	)
 	conditionFn := func() (bool, error) {
-		mappings, origErr = e.cloudOps.DeviceMappings()
+		mappings, origErr = e.cloudOps.DeviceMappings(options)
 		msg := fmt.Sprintf("Failed to get device mappings.")
 		return e.handleError(origErr, msg)
 	}
@@ -437,18 +437,18 @@ func volumeIdsStringDereference(volumeIds []*string) []string {
 	return volumeIdsStr
 }
 
-func (e *exponentialBackoff) CleanupPaths(volumeID string)  error {
+func (e *exponentialBackoff) CleanupPaths(volumeID string) error {
 	return &cloudops.ErrNotSupported{}
 }
 
 // DevicePath for the given volume i.e path where it's attached
-func (e *exponentialBackoff) DevicePath(volumeID string,volumeSerial string) (string, error) {
+func (e *exponentialBackoff) DevicePath(volumeID string, volumeSerial string) (string, error) {
 	var (
 		devicePath string
 		origErr    error
 	)
 	conditionFn := func() (bool, error) {
-		devicePath, origErr = e.cloudOps.DevicePath(volumeID,"")
+		devicePath, origErr = e.cloudOps.DevicePath(volumeID, "")
 		msg := fmt.Sprintf("Failed to get device path for drive (%v).", volumeID)
 		return e.handleError(origErr, msg)
 	}

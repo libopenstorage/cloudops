@@ -750,7 +750,7 @@ func (a *azureOps) Inspect(diskNames []*string, options map[string]string) ([]in
 	return disks, nil
 }
 
-func (a *azureOps) DeviceMappings() (map[string]string, error) {
+func (a *azureOps) DeviceMappings(_ map[string]interface{}) (map[string]string, error) {
 	/*
 	 * The names of disk devices in Azure are determined by
 	 * UDEV rules that must be installed on each host node running
@@ -821,11 +821,11 @@ func (a *azureOps) Enumerate(
 	return sets, nil
 }
 
-func (a *azureOps) CleanupPaths(volumeID string)  error {
+func (a *azureOps) CleanupPaths(volumeID string) error {
 	return &cloudops.ErrNotSupported{}
 }
 
-func (a *azureOps) DevicePath(diskName string,volumeSerial string) (string, error) {
+func (a *azureOps) DevicePath(diskName string, volumeSerial string) (string, error) {
 	if _, err := a.checkDiskAttachmentStatus(diskName); err != nil {
 		return "", err
 	}
@@ -1088,7 +1088,7 @@ func (a *azureOps) getDisks(labels map[string]string) (map[string]*compute.Disk,
 func (a *azureOps) waitForAttach(diskName string) (string, error) {
 	devicePath, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
-			devicePath, err := a.DevicePath(diskName,"")
+			devicePath, err := a.DevicePath(diskName, "")
 			if se, ok := err.(*cloudops.StorageError); ok &&
 				se.Code == cloudops.ErrVolAttachedOnRemoteNode {
 				return "", false, err

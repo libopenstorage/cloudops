@@ -339,7 +339,7 @@ func (o *oracleOps) Describe() (interface{}, error) {
 	return resp.Instance, nil
 }
 
-func (o *oracleOps) DeviceMappings() (map[string]string, error) {
+func (o *oracleOps) DeviceMappings(_ map[string]interface{}) (map[string]string, error) {
 	m := make(map[string]string)
 	var devicePath, volID string
 	volumeAttachmentReq := core.ListVolumeAttachmentsRequest{
@@ -365,11 +365,11 @@ func (o *oracleOps) DeviceMappings() (map[string]string, error) {
 	return m, nil
 }
 
-func (s *oracleOps) CleanupPaths(volumeID string)  error {
+func (s *oracleOps) CleanupPaths(volumeID string) error {
 	return &cloudops.ErrNotSupported{}
 }
 
-func (o *oracleOps) DevicePath(volumeID string,volumeSerial string) (string, error) {
+func (o *oracleOps) DevicePath(volumeID string, volumeSerial string) (string, error) {
 	volumeAttachmentReq := core.ListVolumeAttachmentsRequest{
 		CompartmentId: common.String(o.compartmentID),
 		VolumeId:      common.String(volumeID),
@@ -704,7 +704,7 @@ func (o *oracleOps) Attach(volumeID string, options map[string]string) (string, 
 				core.VolumeAttachmentLifecycleStateAttached,
 			)
 			if err != nil {
-				devicePath, err := o.DevicePath(volumeID,"")
+				devicePath, err := o.DevicePath(volumeID, "")
 				if err != nil {
 					return "", err
 				}

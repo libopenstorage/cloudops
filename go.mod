@@ -19,7 +19,7 @@ require (
 	github.com/oracle/oci-go-sdk/v65 v65.13.1
 	github.com/pborman/uuid v1.2.0
 	github.com/portworx/kvdb v0.0.0-20230405233801-87666830d3fd
-	github.com/portworx/sched-ops v1.20.4-rc1.0.20240817145415-1b0e4be5649a
+	github.com/portworx/sched-ops v1.20.4-rc1.0.20240926203920-4bbddae738b5
 	github.com/prometheus/client_golang v1.11.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.8.1
@@ -79,6 +79,7 @@ require (
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/undefinedlabs/go-mpatch v1.0.7 // indirect
 	go.opencensus.io v0.22.4 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/net v0.6.0 // indirect
@@ -103,7 +104,7 @@ require (
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.0+incompatible
 	github.com/kubernetes-incubator/external-storage => github.com/libopenstorage/external-storage v5.1.1-0.20190919185747-9394ee8dd536+incompatible
-	github.com/portworx/sched-ops => github.com/portworx/sched-ops v1.20.4-rc1.0.20240817145415-1b0e4be5649a
+	github.com/portworx/sched-ops => github.com/portworx/sched-ops v1.20.4-rc1.0.20240926203920-4bbddae738b5
 	github.com/prometheus/prometheus v2.9.2+incompatible => github.com/prometheus/prometheus v1.8.2-0.20190424153033-d3245f150225
 	github.com/vmware/govmomi => github.com/libopenstorage/govmomi v0.22.3-0.20200619175019-4b44cc8cf4d1
 	k8s.io/api => k8s.io/api v0.20.4

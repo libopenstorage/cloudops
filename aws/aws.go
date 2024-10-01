@@ -380,7 +380,7 @@ func (s *awsOps) matchTag(tag *ec2.Tag, match string) bool {
 		*tag.Key == match
 }
 
-func (s *awsOps) DeviceMappings() (map[string]string, error) {
+func (s *awsOps) DeviceMappings(_ map[string]interface{}) (map[string]string, error) {
 	instance, err := s.describe()
 	if err != nil {
 		return nil, err

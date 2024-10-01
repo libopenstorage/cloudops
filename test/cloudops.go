@@ -293,7 +293,7 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 		require.NotEmpty(t, devPath, "disk attach returned empty devicePath")
 	}
 
-	mappings, err := driver.DeviceMappings()
+	mappings, err := driver.DeviceMappings(nil)
 	if err != nil && canErrBeIgnored(err) {
 		// don't check mappings
 	} else {
@@ -315,7 +315,7 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 		logrus.Infof("disk: %s attached at: %s", diskName, devPath)
 	}
 
-	mappings, err = driver.DeviceMappings()
+	mappings, err = driver.DeviceMappings(nil)
 	if err != nil && canErrBeIgnored(err) {
 		// don't check mappings
 	} else {
@@ -325,7 +325,7 @@ func attach(t *testing.T, driver cloudops.Ops, diskName string) {
 }
 
 func devicePath(t *testing.T, driver cloudops.Ops, diskName string) {
-	devPath, err := driver.DevicePath(diskName,"")
+	devPath, err := driver.DevicePath(diskName, "")
 	if err != nil && canErrBeIgnored(err) {
 		// don't check devPath
 	} else {

@@ -119,7 +119,7 @@ func (kv *kvStore) lockWithKeyHelper(owner, key string) (*Lock, error) {
 	return &Lock{Key: key, internalLock: kvLock}, nil
 }
 
-func (kv *kvStore) IsKeyLocked(key string) (bool, string, error) {
+func (kv *kvStore) IsKeyLocked(key, _ string) (bool, string, error) {
 	fullPath := kv.getFullLockPath(key)
 	return kv.k.IsKeyLocked(fullPath)
 }

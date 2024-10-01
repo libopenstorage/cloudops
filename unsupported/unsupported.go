@@ -156,7 +156,7 @@ func (u *unsupportedStorage) Inspect(volumeIds []*string, options map[string]str
 		Operation: "Inspect",
 	}
 }
-func (u *unsupportedStorage) DeviceMappings() (map[string]string, error) {
+func (u *unsupportedStorage) DeviceMappings(options map[string]interface{}) (map[string]string, error) {
 	return map[string]string{}, &cloudops.ErrNotSupported{
 		Operation: "DeviceMappings",
 	}
@@ -171,12 +171,12 @@ func (u *unsupportedStorage) Enumerate(volumeIds []*string,
 }
 
 func (u *unsupportedStorage) CleanupPaths(volumeID string) error {
-	return  &cloudops.ErrNotSupported{
+	return &cloudops.ErrNotSupported{
 		Operation: "CleanupPaths",
 	}
 }
 
-func (u *unsupportedStorage) DevicePath(volumeID string,volumeSerial string) (string, error) {
+func (u *unsupportedStorage) DevicePath(volumeID string, volumeSerial string) (string, error) {
 	return "", &cloudops.ErrNotSupported{
 		Operation: "DevicePath",
 	}

@@ -526,7 +526,7 @@ func (s *gceOps) detachInternal(devicePath, instanceName string) error {
 	return err
 }
 
-func (s *gceOps) DeviceMappings() (map[string]string, error) {
+func (s *gceOps) DeviceMappings(_ map[string]interface{}) (map[string]string, error) {
 	/*
 	 * The names of disk devices in GCE are determined by
 	 * UDEV rules that must be installed on each host node running
@@ -572,7 +572,7 @@ func (s *gceOps) CleanupPaths(id string) error {
 	return &cloudops.ErrNotSupported{}
 }
 
-func (s *gceOps) DevicePath(diskName string,volumeSerial string) (string, error) {
+func (s *gceOps) DevicePath(diskName string, volumeSerial string) (string, error) {
 	d, err := s.computeService.Disks.Get(s.inst.project, s.inst.zone, diskName).Do()
 	if gerr, ok := err.(*googleapi.Error); ok &&
 		gerr.Code == http.StatusNotFound {
@@ -1411,7 +1411,7 @@ func (s *gceOps) waitForAttach(
 ) (string, error) {
 	devicePath, err := task.DoRetryWithTimeout(
 		func() (interface{}, bool, error) {
-			devicePath, err := s.DevicePath(disk.Name,"")
+			devicePath, err := s.DevicePath(disk.Name, "")
 			if se, ok := err.(*cloudops.StorageError); ok &&
 				se.Code == cloudops.ErrVolAttachedOnRemoteNode {
 				return "", false, err
